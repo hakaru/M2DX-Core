@@ -70,3 +70,44 @@
 - `docs/document-writer-20260216.md` にサマリー出力
 - 全ドキュメント英語で記述、Package.swift と整合性確認済み
 
+## 01:02 - Gemini issue #2, #3 リアルタイム安全性修正（計画完了）
+- Issue #2: SnapshotRing がオーディオスレッドで SynthParamSnapshot の Array を解放する問題
+  → SynthParamSnapshot の slots/slotConfigs を固定サイズタプル/InlineArray に変更
+- Issue #3: VoiceMixer.accumulateVoice がヒープアロケーションする問題
+  → スクラッチバッファを引数で受け取るように変更
+
+## 01:12 - Gemini issue #2, #3 リアルタイム安全性修正（実装開始）
+- ParameterSnapshot.swift: slots/slotConfigs を Array → 固定サイズタプル + activeSlotCount に変更
+- SynthEngine.swift: Array アクセスをタプルアクセサ経由に変更
+- VoiceMixer.swift: accumulateVoice にスクラッチバッファ引数追加
+- 対象ファイル4つを読み込み完了、実装着手
+
+## 01:16 - Gemini issue #2, #3 リアルタイム安全性修正（実装完了）
+- **Issue #2 修正完了**: SynthParamSnapshot の slots/slotConfigs を固定サイズ8タプルに変更
+  - `var slots: (SlotSnapshot, ×8)` + `var activeSlotCount: Int = 1`
+  - 添字アクセスヘルパー `slot(at:)`, `setSlot(at:)`, `config(at:)`, `setConfig(at:)` 追加
+  - convenience accessors (`ops`, `algorithm`, `lfoSpeed` 等) を `slots.0` 経由に変更
+  - SynthEngine.swift 全箇所を新アクセサ経由に変更（setTimbreMode, loadSlotParams, render, renderFramesDX7, doNoteOn, determineTargetSlots）
+- **Issue #3 修正完了**: VoiceMixer.accumulateVoice に scratch パラメータ追加
+  - ヒープアロケーション削除、呼び出し元からスクラッチバッファを受け取るように変更
+  - SynthEngine に `floatScratch` バッファ追加（将来の vDSP 移行用）
+- `swift build` 成功、`swift test` 66テスト全合格
+
+## 01:17 - commit push 準備
+- document-writer エージェント（TODO.md / CHANGELOG.md / README.md 更新）起動
+- Gemini code-reviewer 並列起動
+- 結果を待ってからコミット & push
+
+
+## 01:17 - document-writer: TODO.md / CHANGELOG.md / README.md 更新開始
+- Issue #2, #3 のリアルタイム安全性修正をドキュメントに反映
+- 既存ファイル3つを読み込み、更新箇所を決定
+
+
+## 01:17 - document-writer: ドキュメント更新完了
+- TODO.md: "Real-Time Safety Improvements ✅" セクション追加、Issue #2, #3 を完了マーク
+- CHANGELOG.md: "### Fixed" セクション追加、Issue #2, #3 の詳細を記録
+- README.md: "Real-time Safety" セクションに固定サイズタプル/スクラッチバッファ説明を追記
+- `docs/document-writer-20260216.md` にセッション2のサマリーレポート追記
+- 全66テスト合格を確認、機能的等価性維持
+

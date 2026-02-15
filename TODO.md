@@ -67,6 +67,18 @@ All 8 steps of Phase 2 have been completed as of 2026-02-16.
 - [x] Configure `swift build` and `swift test` in CI
 - [x] Verify clean room implementation (no msfa references)
 
+### Real-Time Safety Improvements ✅
+
+- [x] **Issue #2**: Fix heap allocation when SnapshotRing drops old SynthParamSnapshot instances
+  - Changed `slots` and `slotConfigs` from dynamic `Array` to fixed-size tuples (8 elements)
+  - Added `activeSlotCount` field to track active slots
+  - Added subscript helpers: `slot(at:)`, `setSlot(at:)`, `config(at:)`, `setConfig(at:)`
+  - Updated all SynthEngine.swift access to use new accessors
+- [x] **Issue #3**: Fix heap allocation in VoiceMixer.accumulateVoice
+  - Changed signature to accept caller-provided `scratch` buffer
+  - Added pre-allocated `floatScratch` buffer to SynthEngine
+  - Eliminated all internal heap allocation in mixing path
+
 ### Remaining Verification Tasks
 
 - [ ] **Sound Tuning Verification**: Compare audio output against real DX7 hardware for all 32 algorithms
