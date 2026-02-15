@@ -1,5 +1,5 @@
 // ConcurrencyTests.swift
-// M2DX-Core — Tests for SnapshotRing and SynthEngine thread safety
+// M2DX-Core — Tests for SnapshotRing, SPSCRing, and SynthEngine thread safety
 
 import Testing
 import Foundation
@@ -112,6 +112,122 @@ struct SnapshotRingTests {
 
         #expect(popCount > 0, "Consumer should have read at least some values")
         #expect(lastSeen >= 0, "Should have seen valid values")
+    }
+}
+
+@Suite("SPSCRing Tests")
+struct SPSCRingTests {
+
+    @Test("Basic push and pop FIFO order")
+    func basicFIFO() {
+        let ring = SPSCRing<Int>(capacity: 8)
+        ring.push(1)
+        ring.push(2)
+        ring.push(3)
+        #expect(ring.pop() == 1)
+        #expect(ring.pop() == 2)
+        #expect(ring.pop() == 3)
+    }
+
+    @Test("Pop returns nil when empty")
+    func popEmpty() {
+        let ring = SPSCRing<Int>(capacity: 4)
+        #expect(ring.pop() == nil)
+    }
+
+    @Test("hasData and count report correctly")
+    func hasDataAndCount() {
+        let ring = SPSCRing<Int>(capacity: 4)
+        #expect(!ring.hasData)
+        #expect(ring.count == 0)
+        ring.push(10)
+        ring.push(20)
+        #expect(ring.hasData)
+        #expect(ring.count == 2)
+        let _ = ring.pop()
+        #expect(ring.count == 1)
+        let _ = ring.pop()
+        #expect(!ring.hasData)
+        #expect(ring.count == 0)
+    }
+
+    @Test("Full ring drops new push")
+    func fullRingDrops() {
+        let ring = SPSCRing<Int>(capacity: 4)
+        #expect(ring.push(1) == true)
+        #expect(ring.push(2) == true)
+        #expect(ring.push(3) == true)
+        #expect(ring.push(4) == true)
+        #expect(ring.push(5) == false, "Full ring should reject push")
+        #expect(ring.count == 4)
+        // Existing values preserved in FIFO order
+        #expect(ring.pop() == 1)
+        #expect(ring.pop() == 2)
+        #expect(ring.pop() == 3)
+        #expect(ring.pop() == 4)
+    }
+
+    @Test("Sequential push/pop cycle preserves all values")
+    func sequentialCycle() {
+        let ring = SPSCRing<Int>(capacity: 16)
+        for i in 0..<100 {
+            ring.push(i)
+            let v = ring.pop()
+            #expect(v == i, "Should get \(i), got \(String(describing: v))")
+        }
+    }
+
+    @Test("Wraps around correctly beyond capacity")
+    func wrapAround() {
+        let ring = SPSCRing<Int>(capacity: 4)
+        // Fill and drain multiple times to wrap around
+        for batch in 0..<10 {
+            for i in 0..<4 {
+                ring.push(batch * 4 + i)
+            }
+            for i in 0..<4 {
+                let expected = batch * 4 + i
+                let v = ring.pop()
+                #expect(v == expected, "Wrap batch \(batch): expected \(expected), got \(String(describing: v))")
+            }
+        }
+    }
+
+    @Test("Concurrent producer/consumer stress test")
+    func concurrentStressTest() async {
+        let ring = SPSCRing<Int>(capacity: 256)
+        let iterations = 100_000
+
+        let producer = Task {
+            for i in 0..<iterations {
+                while !ring.push(i) {
+                    // Ring full, yield and retry
+                    try? await Task.sleep(for: .microseconds(1))
+                }
+            }
+        }
+
+        let consumer = Task {
+            var nextExpected = 0
+            while nextExpected < iterations {
+                if let v = ring.pop() {
+                    #expect(v == nextExpected, "FIFO order: expected \(nextExpected), got \(v)")
+                    nextExpected += 1
+                } else {
+                    try? await Task.sleep(for: .microseconds(1))
+                    if Task.isCancelled { break }
+                }
+            }
+            return nextExpected
+        }
+
+        await producer.value
+
+        // Give consumer time to drain
+        try? await Task.sleep(for: .milliseconds(200))
+        consumer.cancel()
+        let consumed = await consumer.value
+        #expect(consumed == iterations, "All \(iterations) events should be consumed, got \(consumed)")
     }
 }
 

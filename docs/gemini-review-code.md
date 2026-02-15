@@ -1,47 +1,73 @@
 Checking build status...
 Build is up-to-date.
-(node:51570) Warning: `--localstorage-file` was provided without a valid path
+(node:57179) Warning: `--localstorage-file` was provided without a valid path
 (Use `node --trace-warnings ...` to show where the warning was created)
 YOLO mode is enabled. All tool calls will be automatically approved.
 YOLO mode is enabled. All tool calls will be automatically approved.
-以下の変更ファイルについて、コード品質・リアルタイム安全性・バグリスクの観点でレビューを実施しました。
+Gemini CLIとして、指定されたコードレビュー手順を実行します。
+
+まず、プロジェクト内の `GEMINI.md` の確認（グローバル設定は既に読み込まれていますが、プロジェクト固有のものがないか確認）、既存Issueの確認、そして対象ファイルの読み込みを行います。
+
+### 1. プロジェクト状況とIssueの確認
+
+`GEMINI.md` の探索と、GitHub Issueのリストを取得します。
+
+指定されたファイル（`SPSCRing.swift`, `SynthEngine.swift`）および関連テストファイルの内容を確認します。
+
+以下のコードレビュー結果を報告します。
+
+### レビュー結果
+
+**概要**
+`Sources/M2DXCore/Infrastructure/SPSCRing.swift` および `Sources/M2DXCore/Engine/SynthEngine.swift` の変更は、Swift 6 の `Synchronization` モジュールを適切に使用したロックフリー実装となっており、リアルタイムオーディオ処理におけるスレッドセーフ性とパフォーマンスを向上させるものです。コードの品質は高く、基本的なロジックに誤りは見当たりません。
+
+**評価詳細**
+
+1.  **リアルタイム安全性 (Real-time Safety):**
+    *   **評価: 改善 (Positive)**
+    *   `NSLock` および `Array`（潜在的なアロケーションやコピーオンライトロック）が排除され、`Synchronization.Atomic` と固定長バッファを使用したロックフリーキューに置き換えられたことで、オーディオレンダリングスレッド（Consumer側）のブロッキングリスクが解消されました。
+    *   `import Foundation` の削除も確認でき、Objective-C ランタイムやロックへの依存が減っています。
+
+2.  **コード品質と並行性 (Concurrency Correctness):**
+    *   **評価: 良好 (Good)**
+    *   **SPSCRing.swift**:
+        *   `Atomic<Int>` のメモリオーダリングとして、Producer（書き込み側）に `.releasing`、Consumer（読み出し側）に `.acquiring` を使用している点は、Acquire-Release セマンティクスに基づいた正しい実装です。
+        *   インデックスのオーバーフロー対策はされていませんが、`Int` (64bit) がオーバーフローするには毎秒数百万イベントを送っても数千年かかるため、実用上は問題ありません（ただし、循環バッファのインデックス計算には `mask` を使用しており、インデックスがオーバーフローしてラップアラウンドしても `w & mask` の計算結果は正しく保たれるため、論理的にも問題ありません）。
+        *   `precondition` による Capacity の 2のべき乗チェックも適切です。
+
+3.  **バグリスク (Bug Risk):**
+    *   **懸念点: テストの欠落 (High Risk)**
+    *   `SPSCRing` は新規導入されたロックフリーデータ構造ですが、**対応するユニットテストが存在しません**（`Tests/M2DXCoreTests/ConcurrencyTests.swift` は `SnapshotRing` のテストのみ）。
+    *   ロックフリーアルゴリズムは微細な実装ミスがデータ競合や不整合につながりやすく、また再現困難なバグを生むため、並行アクセスのストレステストを含む検証が必須です。
+
+### アクション
+
+テストの欠落はコードの信頼性に関わる重大な問題であるため、GitHub Issue を起票しました。
+
+`gh issue create` が `quality` ラベルが存在しないために失敗しました。ラベルなしで再試行し、Issue を作成します。
+
+**コードレビュー結果**
+
+以下の変更についてレビューを行いました。
 
 **対象ファイル:**
-1.  `Sources/M2DXCore/Engine/ParameterSnapshot.swift`
-2.  `Sources/M2DXCore/Engine/SynthEngine.swift`
-3.  `Sources/M2DXCore/DSP/VoiceMixer.swift`
+1.  `Sources/M2DXCore/Infrastructure/SPSCRing.swift` (新規)
+2.  `Sources/M2DXCore/Engine/SynthEngine.swift` (変更)
 
-### レビュー結果概要
+**評価:**
+*   **リアルタイム安全性 (Real-time Safety): 改善**
+    *   `NSLock` および `Array` ベースの MIDI キューを、ロックフリーな `SPSCRing` に置換したことで、オーディオレンダリングスレッドにおけるブロッキングリスクが解消されました。
+    *   Swift 6 の `Synchronization.Atomic` を使用し、Acquire/Release セマンティクスに基づいた適切なメモリバリアが実装されています。
+*   **コード品質 (Code Quality): 良好**
+    *   `SPSCRing` の実装は、標準的な SPSC ロックフリーキューの設計に従っており、シンプルで読みやすいです。
+    *   Capacity の制約 (2のべき乗) やインデックス計算 (`mask`) も適切です。
+    *   `SynthEngine` における `push`/`pop` の使用方法もスレッドモデルに従っています。
+*   **バグリスク (Bug Risk): 高 (High)**
+    *   **重大な欠陥:** 新規導入された `SPSCRing` クラスに対するユニットテストが存在しません（`Tests/M2DXCoreTests/ConcurrencyTests.swift` に含まれていません）。
+    *   ロックフリーデータ構造は並行アクセス時の微細なタイミング依存バグを含みやすいため、検証テストなしでの導入はリスクが高いと判断しました。
 
-Issue #2, #3 の変更意図である「オーディオスレッドでのヒープアロケーション排除」はおおむね達成されていますが、`SynthEngine.swift` において重大なリアルタイム安全性違反と実装漏れが発見されました。これらについて Issue を起票しました。
+**アクション:**
+*   重要度 High の問題として、**Issue #9: Missing unit tests for SPSCRing** を起票しました。
 
-### 詳細レビュー
-
-#### 1. `Sources/M2DXCore/Engine/ParameterSnapshot.swift`
-*   **変更内容:** `slots` / `slotConfigs` を `Array` から固定長タプル（8要素）に変更し、`activeSlotCount` を追加。
-*   **評価:** **承認 (Approved)**
-*   **品質・安全性:** 固定長タプルへの変更により、Snapshot 構造体自体の動的確保が完全に排除されており、オーディオスレッドでのメモリ安全性要件を満たしています。アクセサメソッド（`slot(at:)` 等）による抽象化も適切です。
-
-#### 2. `Sources/M2DXCore/DSP/VoiceMixer.swift`
-*   **変更内容:** `accumulateVoice` に `scratch` バッファ引数を追加し、内部での配列生成を廃止。
-*   **評価:** **承認 (Approved)**
-*   **品質・安全性:** vDSP 関数へのバッファ渡しが呼び出し元責任となり、関数内部での隠れたヒープアロケーション（`malloc`）が排除されました。設計として適切です。
-
-#### 3. `Sources/M2DXCore/Engine/SynthEngine.swift`
-*   **変更内容:** 新しい `Snapshot` 構造体への対応と、`floatScratch` バッファの確保。
-*   **評価:** **要修正 (Changes Requested)**
-*   **検出された問題:**
-    1.  **リアルタイム安全性違反 (High Risk):**
-        `doNoteOn` から呼び出される `determineTargetSlots` メソッド内で、`.filter` を使用して `[Int]` 配列を生成・返却しています。これはオーディオスレッド上でのヒープアロケーション（`malloc`）となり、リアルタイム制約に違反します。Issue #2 の修正に伴う副作用と考えられます。
-        *   -> **Issue #7 を起票しました:** `Real-time safety violation: determineTargetSlots allocates Array on audio thread`
-
-    2.  **実装漏れ / 最適化不足 (Medium Risk):**
-        `floatScratch` を `init` で確保しているにもかかわらず、オーディオレンダリングを行う `renderFramesDX7` メソッドでは `VoiceMixer.accumulateVoice` が使用されていません。手動ループによるミキシングが行われており、vDSP の高速化恩恵を受けられておらず、確保したバッファも無駄になっています。
-        *   -> **Issue #8 を起票しました:** `Incomplete implementation: SynthEngine does not use VoiceMixer despite allocating scratch buffer`
-
-    3.  **既存の潜在的問題:**
-        Issue #1 で指摘されている通り、`sendMIDI` / `drainMIDI` での `lock` および `append` も依然としてリアルタイム安全性違反のリスクがあります（今回の変更スコープ外ですが、継続して対応が必要です）。
-
-### 推奨アクション
-
-起票した Issue #7 および Issue #8 に対する修正を行ってください。特に Issue #7 はオーディオグリッチの原因となるため、早急な対応が必要です。
+**推奨事項:**
+*   `ConcurrencyTests.swift` に `SPSCRing` 用のテストスイートを追加し、基本的な FIFO 動作、バッファフル時の挙動、および並行アクセスのストレステストを実装してください。

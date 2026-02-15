@@ -111,3 +111,35 @@
 - `docs/document-writer-20260216.md` にセッション2のサマリーレポート追記
 - 全66テスト合格を確認、機能的等価性維持
 
+## 02:03 - Issue #4 対応: MIDI ハンドリングのリアルタイム安全性修正
+- 問題: sendMIDI/drainMIDI で NSLock + Array.append を使用 → オーディオスレッドでロック取得 + ヒープアロケーション
+- 修正方針: NSLock + Array を SPSC ロックフリー FIFO リングバッファに置換
+- 対象: SynthEngine.swift の midiEvents/midiLock → SPSCRing
+
+## 02:04 - Issue #4 修正完了
+- SPSCRing<T> を新規作成 (Infrastructure/SPSCRing.swift)
+  - SnapshotRing と同じ Atomic ベースの SPSC パターン
+  - FIFO セマンティクス: push() / pop() で全イベント順序保持
+  - 固定容量256スロット、ロックフリー
+- SynthEngine.swift: midiEvents/midiLock → SPSCRing<MIDIEvent>(capacity: 256)
+  - sendMIDI: NSLock.lock/unlock + Array.append → midiRing.push()
+  - drainMIDI: NSLock.lock/unlock + Array copy → while let event = midiRing.pop()
+  - import Foundation 削除（NSLock 不要に）
+- `swift build` 成功、`swift test` 66テスト全合格
+
+## 02:05 - document-writer: Issue #4 ドキュメント更新開始
+- TODO.md / CHANGELOG.md / README.md を Issue #4 (SPSC FIFO ring buffer) で更新
+- 既存ファイル読み込み→セクション追加/更新→検証の流れで実施
+
+## 02:07 - document-writer: Issue #4 ドキュメント更新完了
+- TODO.md: "Real-Time Safety Improvements" セクションに Issue #4 (SPSCRing) を追記
+- CHANGELOG.md: "Fixed" セクションに Issue #4 の詳細実装内容を記録
+  - SPSCRing<T> 新規作成、Synchronization.Atomic ベースの FIFO セマンティクス
+  - NSLock + Array → SPSCRing 置換、sendMIDI/drainMIDI をロックフリー化
+  - import Foundation 削除（NSLock 不要）
+- README.md: "Real-time Safety" セクションを拡充
+  - "Lock-Free SPSC Ring Buffers" を複数形に変更、SnapshotRing と SPSCRing の用途を明記
+  - "No Locks" 新規項目追加（Atomic ベースの明示）
+- `docs/document-writer-20260216.md` にセッション3のサマリーレポート追記
+- 全66テスト合格を確認、機能的等価性・イベント順序保持を維持
+

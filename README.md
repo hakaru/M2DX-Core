@@ -92,10 +92,13 @@ All lookup tables and computation kernels are independently implemented:
 ### Real-time Safety
 
 - **Zero-Allocation**: No `malloc`, `retain`, or `release` in the audio render loop
-- **Lock-Free SPSC Ring Buffer**: UI-thread parameter changes delivered without blocking the audio thread
+- **Lock-Free SPSC Ring Buffers**: UI-thread parameter changes and MIDI events delivered without blocking the audio thread
+  - `SnapshotRing<T>`: Parameter snapshot delivery (UI → Audio)
+  - `SPSCRing<T>`: MIDI event FIFO queue (UI → Audio, preserves event order)
 - **Pre-allocated Voice Arrays**: All voice structures and scratch buffers allocated at initialization
 - **Fixed-Size Tuples**: Parameter snapshots use fixed-size tuples instead of dynamic arrays to prevent heap deallocation on audio thread
 - **Caller-Provided Scratch Buffers**: DSP operations use pre-allocated scratch space to eliminate internal allocations
+- **No Locks**: All cross-thread communication uses atomic operations (`Synchronization.Atomic`) instead of NSLock/pthread_mutex
 
 ### Hardware Acceleration
 

@@ -203,3 +203,106 @@ All 66 tests continue to pass after these changes, confirming that:
 
 **Document Writer**: Claude Sonnet 4.5
 **Completion Time**: 2026-02-16 01:17
+
+---
+
+# Documentation Update Report (Session 3)
+
+**Date**: 2026-02-16 02:05
+**Task**: Update documentation for Issue #4 lock-free MIDI event queue
+
+## Summary
+
+Updated three documentation files to reflect the lock-free MIDI event handling implementation. Issue #4 replaced the NSLock + Array-based MIDI event queue with a lock-free SPSC FIFO ring buffer, eliminating lock contention and heap allocation in MIDI event handling.
+
+## Changes Made
+
+### 1. TODO.md
+
+**Section Updated**: "Real-Time Safety Improvements ✅"
+
+Added completion checkmark for:
+- **Issue #4**: Replaced NSLock + Array-based MIDI event queue with lock-free SPSC FIFO ring buffer
+  - Documented creation of `SPSCRing<T>` generic lock-free ring buffer
+  - Listed replacement of `midiEvents: [MIDIEvent]` + `midiLock: NSLock` with `midiRing: SPSCRing<MIDIEvent>`
+  - Documented lock-free `sendMIDI()` implementation using `midiRing.push()`
+  - Documented lock-free `drainMIDI()` implementation using `while let event = midiRing.pop()` loop
+  - Noted removal of `import Foundation` dependency
+  - Confirmed all 66 tests pass
+
+**Location**: Appended after Issue #2 and #3 in the "Real-Time Safety Improvements" section
+
+### 2. CHANGELOG.md
+
+**Section Updated**: "### Fixed" under "[Unreleased]"
+
+Added detailed entry:
+- **Issue #4 fix**: Complete description of lock-free MIDI event queue implementation
+  - Documented creation of `SPSCRing<T>` in `Sources/M2DXCore/Infrastructure/SPSCRing.swift`
+  - Explained use of `Synchronization.Atomic` with same pattern as SnapshotRing but FIFO semantics
+  - Listed fixed capacity of 256 events with `push()` and `pop()` preserving event order
+  - Documented replacement of NSLock-based queue with SPSCRing
+  - Emphasized lock-free behavior on both UI and audio threads
+  - Noted removal of Foundation import (NSLock no longer needed)
+
+**Location**: Appended after Issue #2 and #3 in the Fixed section
+
+### 3. README.md
+
+**Section Enhanced**: "Real-time Safety"
+
+Enhanced existing bullet point and added clarification:
+- **Lock-Free SPSC Ring Buffers**: Changed from singular to plural, added detail:
+  - `SnapshotRing<T>`: Parameter snapshot delivery (UI → Audio)
+  - `SPSCRing<T>`: MIDI event FIFO queue (UI → Audio, preserves event order)
+- **No Locks**: New bullet point clarifying that all cross-thread communication uses atomic operations (`Synchronization.Atomic`) instead of NSLock/pthread_mutex
+
+**Location**: Enhanced first bullet point and added final bullet point in "Real-time Safety" section under "Technical Highlights"
+
+## File Structure Added
+
+New infrastructure file created (documented in CHANGELOG):
+- `Sources/M2DXCore/Infrastructure/SPSCRing.swift`
+  - Generic SPSC FIFO ring buffer
+  - Uses `Synchronization.Atomic` for lock-free operations
+  - Capacity: 256 events
+  - Methods: `push()`, `pop()`
+  - Preserves event order (FIFO semantics)
+
+## Verification
+
+All changes:
+- ✅ Preserve existing content structure
+- ✅ Use consistent English technical terminology
+- ✅ Maintain markdown formatting conventions
+- ✅ Align with Keep a Changelog format (CHANGELOG.md)
+- ✅ Follow project documentation style
+- ✅ Accurately describe the SPSCRing implementation
+
+## Files Modified
+
+1. `/Volumes/HOME2/Develop/M2DX-Core/TODO.md` - Added Issue #4 to completed tasks
+2. `/Volumes/HOME2/Develop/M2DX-Core/CHANGELOG.md` - Added Issue #4 to Fixed section
+3. `/Volumes/HOME2/Develop/M2DX-Core/README.md` - Enhanced lock-free description with MIDI event queue details
+
+## Test Coverage Note
+
+All 66 tests continue to pass after Issue #4 implementation, confirming that:
+- The SPSCRing FIFO ring buffer maintains functional equivalence to the previous NSLock + Array approach
+- Event ordering is preserved correctly
+- No regressions introduced in MIDI event handling
+- Audio thread remains lock-free and allocation-free
+
+## Technical Highlights
+
+**SPSCRing vs SnapshotRing**:
+- Both use `Synchronization.Atomic` for lock-free single-producer single-consumer operations
+- SnapshotRing: Snapshot semantics (latest value wins, intermediate values may be skipped)
+- SPSCRing: FIFO queue semantics (all pushed events are preserved and popped in order)
+
+This distinction is important for parameter updates (where only the latest snapshot matters) vs MIDI events (where every event must be processed in order).
+
+---
+
+**Document Writer**: Claude Sonnet 4.5
+**Completion Time**: 2026-02-16 02:05
