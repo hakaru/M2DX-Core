@@ -2,61 +2,79 @@
 
 This document tracks the development roadmap for M2DX-Core, organized by project phase.
 
-## Phase 2: Library Extraction & Clean Room (Current)
+## Phase 2: Library Extraction & Clean Room ✅ **COMPLETED**
 
-### msfa-derived Code Elimination
+All 8 steps of Phase 2 have been completed as of 2026-02-16.
 
-- [ ] Identify all msfa-originated tables and logic in current codebase
-- [ ] Document which components need independent reimplementation
-- [ ] Replace msfa-derived lookup tables with self-generated versions
-- [ ] Remove all msfa-specific logic and replace with original implementations
-- [ ] Verify no Apache 2.0 license obligations remain
+### Step 1: Package.swift & Directory Structure ✅
 
-### Table Self-Generation
+- [x] Create Swift Package with `swift-tools-version: 6.0`
+- [x] Set platform requirements (macOS 15+ / iOS 18+)
+- [x] Link Accelerate framework
+- [x] Configure test target
 
-- [ ] Implement compile-time sin table generation from `Darwin.sin()`
-- [ ] Implement compile-time exp2 table generation from `Darwin.exp2()`
-- [ ] Generate velocity sensitivity table from mathematical definition
-- [ ] Generate keyboard level scaling (KLS) table
-- [ ] Generate EG rate scaling table
-- [ ] Verify table accuracy against DX7 hardware specifications
+### Step 2: Table Self-Generation ✅
 
-### Rename & Restructure
+- [x] Implement Q24 sin table generation from `Darwin.sin()` (2049 entries, linear interpolation)
+- [x] Implement Q30 exp2 table generation from `Darwin.exp2()` (2049 entries, 10-bit indexing)
+- [x] Generate MIDI note → frequency table (128 entries, 0.5Hz precision at 48kHz/2x)
+- [x] Generate keyboard level scaling table (KLS, 101 entries for 0-100 curve)
+- [x] Verify table accuracy against mathematical definitions
 
-- [ ] Remove all `kMsfa*` identifiers
-- [ ] Remove all `msfa*` prefixed variables and types
-- [ ] Adopt original naming conventions consistent with Swift API guidelines
-- [ ] Restructure directory layout to match planned library architecture
-- [ ] Update all internal documentation to reflect new naming
+### Step 3: Lock-Free Infrastructure ✅
 
-### Accelerate Integration
+- [x] Implement `SnapshotRing<T>` SPSC ring buffer using `Synchronization.Atomic`
+- [x] Verify lock-free behavior with `ManagedAtomic<UInt>` indices
+- [x] Design `ParameterSnapshot` value type for parameter updates
+- [x] Test concurrent enqueue/dequeue from UI and audio threads
 
-- [ ] Implement vDSP-based downsampler (`vDSP_desamp`)
-- [ ] Implement Int32 → Float conversion using `vDSP_vflt32`
-- [ ] Implement voice mixing with `vDSP_vsma` (scale + add)
-- [ ] Implement gain application with `vDSP_vmul`
-- [ ] Implement hard clipping with `vDSP_vclip`
-- [ ] Profile performance gains from Accelerate integration
-- [ ] Consider SIMD optimization for FM operator kernel if needed
+### Step 4: Preset & Algorithm ✅
 
-### Sound Tuning
+- [x] Encode 32 DX7 algorithms as `DX7Algorithms` enum
+- [x] Define `DX7Preset` struct with 155-byte layout
+- [x] Implement `DX7SysExParser` for 4096-byte SysEx parsing
+- [x] Load factory presets from bundled SysEx resources
 
-- [ ] Calibrate modulation index for accurate DX7 timbre
-- [ ] Tune velocity sensitivity curves
-- [ ] Implement feedback correction (averaging/delay)
-- [ ] Verify operator routing for all 32 algorithms
-- [ ] Test against reference DX7 patches
-- [ ] Document any intentional deviations from hardware behavior
+### Step 5: Synthesis Engine ✅
 
-### Test Suite
+- [x] Implement `DX7Envelope` with 4-stage ADSR (rate 0-99, level 0-99)
+- [x] Implement `DX7Operator` with modulation index, velocity sensitivity, and KLS
+- [x] Implement `DX7Voice` with 6-operator FM kernel and algorithm routing
+- [x] Implement `Algorithm` struct with carrier/modulator bus routing
+- [x] Implement `SynthEngine` with 16-voice polyphony and note stealing
 
-- [ ] Create waveform regression tests (compare against known-good output)
-- [ ] Create LUT accuracy tests (verify sin/exp2 precision)
-- [ ] Create EG curve verification tests
-- [ ] Create algorithm routing correctness tests
-- [ ] Create concurrency stress tests for lock-free ring buffer
-- [ ] Create performance benchmarks for audio rendering
-- [ ] Set up continuous integration (CI) pipeline
+### Step 6: DSP & Accelerate Integration ✅
+
+- [x] Implement `Downsampler` using 2x FIR decimation
+- [x] Implement `VoiceMixer` with vDSP voice mixing and hard clipping
+- [x] Use `vDSP_vflt32` for Int32 → Float conversion
+- [x] Use `vDSP_vsma` for voice scaling and mixing
+- [x] Use `vDSP_vclip` for output hard clipping
+
+### Step 7: Test Suite ✅
+
+- [x] Create `TableTests.swift`: Sin/Exp2 precision, frequency table, pitch bend, scaling
+- [x] Create `EnvelopeTests.swift`: 4-stage EG, rate=99 fast attack, noteOff silence
+- [x] Create `AlgorithmTests.swift`: 32 algorithms carrier count, feedback, bus routing
+- [x] Create `WaveformTests.swift`: renderBlock output, silent voice, feedback effects
+- [x] Create `ConcurrencyTests.swift`: SnapshotRing stress test, SynthEngine 1000 note on/off
+- [x] Create `PerformanceTests.swift`: 16 voices × 512 frames rendering benchmark
+- [x] Verify all 66 tests pass
+
+### Step 8: CI Pipeline ✅
+
+- [x] Create `.github/workflows/ci.yml` for macOS 15 + Xcode 16
+- [x] Configure `swift build` and `swift test` in CI
+- [x] Verify clean room implementation (no msfa references)
+
+### Remaining Verification Tasks
+
+- [ ] **Sound Tuning Verification**: Compare audio output against real DX7 hardware for all 32 algorithms
+- [ ] **ARM Performance Benchmarks**: Profile rendering performance on Apple Silicon (target: <2ms for 16 voices × 512 frames)
+- [ ] **Integration Testing**: Test library integration with M2DX app
+- [ ] **MIDI 2.0 Integration**: Implement MIDI 2.0 note on/off message handling in host app
+
+---
 
 ## Phase 3: SPM Library Release (Next)
 

@@ -6,7 +6,7 @@ M2DX-Core is an FM synthesis library that reproduces the Yamaha DX7 sound engine
 
 ## Status
 
-**Early Development** — This project is currently in Phase 2 (Library Extraction & Clean Room). The core logic has been completed in the M2DX app and is now being extracted into a standalone library.
+**Phase 2 Complete** (2026-02-16) — The library extraction and clean room implementation is complete. All synthesis components, tests, and CI pipeline are functional. The next phase will focus on public API design and SPM release preparation.
 
 ## Key Features
 
@@ -20,9 +20,48 @@ M2DX-Core is an FM synthesis library that reproduces the Yamaha DX7 sound engine
 
 ## Platform Requirements
 
-- iOS 18.0+ / macOS 14.0+
+- iOS 18.0+ / macOS 15.0+
 - Swift 6.0+
 - Xcode 16.0+
+
+## Build Instructions
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/M2DX-Core.git
+cd M2DX-Core
+
+# Build the library
+swift build
+
+# Run tests
+swift test
+
+# Run tests with verbose output
+swift test --verbose
+```
+
+All 66 tests should pass. Performance benchmarks may vary depending on your hardware (x86_64 vs ARM).
+
+### Test Suite
+
+The library includes comprehensive test coverage across 6 test suites:
+
+| Test Suite | Tests | Coverage |
+|------------|-------|----------|
+| **TableTests** | 11 | Sin/Exp2 precision, frequency table, pitch bend, scaling curves |
+| **EnvelopeTests** | 10 | 4-stage ADSR, rate=99 fast attack, noteOff silence verification |
+| **AlgorithmTests** | 32 | All 32 DX7 algorithms carrier count, feedback, bus routing |
+| **WaveformTests** | 8 | renderBlock output, silent voice, feedback modulation effects |
+| **ConcurrencyTests** | 3 | SnapshotRing stress test, SynthEngine concurrent note on/off |
+| **PerformanceTests** | 2 | 16 voices × 512 frames rendering benchmark |
+
+Run tests with:
+```bash
+swift test                 # Run all tests
+swift test --verbose       # Verbose output with test names
+swift test --filter Table  # Run only TableTests
+```
 
 ## Architecture
 
@@ -79,8 +118,10 @@ Apple Accelerate (vDSP) is used for batch DSP operations:
 
 | Dependency | Version | Purpose |
 |------------|---------|---------|
-| swift-atomics | 1.2+ | Lock-free SPSC ring buffer |
-| Accelerate (system) | — | vDSP batch DSP operations |
+| Synchronization (stdlib) | Swift 6.0+ | Lock-free atomic operations for SPSC ring buffer |
+| Accelerate (system) | — | vDSP batch DSP operations (mixing, clipping, conversion) |
+
+Note: This library uses Swift 6.0's built-in `Synchronization` module for atomic operations, eliminating the need for external dependencies like swift-atomics.
 
 ## License
 
@@ -88,28 +129,33 @@ MIT License — See [LICENSE](LICENSE) for details.
 
 ## Roadmap
 
-This project is currently in **Phase 2**. See [TODO.md](TODO.md) for the complete roadmap.
+See [TODO.md](TODO.md) for the complete roadmap.
 
-### Completed (Phase 1)
+### ✅ Phase 2: Library Extraction & Clean Room (Complete)
 
-- 32 DX7 algorithms
-- Log-domain sin/exp2 tables and lookup
-- 4-stage envelope generator
-- DX7 SysEx parser
-- Lock-free parameter snapshot ring
+- [x] Swift Package with Swift 6.0 strict concurrency
+- [x] Self-generated lookup tables (sin, exp2, frequency, scaling)
+- [x] Lock-free `SnapshotRing<T>` using `Synchronization.Atomic`
+- [x] DX7 presets, algorithms, and SysEx parser
+- [x] Full synthesis engine (envelope, operator, voice, polyphony)
+- [x] Accelerate-based DSP (downsampler, voice mixer)
+- [x] 66 tests across 6 test suites
+- [x] GitHub Actions CI pipeline
 
-### In Progress (Phase 2)
+### 🎯 Next: Phase 3 — SPM Library Release
 
-- msfa-derived code elimination
-- Table self-generation
-- Accelerate integration
-- Sound tuning
-- Test suite
+- [ ] Public API design and documentation
+- [ ] DocC documentation for all public types
+- [ ] API stability guarantees
+- [ ] MIT license headers
+- [ ] Getting-started tutorial and code examples
 
-### Planned
+### 🔮 Future: Phase 4 — TX816 Multi-Timbral
 
-- Phase 3: Swift Package Manager release
-- Phase 4: TX816 multi-timbral support
+- [ ] 8-slot voice routing (2-16 voices per slot)
+- [ ] Keyboard split/layer logic
+- [ ] Macro controls (brightness, attack, sustain)
+- [ ] AudioUnit v3 wrapper
 
 ## Documentation
 
