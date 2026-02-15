@@ -405,7 +405,7 @@ public final class SynthEngine: @unchecked Sendable {
         bumpVersion()
     }
 
-    package func loadSlotParams(_ slotIdx: Int, slot: SlotSnapshot) {
+    public func loadSlotParams(_ slotIdx: Int, slot: SlotSnapshot) {
         guard slotIdx >= 0, slotIdx < shadowSnapshot.activeSlotCount else { return }
         shadowSnapshot.setSlot(at: slotIdx, slot)
         bumpVersion()

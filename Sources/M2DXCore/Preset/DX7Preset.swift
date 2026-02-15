@@ -181,4 +181,26 @@ extension DX7OperatorPreset {
 
     /// Convert DX7 detune (0-14, 7=center) to cents offset
     public var detuneCents: Float { Float(detune - 7) }
+
+    /// Normalized output level (0.0 - 1.0) from DX7 output level (0-99)
+    public var normalizedLevel: Float { Float(outputLevel) / 99.0 }
+
+    /// Normalized feedback (0.0 - 1.0) from DX7 feedback (0-7)
+    public var normalizedFeedback: Float { Float(feedback) / 7.0 }
+
+    /// EG rates as Float tuple (preserving DX7 0-99 range)
+    public var egRatesDX7: (Float, Float, Float, Float) {
+        (Float(egRate1), Float(egRate2), Float(egRate3), Float(egRate4))
+    }
+
+    /// EG levels normalized to 0.0-1.0
+    public var egLevelsNormalized: (Float, Float, Float, Float) {
+        (Float(egLevel1) / 99.0, Float(egLevel2) / 99.0,
+         Float(egLevel3) / 99.0, Float(egLevel4) / 99.0)
+    }
+}
+
+extension DX7Preset {
+    /// Normalized feedback (0.0 - 1.0) from DX7 feedback (0-7)
+    public var normalizedFeedback: Float { Float(feedback) / 7.0 }
 }
