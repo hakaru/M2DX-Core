@@ -100,12 +100,17 @@ package struct SlotSnapshot {
 
 // MARK: - Synth Parameter Snapshot
 
-/// All UI-controlled parameters bundled for atomic snapshot transfer
+/// All UI-controlled parameters bundled for atomic snapshot transfer.
+/// Fixed-size tuples ensure no heap allocation — safe for audio-thread deinit.
 package struct SynthParamSnapshot {
     var timbreMode: UInt8 = 0
     var splitPoint: UInt8 = 60
-    var slots: [SlotSnapshot] = [SlotSnapshot()]
-    var slotConfigs: [SlotConfig] = [SlotConfig()]
+    var activeSlotCount: Int = 1
+
+    var slots: (SlotSnapshot, SlotSnapshot, SlotSnapshot, SlotSnapshot,
+                SlotSnapshot, SlotSnapshot, SlotSnapshot, SlotSnapshot)
+    var slotConfigs: (SlotConfig, SlotConfig, SlotConfig, SlotConfig,
+                      SlotConfig, SlotConfig, SlotConfig, SlotConfig)
 
     // Global
     var masterVolume: Float = 0.7
@@ -114,23 +119,73 @@ package struct SynthParamSnapshot {
     var oversamplingMode: UInt8 = 0
     var masterTuning: Int16 = 0
 
-    // Slot 0 convenience accessors
+    init() {
+        slots = (SlotSnapshot(), SlotSnapshot(), SlotSnapshot(), SlotSnapshot(),
+                 SlotSnapshot(), SlotSnapshot(), SlotSnapshot(), SlotSnapshot())
+        slotConfigs = (SlotConfig(), SlotConfig(), SlotConfig(), SlotConfig(),
+                       SlotConfig(), SlotConfig(), SlotConfig(), SlotConfig())
+    }
+
+    // MARK: - Fixed-size tuple subscript helpers
+
+    func slot(at i: Int) -> SlotSnapshot {
+        switch i {
+        case 0: return slots.0; case 1: return slots.1
+        case 2: return slots.2; case 3: return slots.3
+        case 4: return slots.4; case 5: return slots.5
+        case 6: return slots.6; case 7: return slots.7
+        default: return slots.0
+        }
+    }
+
+    mutating func setSlot(at i: Int, _ value: SlotSnapshot) {
+        switch i {
+        case 0: slots.0 = value; case 1: slots.1 = value
+        case 2: slots.2 = value; case 3: slots.3 = value
+        case 4: slots.4 = value; case 5: slots.5 = value
+        case 6: slots.6 = value; case 7: slots.7 = value
+        default: break
+        }
+    }
+
+    func config(at i: Int) -> SlotConfig {
+        switch i {
+        case 0: return slotConfigs.0; case 1: return slotConfigs.1
+        case 2: return slotConfigs.2; case 3: return slotConfigs.3
+        case 4: return slotConfigs.4; case 5: return slotConfigs.5
+        case 6: return slotConfigs.6; case 7: return slotConfigs.7
+        default: return slotConfigs.0
+        }
+    }
+
+    mutating func setConfig(at i: Int, _ value: SlotConfig) {
+        switch i {
+        case 0: slotConfigs.0 = value; case 1: slotConfigs.1 = value
+        case 2: slotConfigs.2 = value; case 3: slotConfigs.3 = value
+        case 4: slotConfigs.4 = value; case 5: slotConfigs.5 = value
+        case 6: slotConfigs.6 = value; case 7: slotConfigs.7 = value
+        default: break
+        }
+    }
+
+    // MARK: - Slot 0 convenience accessors
+
     var ops: (OperatorSnapshot, OperatorSnapshot, OperatorSnapshot,
               OperatorSnapshot, OperatorSnapshot, OperatorSnapshot) {
-        get { slots[0].ops }
-        set { slots[0].ops = newValue }
+        get { slots.0.ops }
+        set { slots.0.ops = newValue }
     }
     var algorithm: Int {
-        get { slots[0].algorithm }
-        set { slots[0].algorithm = newValue }
+        get { slots.0.algorithm }
+        set { slots.0.algorithm = newValue }
     }
-    var lfoSpeed: UInt8 { get { slots[0].lfoSpeed } set { slots[0].lfoSpeed = newValue } }
-    var lfoDelay: UInt8 { get { slots[0].lfoDelay } set { slots[0].lfoDelay = newValue } }
-    var lfoPMD: UInt8 { get { slots[0].lfoPMD } set { slots[0].lfoPMD = newValue } }
-    var lfoAMD: UInt8 { get { slots[0].lfoAMD } set { slots[0].lfoAMD = newValue } }
-    var lfoSync: UInt8 { get { slots[0].lfoSync } set { slots[0].lfoSync = newValue } }
-    var lfoWaveform: UInt8 { get { slots[0].lfoWaveform } set { slots[0].lfoWaveform = newValue } }
-    var lfoPMS: UInt8 { get { slots[0].lfoPMS } set { slots[0].lfoPMS = newValue } }
-    var transpose: Int8 { get { slots[0].transpose } set { slots[0].transpose = newValue } }
-    var pitchBendRange: UInt8 { get { slots[0].pitchBendRange } set { slots[0].pitchBendRange = newValue } }
+    var lfoSpeed: UInt8 { get { slots.0.lfoSpeed } set { slots.0.lfoSpeed = newValue } }
+    var lfoDelay: UInt8 { get { slots.0.lfoDelay } set { slots.0.lfoDelay = newValue } }
+    var lfoPMD: UInt8 { get { slots.0.lfoPMD } set { slots.0.lfoPMD = newValue } }
+    var lfoAMD: UInt8 { get { slots.0.lfoAMD } set { slots.0.lfoAMD = newValue } }
+    var lfoSync: UInt8 { get { slots.0.lfoSync } set { slots.0.lfoSync = newValue } }
+    var lfoWaveform: UInt8 { get { slots.0.lfoWaveform } set { slots.0.lfoWaveform = newValue } }
+    var lfoPMS: UInt8 { get { slots.0.lfoPMS } set { slots.0.lfoPMS = newValue } }
+    var transpose: Int8 { get { slots.0.transpose } set { slots.0.transpose = newValue } }
+    var pitchBendRange: UInt8 { get { slots.0.pitchBendRange } set { slots.0.pitchBendRange = newValue } }
 }

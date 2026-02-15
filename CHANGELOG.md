@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Issue #2**: Eliminated heap allocation on audio thread when SnapshotRing drops old snapshots
+  - Changed `SynthParamSnapshot.slots` and `SynthParamSnapshot.slotConfigs` from dynamic `Array<T>` to fixed-size tuples (8 elements)
+  - Added `activeSlotCount: Int` field to track active slots dynamically
+  - Added subscript helpers (`slot(at:)`, `setSlot(at:)`, `config(at:)`, `setConfig(at:)`) for ergonomic tuple access
+  - Updated all SynthEngine code paths to use new accessor methods
+- **Issue #3**: Eliminated heap allocation in voice mixing path
+  - Changed `VoiceMixer.accumulateVoice()` signature to accept caller-provided `scratch: UnsafeMutablePointer<Float>` buffer
+  - Added pre-allocated `floatScratch: UnsafeMutablePointer<Float>` to SynthEngine for reuse across render calls
+  - Audio thread now completely allocation-free during normal operation
+
 ### Added
 - **Swift Package**: Created `Package.swift` with Swift 6.0, macOS 15+ / iOS 18+ support
 - **Tables**: Self-generated Q24 sin table, Q30 exp2 table, frequency table, scaling table (all computed from mathematical functions)

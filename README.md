@@ -94,6 +94,8 @@ All lookup tables and computation kernels are independently implemented:
 - **Zero-Allocation**: No `malloc`, `retain`, or `release` in the audio render loop
 - **Lock-Free SPSC Ring Buffer**: UI-thread parameter changes delivered without blocking the audio thread
 - **Pre-allocated Voice Arrays**: All voice structures and scratch buffers allocated at initialization
+- **Fixed-Size Tuples**: Parameter snapshots use fixed-size tuples instead of dynamic arrays to prevent heap deallocation on audio thread
+- **Caller-Provided Scratch Buffers**: DSP operations use pre-allocated scratch space to eliminate internal allocations
 
 ### Hardware Acceleration
 

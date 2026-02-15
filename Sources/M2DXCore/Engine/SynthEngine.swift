@@ -83,6 +83,7 @@ public final class SynthEngine: @unchecked Sendable {
     private let dx7BlockBuf = UnsafeMutablePointer<Int32>.allocate(capacity: kBlockSize)
     private let dx7Bus1 = UnsafeMutablePointer<Int32>.allocate(capacity: kBlockSize)
     private let dx7Bus2 = UnsafeMutablePointer<Int32>.allocate(capacity: kBlockSize)
+    private let floatScratch = UnsafeMutablePointer<Float>.allocate(capacity: kBlockSize)
 
     // MIDI event ring buffer
     private var midiEvents: [MIDIEvent] = []
@@ -103,6 +104,7 @@ public final class SynthEngine: @unchecked Sendable {
         dx7BlockBuf.deallocate()
         dx7Bus1.deallocate()
         dx7Bus2.deallocate()
+        floatScratch.deallocate()
     }
 
     // MARK: - MIDI Event Queue
@@ -267,31 +269,34 @@ public final class SynthEngine: @unchecked Sendable {
         shadowSnapshot.timbreMode = mode.rawValue
         shadowSnapshot.splitPoint = splitPoint
         let slotCount = mode.slotCount
-        let baseSlot = shadowSnapshot.slots[0]
-        while shadowSnapshot.slots.count < slotCount {
-            shadowSnapshot.slots.append(baseSlot)
+        let baseSlot = shadowSnapshot.slot(at: 0)
+
+        // Copy slot 0 to any new slots
+        for i in shadowSnapshot.activeSlotCount..<slotCount {
+            shadowSnapshot.setSlot(at: i, baseSlot)
         }
-        shadowSnapshot.slots = Array(shadowSnapshot.slots.prefix(slotCount))
+        shadowSnapshot.activeSlotCount = slotCount
 
         switch mode {
         case .single:
-            shadowSnapshot.slotConfigs = [SlotConfig()]
+            shadowSnapshot.setConfig(at: 0, SlotConfig())
         case .dual:
-            shadowSnapshot.slotConfigs = [SlotConfig(), SlotConfig()]
+            shadowSnapshot.setConfig(at: 0, SlotConfig())
+            shadowSnapshot.setConfig(at: 1, SlotConfig())
         case .split:
-            shadowSnapshot.slotConfigs = [
-                SlotConfig(noteRangeLow: 0, noteRangeHigh: splitPoint > 0 ? splitPoint - 1 : 0),
-                SlotConfig(noteRangeLow: splitPoint, noteRangeHigh: 127)
-            ]
+            shadowSnapshot.setConfig(at: 0, SlotConfig(noteRangeLow: 0, noteRangeHigh: splitPoint > 0 ? splitPoint - 1 : 0))
+            shadowSnapshot.setConfig(at: 1, SlotConfig(noteRangeLow: splitPoint, noteRangeHigh: 127))
         case .tx816:
-            shadowSnapshot.slotConfigs = (0..<8).map { SlotConfig(midiChannel: UInt8($0)) }
+            for i in 0..<8 {
+                shadowSnapshot.setConfig(at: i, SlotConfig(midiChannel: UInt8(i)))
+            }
         }
         bumpVersion()
     }
 
     package func loadSlotParams(_ slotIdx: Int, slot: SlotSnapshot) {
-        guard slotIdx >= 0, slotIdx < shadowSnapshot.slots.count else { return }
-        shadowSnapshot.slots[slotIdx] = slot
+        guard slotIdx >= 0, slotIdx < shadowSnapshot.activeSlotCount else { return }
+        shadowSnapshot.setSlot(at: slotIdx, slot)
         bumpVersion()
     }
 
@@ -355,7 +360,7 @@ public final class SynthEngine: @unchecked Sendable {
 
             for i in 0..<kMaxVoices {
                 let slotIdx = voicesDX7[i].slotId
-                let slot = slotIdx < snapshot.slots.count ? snapshot.slots[slotIdx] : snapshot.slots[0]
+                let slot = slotIdx < snapshot.activeSlotCount ? snapshot.slot(at: slotIdx) : snapshot.slot(at: 0)
                 voicesDX7[i].algorithm = slot.algorithm
                 voicesDX7[i].feedbackShiftValue = feedbackShift(Int(slot.ops.0.feedback))
                 voicesDX7[i].applyParams(slot.ops.0, opIndex: 0)
@@ -461,7 +466,7 @@ public final class SynthEngine: @unchecked Sendable {
     ) {
         let vol = masterVolume * expression
         let maxV = effectiveMaxVoices
-        let slotCount = snapshot.slots.count
+        let slotCount = snapshot.activeSlotCount
 
         for i in 0..<maxV { voicesDX7[i].checkActive() }
 
@@ -478,7 +483,7 @@ public final class SynthEngine: @unchecked Sendable {
         }
         var slotMods = [SlotMod](repeating: SlotMod(), count: slotCount)
         for s in 0..<slotCount {
-            let slot = snapshot.slots[s]
+            let slot = snapshot.slot(at: s)
             slotMods[s].pmsDepth = kPMSDepth[Int(min(slot.lfoPMS, 7))]
             slotMods[s].hasPitchMod = slot.lfoPMD > 0 || modWheelDepth > 0.001
             slotMods[s].lfoAMDNorm = Float(slot.lfoAMD) / 99.0
@@ -505,7 +510,7 @@ public final class SynthEngine: @unchecked Sendable {
             let blockSize = min(kBlockSize, frameCount - offset)
 
             for s in 0..<slotCount {
-                updateLFOForSlot(s, snapshot.slots[s])
+                updateLFOForSlot(s, snapshot.slot(at: s))
             }
 
             for i in 0..<maxV {
@@ -514,7 +519,7 @@ public final class SynthEngine: @unchecked Sendable {
                 guard s < slotCount else { continue }
                 let sm = slotMods[s]
                 if sm.hasPitchMod {
-                    let slot = snapshot.slots[s]
+                    let slot = snapshot.slot(at: s)
                     let lfoPitch = lfoCurrentValue[s] * Float(slot.lfoPMD) / 99.0 * sm.pmsDepth
                     let controllerPitch = sm.wheelPitchDepth + sm.footPitchDepth + sm.breathPitchDepth + sm.atPitchDepth
                     let factor = pitchBendValue * pitchBendFactorExt(lfoPitch + controllerPitch)
@@ -567,12 +572,24 @@ public final class SynthEngine: @unchecked Sendable {
 
     private func doNoteOn(_ note: UInt8, velocity16: UInt16) {
         let snapshot = currentSnapshot
-        let targetSlots = determineTargetSlots(note: note, snapshot: snapshot)
 
-        for slotIdx in targetSlots {
-            guard slotIdx < snapshot.slots.count, slotIdx < snapshot.slotConfigs.count else { continue }
-            let slot = snapshot.slots[slotIdx]
-            let config = snapshot.slotConfigs[slotIdx]
+        // Fixed-size slot target buffer — no heap allocation
+        var targetSlots: (Int, Int, Int, Int, Int, Int, Int, Int) = (0, 0, 0, 0, 0, 0, 0, 0)
+        var targetCount = 0
+        determineTargetSlots(note: note, snapshot: snapshot, result: &targetSlots, count: &targetCount)
+
+        for ti in 0..<targetCount {
+            let slotIdx: Int
+            switch ti {
+            case 0: slotIdx = targetSlots.0; case 1: slotIdx = targetSlots.1
+            case 2: slotIdx = targetSlots.2; case 3: slotIdx = targetSlots.3
+            case 4: slotIdx = targetSlots.4; case 5: slotIdx = targetSlots.5
+            case 6: slotIdx = targetSlots.6; case 7: slotIdx = targetSlots.7
+            default: continue
+            }
+            guard slotIdx < snapshot.activeSlotCount else { continue }
+            let slot = snapshot.slot(at: slotIdx)
+            let config = snapshot.config(at: slotIdx)
             guard config.enabled else { continue }
 
             if slot.lfoSync == 1 {
@@ -667,19 +684,47 @@ public final class SynthEngine: @unchecked Sendable {
         }
     }
 
-    private func determineTargetSlots(note: UInt8, snapshot: SynthParamSnapshot) -> [Int] {
+    /// Determine target slots without heap allocation. Results written to fixed-size tuple.
+    private func determineTargetSlots(
+        note: UInt8, snapshot: SynthParamSnapshot,
+        result: inout (Int, Int, Int, Int, Int, Int, Int, Int),
+        count: inout Int
+    ) {
+        count = 0
         let mode = TimbreMode(rawValue: snapshot.timbreMode) ?? .single
         switch mode {
-        case .single: return [0]
-        case .dual: return Array(0..<snapshot.slots.count)
+        case .single:
+            result.0 = 0; count = 1
+        case .dual:
+            for i in 0..<snapshot.activeSlotCount {
+                appendTarget(i, to: &result, count: &count)
+            }
         case .split:
-            return snapshot.slotConfigs.indices.filter { idx in
-                let cfg = snapshot.slotConfigs[idx]
-                return cfg.enabled && note >= cfg.noteRangeLow && note <= cfg.noteRangeHigh
+            for i in 0..<snapshot.activeSlotCount {
+                let cfg = snapshot.config(at: i)
+                if cfg.enabled && note >= cfg.noteRangeLow && note <= cfg.noteRangeHigh {
+                    appendTarget(i, to: &result, count: &count)
+                }
             }
         case .tx816:
-            return snapshot.slotConfigs.indices.filter { snapshot.slotConfigs[$0].enabled }
+            for i in 0..<snapshot.activeSlotCount {
+                if snapshot.config(at: i).enabled {
+                    appendTarget(i, to: &result, count: &count)
+                }
+            }
         }
+    }
+
+    @inline(__always)
+    private func appendTarget(_ value: Int, to tuple: inout (Int, Int, Int, Int, Int, Int, Int, Int), count: inout Int) {
+        switch count {
+        case 0: tuple.0 = value; case 1: tuple.1 = value
+        case 2: tuple.2 = value; case 3: tuple.3 = value
+        case 4: tuple.4 = value; case 5: tuple.5 = value
+        case 6: tuple.6 = value; case 7: tuple.7 = value
+        default: return
+        }
+        count += 1
     }
 
     private func doNoteOff(_ note: UInt8) {
