@@ -164,6 +164,7 @@ See [TODO.md](TODO.md) for the complete roadmap.
 
 ## Documentation
 
+- **[docs/API.md](docs/API.md)** — Complete public API reference
 - [docs/proposal.md](docs/proposal.md) — Full technical specification and design philosophy
 - [TODO.md](TODO.md) — Detailed roadmap and task list
 - [CHANGELOG.md](CHANGELOG.md) — Version history

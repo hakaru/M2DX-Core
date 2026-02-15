@@ -117,6 +117,11 @@ All 8 steps of Phase 2 have been completed as of 2026-02-16.
 
 ### API Documentation
 
+- [x] **API Reference**: Complete public API reference created in `docs/API.md` (2026-02-16)
+  - Covers all public types and methods in SynthEngine
+  - Includes parameter types, MIDI handling, preset system, SysEx parsing
+  - Documents all 32 DX7 algorithms and factory presets
+  - Usage examples provided
 - [ ] Write DocC documentation for all public types
 - [ ] Create getting-started tutorial
 - [ ] Create code examples for common use cases

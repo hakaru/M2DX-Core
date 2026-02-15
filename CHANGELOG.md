@@ -36,6 +36,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **DSP**: `Downsampler` (2x FIR decimation), `VoiceMixer` (vDSP mixing/clipping)
 - **Tests**: 66 tests across 6 test files (TableTests, EnvelopeTests, AlgorithmTests, WaveformTests, ConcurrencyTests, PerformanceTests)
 - **CI**: GitHub Actions workflow for macOS 15 + Xcode 16
+- **API Documentation**: Comprehensive public API reference in `docs/API.md`
+  - Complete SynthEngine method documentation (render, MIDI handling, 60+ parameter setters)
+  - Parameter snapshot types (OperatorSnapshot, SlotSnapshot, SynthParamSnapshot)
+  - MIDI event system (MIDIEvent, supported CC mappings)
+  - Preset data model (DX7Preset, DX7OperatorPreset, PresetCategory)
+  - SysEx parser (DX7SysExParser, DX7SysExBank)
+  - Algorithm definitions (32 DX7 algorithms with carrier/modulator routing)
+  - Factory presets (DX7FactoryPresets with all 32 built-in patches)
+  - Usage examples for common integration scenarios
 
 ### Changed
 - Migrated from documentation-only to fully functional synthesis library

@@ -143,3 +143,37 @@
 - `docs/document-writer-20260216.md` にセッション3のサマリーレポート追記
 - 全66テスト合格を確認、機能的等価性・イベント順序保持を維持
 
+## 02:33 - API仕様書作成開始
+- ユーザーリクエスト: M2DX-Core の API 仕様書を作成
+- public API を全ファイルから収集し、docs/API.md に出力
+
+## 02:36 - API仕様書作成完了
+- `docs/API.md` に全 public API リファレンスを作成
+- セクション構成:
+  - SynthEngine: render, MIDI, 全パラメータセッター（60+メソッド）
+  - Parameter Types: OperatorSnapshot, SlotSnapshot, SlotConfig, SynthParamSnapshot
+  - MIDI: MIDIEvent, Kind, 対応 CC 一覧
+  - Preset: DX7Preset, DX7OperatorPreset, PresetCategory
+  - SysEx: DX7SysExParser, DX7SysExBank
+  - Algorithms: DX7AlgorithmDefinition, AlgorithmConnection
+  - Factory Presets: DX7FactoryPresets
+  - Usage Example 付き
+- 全型のプロパティ・メソッド・デフォルト値・範囲を網羅
+
+## 07:40 - document-writer: API.md 追加に伴うドキュメント更新開始
+- 変更内容: docs/API.md（完全な public API リファレンス）を追加
+- 対象ファイル: TODO.md, CHANGELOG.md, README.md
+- 既存内容を保持しつつ、API ドキュメント関連セクションを追加/更新
+
+## 07:45 - document-writer: API.md 追加に伴うドキュメント更新完了
+- **TODO.md**: Phase 3 "API Documentation" セクションに API Reference 完了マークを追加
+  - docs/API.md の作成完了を記録（2026-02-16）
+  - SynthEngine, Parameter Types, MIDI, Preset, SysEx, Algorithms, Factory Presets の網羅的ドキュメントを記載
+- **CHANGELOG.md**: "Added" セクションに API Documentation エントリを追加
+  - SynthEngine 60+ メソッド、Parameter Types、MIDI システム、Preset データモデル、SysEx パーサー、32 アルゴリズム定義、Factory Presets、使用例を列挙
+- **README.md**: Documentation セクションに docs/API.md へのリンクを追加（太字・最上位）
+  - "Complete public API reference" として明示
+- `docs/document-writer-20260216.md` にセッション4のサマリーレポート追記
+- Swift ソースファイルは一切変更せず、ドキュメントのみ更新
+- Phase 3 API ドキュメント準備の重要なマイルストーン達成
+

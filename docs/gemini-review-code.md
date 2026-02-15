@@ -1,73 +1,67 @@
 Checking build status...
 Build is up-to-date.
-(node:57179) Warning: `--localstorage-file` was provided without a valid path
+(node:72095) Warning: `--localstorage-file` was provided without a valid path
 (Use `node --trace-warnings ...` to show where the warning was created)
 YOLO mode is enabled. All tool calls will be automatically approved.
 YOLO mode is enabled. All tool calls will be automatically approved.
-Gemini CLIとして、指定されたコードレビュー手順を実行します。
+I am starting by reading `GEMINI.md` to understand the project context and requirements.
 
-まず、プロジェクト内の `GEMINI.md` の確認（グローバル設定は既に読み込まれていますが、プロジェクト固有のものがないか確認）、既存Issueの確認、そして対象ファイルの読み込みを行います。
+Error executing tool read_file: File not found.
+I will list the files in the root directory again to confirm the presence of `GEMINI.md` or similar documentation.
 
-### 1. プロジェクト状況とIssueの確認
+I will check the `docs/` directory to see if `GEMINI.md` is located there.
 
-`GEMINI.md` の探索と、GitHub Issueのリストを取得します。
+I will list the existing issues on GitHub to avoid duplicate reporting.
 
-指定されたファイル（`SPSCRing.swift`, `SynthEngine.swift`）および関連テストファイルの内容を確認します。
+I will read the contents of `docs/API.md` to review its accuracy and completeness.
 
-以下のコードレビュー結果を報告します。
+I will read `Sources/M2DXCore/Engine/SynthEngine.swift` to verify the `SynthEngine` class API.
 
-### レビュー結果
+I will read `Sources/M2DXCore/Engine/ParameterSnapshot.swift` to verify the parameter structures described in `API.md`.
 
-**概要**
-`Sources/M2DXCore/Infrastructure/SPSCRing.swift` および `Sources/M2DXCore/Engine/SynthEngine.swift` の変更は、Swift 6 の `Synchronization` モジュールを適切に使用したロックフリー実装となっており、リアルタイムオーディオ処理におけるスレッドセーフ性とパフォーマンスを向上させるものです。コードの品質は高く、基本的なロジックに誤りは見当たりません。
+I will read `Sources/M2DXCore/Preset/DX7Preset.swift` to verify the `DX7Preset` structure.
 
-**評価詳細**
+I will read `Sources/M2DXCore/Preset/DX7SysExParser.swift` to verify the SysEx parser API.
 
-1.  **リアルタイム安全性 (Real-time Safety):**
-    *   **評価: 改善 (Positive)**
-    *   `NSLock` および `Array`（潜在的なアロケーションやコピーオンライトロック）が排除され、`Synchronization.Atomic` と固定長バッファを使用したロックフリーキューに置き換えられたことで、オーディオレンダリングスレッド（Consumer側）のブロッキングリスクが解消されました。
-    *   `import Foundation` の削除も確認でき、Objective-C ランタイムやロックへの依存が減っています。
+I will read `Sources/M2DXCore/Preset/DX7Algorithms.swift` to verify the algorithm definitions.
 
-2.  **コード品質と並行性 (Concurrency Correctness):**
-    *   **評価: 良好 (Good)**
-    *   **SPSCRing.swift**:
-        *   `Atomic<Int>` のメモリオーダリングとして、Producer（書き込み側）に `.releasing`、Consumer（読み出し側）に `.acquiring` を使用している点は、Acquire-Release セマンティクスに基づいた正しい実装です。
-        *   インデックスのオーバーフロー対策はされていませんが、`Int` (64bit) がオーバーフローするには毎秒数百万イベントを送っても数千年かかるため、実用上は問題ありません（ただし、循環バッファのインデックス計算には `mask` を使用しており、インデックスがオーバーフローしてラップアラウンドしても `w & mask` の計算結果は正しく保たれるため、論理的にも問題ありません）。
-        *   `precondition` による Capacity の 2のべき乗チェックも適切です。
+I will read `Sources/M2DXCore/Preset/DX7FactoryPresets.swift` to verify the factory presets API.
 
-3.  **バグリスク (Bug Risk):**
-    *   **懸念点: テストの欠落 (High Risk)**
-    *   `SPSCRing` は新規導入されたロックフリーデータ構造ですが、**対応するユニットテストが存在しません**（`Tests/M2DXCoreTests/ConcurrencyTests.swift` は `SnapshotRing` のテストのみ）。
-    *   ロックフリーアルゴリズムは微細な実装ミスがデータ競合や不整合につながりやすく、また再現困難なバグを生むため、並行アクセスのストレステストを含む検証が必須です。
+I will search for the definition of `scaleVelocity` to understand how MIDI velocity is handled.
 
-### アクション
+I will read `Sources/M2DXCore/Tables/ScalingTable.swift`.
 
-テストの欠落はコードの信頼性に関わる重大な問題であるため、GitHub Issue を起票しました。
+I will read `Sources/M2DXCore/Engine/DX7Voice.swift` to see how the algorithm index is used.
 
-`gh issue create` が `quality` ラベルが存在しないために失敗しました。ラベルなしで再試行し、Issue を作成します。
+I will read `Sources/M2DXCore/Infrastructure/SPSCRing.swift` and `Sources/M2DXCore/Infrastructure/SnapshotRing.swift` to ensure they match the thread-safety claims in `API.md`.
 
-**コードレビュー結果**
+I will read `Sources/M2DXCore/Infrastructure/SnapshotRing.swift`.
 
-以下の変更についてレビューを行いました。
+I will create a GitHub issue for the algorithm index inconsistency.
 
-**対象ファイル:**
-1.  `Sources/M2DXCore/Infrastructure/SPSCRing.swift` (新規)
-2.  `Sources/M2DXCore/Engine/SynthEngine.swift` (変更)
+I will create a GitHub issue for the MIDI velocity handling ambiguity.
 
-**評価:**
-*   **リアルタイム安全性 (Real-time Safety): 改善**
-    *   `NSLock` および `Array` ベースの MIDI キューを、ロックフリーな `SPSCRing` に置換したことで、オーディオレンダリングスレッドにおけるブロッキングリスクが解消されました。
-    *   Swift 6 の `Synchronization.Atomic` を使用し、Acquire/Release セマンティクスに基づいた適切なメモリバリアが実装されています。
-*   **コード品質 (Code Quality): 良好**
-    *   `SPSCRing` の実装は、標準的な SPSC ロックフリーキューの設計に従っており、シンプルで読みやすいです。
-    *   Capacity の制約 (2のべき乗) やインデックス計算 (`mask`) も適切です。
-    *   `SynthEngine` における `push`/`pop` の使用方法もスレッドモデルに従っています。
-*   **バグリスク (Bug Risk): 高 (High)**
-    *   **重大な欠陥:** 新規導入された `SPSCRing` クラスに対するユニットテストが存在しません（`Tests/M2DXCoreTests/ConcurrencyTests.swift` に含まれていません）。
-    *   ロックフリーデータ構造は並行アクセス時の微細なタイミング依存バグを含みやすいため、検証テストなしでの導入はリスクが高いと判断しました。
+`docs/API.md` の新規追加に伴う、API仕様書の正確性および網羅性のレビューを完了しました。
 
-**アクション:**
-*   重要度 High の問題として、**Issue #9: Missing unit tests for SPSCRing** を起票しました。
+### レビュー結果要約
 
-**推奨事項:**
-*   `ConcurrencyTests.swift` に `SPSCRing` 用のテストスイートを追加し、基本的な FIFO 動作、バッファフル時の挙動、および並行アクセスのストレステストを実装してください。
+`docs/API.md` は、プロジェクトの主要なコンポーネントを網羅しており、特にリアルタイム安全性を考慮した設計（ロックフリー SPSC リングバッファ）に関する記述は非常に正確です。しかし、実装との間に重大な不整合が2点確認されたため、GitHub Issue を起票しました。
+
+#### 発見された重大な問題 (Importance: High)
+
+1.  **アルゴリズム・インデックスの不整合 ([#10](https://github.com/hakaru/M2DX-Core/issues/10)):**
+    *   **問題:** `DX7Preset` や `initVoice` ではアルゴリズムが 0-31 (0-indexed) で扱われていますが、`API.md` では 1-32 と記載され、サンプルコードでも `-1` する処理が含まれています。また、`DX7Algorithms.definition(for:)` は 1-32 を期待しているため、このままでは不整合が生じます。
+    *   **影響:** ユーザーがドキュメント通りに実装すると、誤ったアルゴリズムが選択されたり、`nil` が返されるなどのバグが発生します。
+
+2.  **MIDI ベロシティ処理の非標準的な挙動 ([#11](https://github.com/hakaru/M2DX-Core/issues/11)):**
+    *   **問題:** 実装上、`data2` のベロシティは 16-bit で受け取り、内部で 9 ビット右シフト (`>> 9`) して 7-bit に変換しています。標準的な MIDI ベロシティ (127 など) を渡すと `0` (無音) になり、最大音量を得るには `0xFE00` 以上を渡す必要があります。
+    *   **影響:** 一般的な MIDI プログラミングの常識と大きく乖離しており、ユーザーが音が出ない、あるいは非常に小さい音しか出ないといった混乱を招く可能性が非常に高いです。
+
+#### その他の指摘事項 (Importance: Medium/Minor)
+
+*   **`DX7OperatorPreset.detuneCents`:** `detune - 7` という計算式が提示されていますが、DX7のデチューンステップは厳密に 1 cent ではないため、プロパティ名が誤解を招く可能性があります。
+*   **`setOperatorWaveform`:** リファレンスには存在しますが、現状の実装は Sine 波固定の no-op です。将来的な DX7II 対応用である旨の注記があると親切です。
+
+### 結論
+
+基本構成は非常に優れていますが、上記 Issue にて指摘した「アルゴリズムのインデックス基準」と「MIDIベロシティの仕様」の2点について、ドキュメントまたは実装を修正することを強く推奨します。
