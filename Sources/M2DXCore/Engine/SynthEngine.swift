@@ -1,7 +1,6 @@
 // SynthEngine.swift
 // M2DX-Core — DX7 FM Synthesis Engine (voice management, render, MIDI)
 
-import Foundation
 import Darwin
 
 // MARK: - Oversampling Mode
@@ -85,9 +84,8 @@ public final class SynthEngine: @unchecked Sendable {
     private let dx7Bus2 = UnsafeMutablePointer<Int32>.allocate(capacity: kBlockSize)
     private let floatScratch = UnsafeMutablePointer<Float>.allocate(capacity: kBlockSize)
 
-    // MIDI event ring buffer
-    private var midiEvents: [MIDIEvent] = []
-    private let midiLock = NSLock()
+    // Lock-free MIDI event ring buffer (SPSC FIFO)
+    private let midiRing = SPSCRing<MIDIEvent>(capacity: 256)
 
     public init() {
         for i in 0..<kMaxVoices {
@@ -109,20 +107,13 @@ public final class SynthEngine: @unchecked Sendable {
 
     // MARK: - MIDI Event Queue
 
-    /// Enqueue a MIDI event (UI thread).
+    /// Enqueue a MIDI event (UI thread). Lock-free, allocation-free.
     public func sendMIDI(_ event: MIDIEvent) {
-        midiLock.lock()
-        midiEvents.append(event)
-        midiLock.unlock()
+        midiRing.push(event)
     }
 
     private func drainMIDI() {
-        midiLock.lock()
-        let events = midiEvents
-        midiEvents.removeAll(keepingCapacity: true)
-        midiLock.unlock()
-
-        for event in events {
+        while let event = midiRing.pop() {
             switch event.kind {
             case .noteOn:
                 let vel16 = UInt16(event.data2 & 0xFFFF)
@@ -263,6 +254,126 @@ public final class SynthEngine: @unchecked Sendable {
     public func setMasterTuning(_ cents: Int16) {
         shadowSnapshot.masterTuning = max(-100, min(100, cents))
         bumpVersion()
+    }
+
+    // MARK: - Controller Mapping Setters
+
+    public func setWheelPitch(_ v: UInt8) { shadowSnapshot.slots.0.wheelPitch = min(99, v); bumpVersion() }
+    public func setWheelAmp(_ v: UInt8) { shadowSnapshot.slots.0.wheelAmp = min(99, v); bumpVersion() }
+    public func setWheelEGBias(_ v: UInt8) { shadowSnapshot.slots.0.wheelEGBias = min(99, v); bumpVersion() }
+    public func setFootPitch(_ v: UInt8) { shadowSnapshot.slots.0.footPitch = min(99, v); bumpVersion() }
+    public func setFootAmp(_ v: UInt8) { shadowSnapshot.slots.0.footAmp = min(99, v); bumpVersion() }
+    public func setFootEGBias(_ v: UInt8) { shadowSnapshot.slots.0.footEGBias = min(99, v); bumpVersion() }
+    public func setBreathPitch(_ v: UInt8) { shadowSnapshot.slots.0.breathPitch = min(99, v); bumpVersion() }
+    public func setBreathAmp(_ v: UInt8) { shadowSnapshot.slots.0.breathAmp = min(99, v); bumpVersion() }
+    public func setBreathEGBias(_ v: UInt8) { shadowSnapshot.slots.0.breathEGBias = min(99, v); bumpVersion() }
+    public func setAftertouchPitch(_ v: UInt8) { shadowSnapshot.slots.0.aftertouchPitch = min(99, v); bumpVersion() }
+    public func setAftertouchAmp(_ v: UInt8) { shadowSnapshot.slots.0.aftertouchAmp = min(99, v); bumpVersion() }
+    public func setAftertouchEGBias(_ v: UInt8) { shadowSnapshot.slots.0.aftertouchEGBias = min(99, v); bumpVersion() }
+
+    // MARK: - Pitch EG Setters
+
+    public func setPitchEGRates(_ r0: UInt8, _ r1: UInt8, _ r2: UInt8, _ r3: UInt8) {
+        shadowSnapshot.slots.0.pitchEGR0 = min(99, r0)
+        shadowSnapshot.slots.0.pitchEGR1 = min(99, r1)
+        shadowSnapshot.slots.0.pitchEGR2 = min(99, r2)
+        shadowSnapshot.slots.0.pitchEGR3 = min(99, r3)
+        bumpVersion()
+    }
+
+    public func setPitchEGLevels(_ l0: UInt8, _ l1: UInt8, _ l2: UInt8, _ l3: UInt8) {
+        shadowSnapshot.slots.0.pitchEGL0 = min(99, l0)
+        shadowSnapshot.slots.0.pitchEGL1 = min(99, l1)
+        shadowSnapshot.slots.0.pitchEGL2 = min(99, l2)
+        shadowSnapshot.slots.0.pitchEGL3 = min(99, l3)
+        bumpVersion()
+    }
+
+    // MARK: - Oversampling
+
+    public func setOversamplingMode(_ mode: OversamplingMode) {
+        shadowSnapshot.oversamplingMode = mode.rawValue
+        bumpVersion()
+    }
+
+    // MARK: - Split Point / Slot Control
+
+    public func setSplitPoint(_ note: UInt8) {
+        shadowSnapshot.splitPoint = note
+        let mode = TimbreMode(rawValue: shadowSnapshot.timbreMode) ?? .single
+        if mode == .split {
+            shadowSnapshot.setConfig(at: 0, SlotConfig(noteRangeLow: 0, noteRangeHigh: note > 0 ? note - 1 : 0))
+            shadowSnapshot.setConfig(at: 1, SlotConfig(noteRangeLow: note, noteRangeHigh: 127))
+        }
+        bumpVersion()
+    }
+
+    public func setSlotEnabled(_ slotIdx: Int, enabled: Bool) {
+        guard slotIdx >= 0, slotIdx < kMaxSlots else { return }
+        var cfg = shadowSnapshot.config(at: slotIdx)
+        cfg.enabled = enabled
+        shadowSnapshot.setConfig(at: slotIdx, cfg)
+        bumpVersion()
+    }
+
+    // MARK: - Render Overload Monitoring
+
+    /// Render overload count for adaptive buffer monitoring.
+    /// Written by render thread via benign race (Int32 on arm64 is atomic for reads).
+    public private(set) var renderOverloadCount: Int32 = 0
+
+    // MARK: - Clean API Compatibility Wrappers
+
+    /// Set operator level from normalized Float (0.0-1.0).
+    /// Converts to DX7 output level (0-99) internally.
+    public func setOperatorLevel(_ opIndex: Int, level: Float) {
+        guard opIndex >= 0, opIndex < kNumOperators else { return }
+        // Convert normalized level to DX7 OL: OL = 99 + dB / 0.75
+        let ol: Int
+        if level <= 0 { ol = 0 }
+        else if level >= 1.0 { ol = 99 }
+        else {
+            let dB = 20.0 * log10f(level)
+            ol = max(0, min(99, Int(99.0 + dB / 0.75)))
+        }
+        withShadowOp(opIndex) { $0.dx7OutputLevel = ol }
+        bumpVersion()
+    }
+
+    /// Set operator EG rates from Float (0-99 range, same as DX7 native).
+    public func setOperatorEGRates(_ opIndex: Int, r1: Float, r2: Float, r3: Float, r4: Float) {
+        guard opIndex >= 0, opIndex < kNumOperators else { return }
+        withShadowOp(opIndex) {
+            $0.dx7EgR0 = Int(r1); $0.dx7EgR1 = Int(r2)
+            $0.dx7EgR2 = Int(r3); $0.dx7EgR3 = Int(r4)
+        }
+        bumpVersion()
+    }
+
+    /// Set operator EG levels from normalized Float (0.0-1.0).
+    /// Converts to DX7 level (0-99) internally.
+    public func setOperatorEGLevels(_ opIndex: Int, l1: Float, l2: Float, l3: Float, l4: Float) {
+        guard opIndex >= 0, opIndex < kNumOperators else { return }
+        withShadowOp(opIndex) {
+            $0.dx7EgL0 = Int(l1 * 99); $0.dx7EgL1 = Int(l2 * 99)
+            $0.dx7EgL2 = Int(l3 * 99); $0.dx7EgL3 = Int(l4 * 99)
+        }
+        bumpVersion()
+    }
+
+    /// Set per-operator feedback from Float.
+    /// DX7 has global feedback; this sets on the algorithm's feedback operator.
+    public func setOperatorFeedback(_ opIndex: Int, feedback: Float) {
+        // Convert float feedback gain to DX7 integer (0-7)
+        let fb: Int
+        if feedback <= 0 { fb = 0 }
+        else { fb = max(0, min(7, Int(log2f(feedback) + 9.0 + 0.5))) }
+        setOperatorFeedback(fb)
+    }
+
+    /// Set operator waveform (DX7II OPZ: 0-7, currently no-op for pure DX7 mode).
+    public func setOperatorWaveform(_ opIndex: Int, waveform: UInt8) {
+        // DX7 only supports sine wave; store for future DX7II support
     }
 
     public func setTimbreMode(_ mode: TimbreMode, splitPoint: UInt8 = 60) {

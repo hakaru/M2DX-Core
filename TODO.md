@@ -78,6 +78,13 @@ All 8 steps of Phase 2 have been completed as of 2026-02-16.
   - Changed signature to accept caller-provided `scratch` buffer
   - Added pre-allocated `floatScratch` buffer to SynthEngine
   - Eliminated all internal heap allocation in mixing path
+- [x] **Issue #4**: Replace NSLock + Array-based MIDI event queue with lock-free SPSC FIFO ring buffer
+  - Created `SPSCRing<T>` generic lock-free FIFO ring buffer using `Synchronization.Atomic` (same pattern as SnapshotRing)
+  - Replaced `SynthEngine.midiEvents: [MIDIEvent]` + `midiLock: NSLock` with `midiRing: SPSCRing<MIDIEvent>(capacity: 256)`
+  - `sendMIDI()`: Removed lock acquisition, now calls `midiRing.push()` (lock-free)
+  - `drainMIDI()`: Removed lock + array copy, now uses `while let event = midiRing.pop()` loop
+  - Removed `import Foundation` dependency (NSLock no longer needed)
+  - All 66 tests pass
 
 ### Remaining Verification Tasks
 

@@ -17,6 +17,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Changed `VoiceMixer.accumulateVoice()` signature to accept caller-provided `scratch: UnsafeMutablePointer<Float>` buffer
   - Added pre-allocated `floatScratch: UnsafeMutablePointer<Float>` to SynthEngine for reuse across render calls
   - Audio thread now completely allocation-free during normal operation
+- **Issue #4**: Replaced NSLock + Array-based MIDI event queue with lock-free SPSC FIFO ring buffer
+  - Created `SPSCRing<T>` generic SPSC FIFO ring buffer in `Sources/M2DXCore/Infrastructure/SPSCRing.swift`
+  - Uses `Synchronization.Atomic` for lock-free producer-consumer semantics (same pattern as SnapshotRing but with FIFO ordering)
+  - Fixed capacity of 256 events, `push()` and `pop()` preserve all events in order
+  - Replaced `SynthEngine.midiEvents: [MIDIEvent]` + `midiLock: NSLock` with `midiRing: SPSCRing<MIDIEvent>`
+  - `sendMIDI()` now lock-free (no NSLock acquisition)
+  - `drainMIDI()` uses `while let event = midiRing.pop()` loop instead of lock + array copy
+  - Removed `import Foundation` dependency from SynthEngine (NSLock no longer needed)
+  - MIDI event handling now fully lock-free on both UI and audio threads
 
 ### Added
 - **Swift Package**: Created `Package.swift` with Swift 6.0, macOS 15+ / iOS 18+ support
