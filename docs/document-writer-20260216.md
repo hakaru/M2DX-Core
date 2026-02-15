@@ -306,3 +306,161 @@ This distinction is important for parameter updates (where only the latest snaps
 
 **Document Writer**: Claude Sonnet 4.5
 **Completion Time**: 2026-02-16 02:05
+
+---
+
+# Documentation Update Report (Session 4)
+
+**Date**: 2026-02-16 07:40
+**Task**: Update documentation for API.md addition
+
+## Summary
+
+Updated three documentation files to reflect the addition of comprehensive public API reference documentation in `docs/API.md`. This completes a key deliverable for Phase 3 (SPM Library Release) preparation.
+
+## Changes Made
+
+### 1. TODO.md
+
+**Section Updated**: "API Documentation" (Phase 3)
+
+Added completion checkmark for:
+- **API Reference**: Complete public API reference created in `docs/API.md` (2026-02-16)
+  - Covers all public types and methods in SynthEngine
+  - Includes parameter types, MIDI handling, preset system, SysEx parsing
+  - Documents all 32 DX7 algorithms and factory presets
+  - Usage examples provided
+
+**Location**: First item in "API Documentation" section under Phase 3
+
+**Rationale**: The API reference is now complete, though DocC integration and tutorials remain as future tasks.
+
+---
+
+### 2. CHANGELOG.md
+
+**Section Updated**: "### Added" under "[Unreleased]"
+
+Added new bullet point:
+- **API Documentation**: Comprehensive public API reference in `docs/API.md`
+  - Complete SynthEngine method documentation (render, MIDI handling, 60+ parameter setters)
+  - Parameter snapshot types (OperatorSnapshot, SlotSnapshot, SynthParamSnapshot)
+  - MIDI event system (MIDIEvent, supported CC mappings)
+  - Preset data model (DX7Preset, DX7OperatorPreset, PresetCategory)
+  - SysEx parser (DX7SysExParser, DX7SysExBank)
+  - Algorithm definitions (32 DX7 algorithms with carrier/modulator routing)
+  - Factory presets (DX7FactoryPresets with all 32 built-in patches)
+  - Usage examples for common integration scenarios
+
+**Location**: Appended to "### Added" section after CI entry
+
+**Rationale**: API documentation is a significant addition that should be tracked in the changelog.
+
+---
+
+### 3. README.md
+
+**Section Updated**: "Documentation"
+
+Enhanced documentation links:
+- Added **`docs/API.md`** as the first link (bolded for prominence)
+- Listed as "Complete public API reference"
+- Placed before other documentation links to highlight its importance
+
+**Location**: "Documentation" section near end of README
+
+**Rationale**: New users looking for API documentation should find it immediately in the README's documentation section.
+
+---
+
+## API.md Content Summary
+
+The new API reference document includes:
+
+1. **SynthEngine** (primary interface)
+   - Initialization
+   - Audio rendering (`render()`)
+   - MIDI event handling (`sendMIDI()`)
+   - 60+ parameter setter methods for real-time control
+
+2. **Parameter Types**
+   - `OperatorSnapshot` - FM operator parameters
+   - `SlotSnapshot` - Timbre slot configuration
+   - `SlotConfig` - Slot routing and levels
+   - `SynthParamSnapshot` - Complete parameter snapshot
+
+3. **MIDI System**
+   - `MIDIEvent` type with all supported event kinds
+   - Supported MIDI CC mappings table
+
+4. **Preset System**
+   - `DX7Preset` - 155-byte DX7 voice format
+   - `DX7OperatorPreset` - Per-operator parameters
+   - `PresetCategory` - Patch categorization
+
+5. **SysEx Parser**
+   - `DX7SysExParser` - Parse DX7 SysEx banks
+   - `DX7SysExBank` - Bank container type
+
+6. **Algorithms**
+   - `DX7AlgorithmDefinition` - Algorithm topology
+   - `AlgorithmConnection` - Operator connections
+   - All 32 DX7 algorithms documented
+
+7. **Factory Presets**
+   - `DX7FactoryPresets` - Built-in preset access
+
+8. **Usage Example**
+   - Basic integration code snippet
+
+## File Structure
+
+New file created:
+- `/Volumes/HOME2/Develop/M2DX-Core/docs/API.md`
+  - Comprehensive markdown API reference
+  - Organized by functional area
+  - Code examples in Swift
+  - Parameter tables and value ranges
+
+## Verification
+
+All changes:
+- ✅ Written in English
+- ✅ Preserve existing content structure
+- ✅ Use consistent technical terminology
+- ✅ Maintain markdown formatting conventions
+- ✅ Align with Keep a Changelog format (CHANGELOG.md)
+- ✅ Accurately reflect implemented public API
+- ✅ No Swift source files modified (documentation only)
+
+## Files Modified
+
+1. `/Volumes/HOME2/Develop/M2DX-Core/TODO.md` - Marked API reference as complete
+2. `/Volumes/HOME2/Develop/M2DX-Core/CHANGELOG.md` - Added API documentation to Added section
+3. `/Volumes/HOME2/Develop/M2DX-Core/README.md` - Added API.md link to Documentation section
+
+## Files Created
+
+1. `/Volumes/HOME2/Develop/M2DX-Core/docs/API.md` - Complete public API reference (already created by user)
+
+## Impact
+
+- ✅ Phase 3 API documentation task is now partially complete
+- ✅ Developers can reference all public APIs in a single document
+- ✅ Integration examples are now available
+- ✅ Remaining Phase 3 tasks: DocC generation, tutorials, additional examples
+
+## Next Steps
+
+For Phase 3 completion:
+1. Generate DocC documentation from inline code comments
+2. Create getting-started tutorial
+3. Create additional code examples for common use cases
+4. Document MIDI 2.0 integration patterns
+5. Create architecture overview diagram
+6. Publish DocC archive
+
+---
+
+**Document Writer**: Claude Sonnet 4.5
+**Completion Time**: 2026-02-16 07:40
