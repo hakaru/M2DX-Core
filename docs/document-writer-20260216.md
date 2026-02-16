@@ -464,3 +464,133 @@ For Phase 3 completion:
 
 **Document Writer**: Claude Sonnet 4.5
 **Completion Time**: 2026-02-16 07:40
+
+---
+
+# Documentation Update Report (Session 5)
+
+**Date**: 2026-02-16 14:36
+**Task**: Update documentation for CC state persistence bug fix
+
+## Summary
+
+Updated two documentation files (TODO.md and CHANGELOG.md) to reflect the bug fix for MIDI Control Change state persisting after preset reload. README.md was evaluated but no changes were needed as bug fixes are tracked in CHANGELOG rather than feature descriptions.
+
+## Problem Statement
+
+After sending MIDI Control Change messages (mod wheel, breath, foot controller, pitch bend, sustain), loading a new preset via `loadSlotParams()` did not reset the controller state. The CC-modified instance variables (`modWheelDepth`, `breathDepth`, `footDepth`, `aftertouchDepth`, `pitchBendValue`, `sustainPedalOn`) persisted across preset loads, causing INIT VOICE and other presets to sound different depending on prior CC message history.
+
+## Changes Made
+
+### 1. TODO.md
+
+**Section Updated**: "Real-Time Safety Improvements ✅"
+
+Added completion checkmark for:
+- **Bug Fix**: CC state persists after preset reload
+  - Added `resetControllers()` method to reset all CC-derived state (modWheelDepth, breathDepth, footDepth, aftertouchDepth, pitchBendValue, sustainPedalOn)
+  - Added `resetControllers: Bool = true` parameter to `loadSlotParams()` for automatic controller reset on preset load
+  - Fixed `DX7Operator.noteOn()` to reset `gainOut = 0` to prevent stale gain from previous note
+  - All 73 tests pass (updated from 66)
+
+**Location**: Appended after Issue #4 in the "Real-Time Safety Improvements" section
+
+**Rationale**: This bug fix is related to real-time safety as it affects MIDI controller state management, which directly impacts audio rendering behavior.
+
+---
+
+### 2. CHANGELOG.md
+
+**Section Updated**: "### Fixed" under "[Unreleased]"
+
+Added detailed bug fix entry:
+- **Bug Fix**: CC state persists after preset reload
+  - Fixed bug where MIDI Control Change state (mod wheel, breath, foot, pitch bend, sustain) persisted after loading a new preset via `loadSlotParams()`
+  - Added `public func resetControllers()` to SynthEngine that resets all CC-derived instance variables to defaults:
+    - `modWheelDepth`, `footDepth`, `breathDepth`, `aftertouchDepth` → 0
+    - `pitchBendValue` → 1.0
+    - `sustainPedalOn` → false
+    - Active voice pitch bend → 1.0
+    - Active voice sustained flags → false
+  - Modified `loadSlotParams()` to accept `resetControllers: Bool = true` parameter
+    - Default behavior: automatically calls `resetControllers()` when loading a preset
+    - Can be disabled with `resetControllers: false` for individual parameter adjustments
+  - Fixed `DX7Operator.noteOn()` to reset `gainOut = 0` to prevent stale gain carry-over from previous notes
+  - This ensures INIT VOICE and other presets sound identical regardless of prior CC message history
+
+**Location**: Appended after Issue #4 in the Fixed section
+
+**Rationale**: This is a user-facing bug fix that affects preset consistency and should be prominently documented in the changelog.
+
+---
+
+### 3. README.md
+
+**Changes**: None
+
+**Rationale**:
+- Bug fixes are tracked in CHANGELOG.md, not README.md
+- README.md focuses on feature descriptions and architecture, not individual bug fixes
+- The existing "MIDI 2.0 Native" and other feature descriptions remain accurate
+- No architectural changes that would require README updates
+
+---
+
+## Fix Details
+
+### Files Modified (Code)
+
+1. **`Sources/M2DXCore/Engine/SynthEngine.swift`**
+   - Added `public func resetControllers()` method
+   - Modified `loadSlotParams()` to accept `resetControllers: Bool = true` parameter
+   - Default behavior: automatically reset controller state when loading presets
+
+2. **`Sources/M2DXCore/Engine/DX7Operator.swift`**
+   - Modified `noteOn()` to reset `gainOut = 0`
+   - Prevents stale gain values from affecting new notes
+
+### Test Coverage
+
+- Test count updated from 66 to 73 tests (7 new tests added)
+- All 73 tests pass after the fix
+- Functional equivalence maintained for non-CC scenarios
+- INIT VOICE now sounds consistent regardless of prior CC state
+
+## Verification
+
+All documentation changes:
+- ✅ Written in English
+- ✅ Preserve existing content structure
+- ✅ Use consistent technical terminology
+- ✅ Maintain markdown formatting conventions
+- ✅ Align with Keep a Changelog format (CHANGELOG.md)
+- ✅ Accurately describe the bug and fix implementation
+- ✅ No Swift source files modified (documentation only)
+
+## Files Modified
+
+1. `/Volumes/HOME2/Develop/M2DX-Core/TODO.md` - Added CC bug fix to completed tasks
+2. `/Volumes/HOME2/Develop/M2DX-Core/CHANGELOG.md` - Added detailed bug fix description to Fixed section
+3. `/Volumes/HOME2/Develop/M2DX-Core/README.md` - No changes (evaluated but not needed)
+
+## Impact
+
+- ✅ Users can now see the bug fix documented in the changelog
+- ✅ Developers understand the resetControllers() API and its default behavior
+- ✅ The fix ensures preset consistency across all use cases
+- ✅ Test count updated to reflect additional test coverage
+
+## Related Issues
+
+This fix addresses the user-reported issue where:
+1. Load INIT VOICE preset → sounds correct
+2. Send MIDI CC messages (mod wheel, pitch bend, etc.)
+3. Load INIT VOICE preset again → sounds different (CC state still applied)
+4. Expected: INIT VOICE should sound identical in step 3
+
+The fix ensures step 3 now produces the correct result by automatically resetting controller state when loading presets.
+
+---
+
+**Document Writer**: Claude Sonnet 4.5
+**Completion Time**: 2026-02-16 14:37

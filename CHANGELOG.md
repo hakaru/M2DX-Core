@@ -26,6 +26,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `drainMIDI()` uses `while let event = midiRing.pop()` loop instead of lock + array copy
   - Removed `import Foundation` dependency from SynthEngine (NSLock no longer needed)
   - MIDI event handling now fully lock-free on both UI and audio threads
+- **Bug Fix**: CC state persists after preset reload
+  - Fixed bug where MIDI Control Change state (mod wheel, breath, foot, pitch bend, sustain) persisted after loading a new preset via `loadSlotParams()`
+  - Added `public func resetControllers()` to SynthEngine that resets all CC-derived instance variables to defaults:
+    - `modWheelDepth`, `footDepth`, `breathDepth`, `aftertouchDepth` → 0
+    - `pitchBendValue` → 1.0
+    - `sustainPedalOn` → false
+    - Active voice pitch bend → 1.0
+    - Active voice sustained flags → false
+  - Modified `loadSlotParams()` to accept `resetControllers: Bool = true` parameter
+    - Default behavior: automatically calls `resetControllers()` when loading a preset
+    - Can be disabled with `resetControllers: false` for individual parameter adjustments
+  - Fixed `DX7Operator.noteOn()` to reset `gainOut = 0` to prevent stale gain carry-over from previous notes
+  - This ensures INIT VOICE and other presets sound identical regardless of prior CC message history
 
 ### Added
 - **Swift Package**: Created `Package.swift` with Swift 6.0, macOS 15+ / iOS 18+ support
