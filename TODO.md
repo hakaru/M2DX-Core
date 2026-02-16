@@ -85,6 +85,11 @@ All 8 steps of Phase 2 have been completed as of 2026-02-16.
   - `drainMIDI()`: Removed lock + array copy, now uses `while let event = midiRing.pop()` loop
   - Removed `import Foundation` dependency (NSLock no longer needed)
   - All 66 tests pass
+- [x] **Bug Fix**: CC state persists after preset reload
+  - Added `resetControllers()` method to reset all CC-derived state (modWheelDepth, breathDepth, footDepth, aftertouchDepth, pitchBendValue, sustainPedalOn)
+  - Added `resetControllers: Bool = true` parameter to `loadSlotParams()` for automatic controller reset on preset load
+  - Fixed `DX7Operator.noteOn()` to reset `gainOut = 0` to prevent stale gain from previous note
+  - All 73 tests pass
 
 ### Remaining Verification Tasks
 

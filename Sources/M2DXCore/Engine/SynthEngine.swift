@@ -405,10 +405,28 @@ public final class SynthEngine: @unchecked Sendable {
         bumpVersion()
     }
 
-    public func loadSlotParams(_ slotIdx: Int, slot: SlotSnapshot) {
+    public func loadSlotParams(_ slotIdx: Int, slot: SlotSnapshot, resetControllers: Bool = true) {
         guard slotIdx >= 0, slotIdx < shadowSnapshot.activeSlotCount else { return }
         shadowSnapshot.setSlot(at: slotIdx, slot)
+        if resetControllers { self.resetControllers() }
         bumpVersion()
+    }
+
+    /// Reset all MIDI controller state to defaults.
+    /// Call when switching presets to clear stale CC values.
+    public func resetControllers() {
+        modWheelDepth = 0
+        footDepth = 0
+        breathDepth = 0
+        aftertouchDepth = 0
+        pitchBendValue = 1.0
+        sustainPedalOn = false
+        for i in 0..<kMaxVoices {
+            voicesDX7[i].sustained = false
+            if voicesDX7[i].active {
+                voicesDX7[i].applyPitchBend(1.0)
+            }
+        }
     }
 
     @inline(__always)

@@ -177,3 +177,51 @@
 - Swift ソースファイルは一切変更せず、ドキュメントのみ更新
 - Phase 3 API ドキュメント準備の重要なマイルストーン達成
 
+## 12:49 - iPhone 実機での M2DX-Core モジュール可視性確認
+- ユーザー質問: M2DX-Core モジュールが iPhone 実機で見えるか
+- Package.swift のプラットフォーム設定を確認
+
+## 12:51 - iPhone 実機での M2DX-Core モジュール可視性確認完了
+- Package.swift 確認結果: `.iOS(.v18)` が設定済み → iPhone 実機で利用可能
+- ただし iOS 18.0+ 必須（Synchronization モジュール依存のため）
+- `import M2DXCore` でモジュールが見える条件を回答
+
+## 13:57 - TODO.md 確認
+- ユーザーリクエスト: TODO.md の現状確認・表示
+
+## 14:09 - バグ調査: CC後にINIT VOICEの音が変わる問題
+- ユーザー報告: コントロールチェンジ送信後、INIT VOICEの音が元に戻らない
+- CC処理とパラメータリセットの関係を調査開始
+- 対象: SynthEngine.swift の CC ハンドリング、loadSlotParams、INIT VOICE のパラメータ
+
+## 14:34 - バグ修正完了: CC後にINIT VOICEの音が変わる問題
+- **根本原因**: `loadSlotParams()` がスナップショットのみ更新し、エンジンのインスタンス変数（modWheelDepth, breathDepth, footDepth, aftertouchDepth, pitchBendValue, sustainPedalOn）をリセットしなかった
+- **修正内容**:
+  - `public func resetControllers()` メソッドを新規追加（SynthEngine.swift）
+    - modWheelDepth, footDepth, breathDepth, aftertouchDepth → 0
+    - pitchBendValue → 1.0, sustainPedalOn → false
+    - アクティブボイスの pitchBend もリセット、sustained フラグもクリア
+  - `loadSlotParams()` に `resetControllers: Bool = true` パラメータ追加
+    - デフォルトでプリセット読み込み時にコントローラ状態をリセット
+    - 個別パラメータ調整時は `resetControllers: false` で呼び出し可能
+- `swift build` 成功、`swift test` 73テスト全合格
+
+## 14:36 - document-writer: CC状態持続バグ修正のドキュメント更新開始
+- ユーザーリクエスト: CC後にプリセットを読み込んでも音が戻らない問題の修正内容をドキュメントに反映
+- 変更内容: resetControllers() メソッド追加、loadSlotParams() にリセット制御追加、DX7Operator.noteOn で gainOut リセット
+- 対象ファイル: TODO.md, CHANGELOG.md, README.md（英語で記述）
+- Swift ソースファイルは一切変更しない（ドキュメント更新のみ）
+
+## 14:37 - document-writer: CC状態持続バグ修正のドキュメント更新完了
+- **TODO.md**: "Real-Time Safety Improvements" セクションに新規項目追加
+  - resetControllers() メソッド、loadSlotParams() パラメータ追加、DX7Operator.noteOn 修正を記録
+  - テスト数を 73 に更新
+- **CHANGELOG.md**: "Fixed" セクションに詳細なバグ修正記録を追加
+  - 問題の説明: CC状態（mod wheel, breath, foot, pitch bend, sustain）が loadSlotParams() 後も持続
+  - resetControllers() の実装詳細（全CC変数のリセット、デフォルト値）
+  - loadSlotParams() の resetControllers パラメータ（デフォルト true、オプトアウト可能）
+  - DX7Operator.noteOn の gainOut = 0 リセット
+  - INIT VOICE の一貫性保証を明記
+- **README.md**: 変更不要（バグ修正は CHANGELOG で追跡、README の機能説明には影響なし）
+- Swift ソースファイルは一切変更せず、英語ドキュメントのみ更新
+- `docs/document-writer-20260216.md` にセッション5のサマリーレポート作成予定

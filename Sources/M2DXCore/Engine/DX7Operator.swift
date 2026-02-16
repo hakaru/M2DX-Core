@@ -43,7 +43,7 @@ package struct DX7Operator {
         frequency = baseFreq * ratio * detune
         updateFreq()
         env.noteOn()
-        phase = 0; fbBuf = (0, 0)
+        phase = 0; fbBuf = (0, 0); gainOut = 0
     }
 
     mutating func applyPitchBend(_ factor: Float) {
