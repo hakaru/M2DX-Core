@@ -7,7 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **DX7Ref Voice-Level Rendering** (2026-02-18)
+  - Added complete voice rendering functions to DX7Ref C target for waveform-level comparison testing
+  - Includes: sin lookup, frequency LUT, oscillator frequency computation, FM core render loop, voice initialization/render/noteoff
+  - Enables bit-exact waveform verification against DEXED reference implementation at voice level (previously operator-level only)
+- **VoiceComparisonTests.swift** (2026-02-18)
+  - Added 14 comprehensive voice-level waveform comparison tests verifying M2DX matches DEXED exactly
+  - Tests: INIT VOICE (algorithm 1), Algorithm 5 (all modulators), Algorithm 32 (all carriers), feedback (algorithms 1/3/6), velocity sensitivity, rate scaling, keyboard level scaling (KLS), detune, coarse frequency, E.PIANO-like patch, diagnostic output
+  - All tests pass with exact waveform match to DEXED after bug fixes
+  - Expanded test suite from 93 tests (16 suites) to 107 tests (17 suites)
+
 ### Fixed
+- **exp2LookupQ24 32-bit Integer Overflow** (2026-02-18)
+  - Fixed 32-bit integer overflow in `Exp2Table.exp2LookupQ24()` to match DEXED C behavior
+  - Old: `let linearInterp = (dy * lowbits) >> 14` used Swift `Int` (64-bit) arithmetic
+  - New: `let linearInterp = (dy &* lowbits) >> 14` uses wrapping `Int32` multiply to match C `int` overflow semantics
+  - Issue: `dy` (Q30 delta) × `lowbits` (14-bit fraction) can exceed Int32.max (2.1B), causing different results in Swift vs C
+  - Maximum intermediate value: 11.9B (0x2C7FFFFFF) requires 64-bit storage, but DEXED wraps at 32-bit boundary
+  - Swift's default overflow trapping prevented exact match; wrapping multiply `&*` replicates DEXED behavior
+  - Verified against DEXED for all 2049 exp2 table entries
+- **DX7Voice dgain Rounding Direction** (2026-02-18)
+  - Fixed `dgain` calculation in `computeMod()`, `computePure()`, and `computeFb()` to match DEXED rounding behavior
+  - Old: `let dgain = (gain2 - gain1) / Int32(n)` (division, truncates toward zero)
+  - New: `let dgain = (gain2 - gain1 + 32) >> kLgBlockSize` (arithmetic right shift, rounds down)
+  - Issue: For negative `dgain`, division and right shift differ by 1 (e.g., `-65 / 64 = -1` vs `-65 >> 6 = -2`)
+  - Added `kLgBlockSize = 6` constant to `Algorithm.swift` for clarity (replaces magic number `64`)
+  - Arithmetic right shift matches DEXED `env.cc` implementation exactly
+  - Ensures bit-exact envelope increment behavior across all 14 voice comparison tests
 - **Keyboard Rate Scaling (KRS) Algorithm** (2026-02-18)
   - Fixed `keyboardRateScaling()` in ScalingTable.swift to match DEXED's ScaleRate() exactly
   - Old algorithm: `min(7, (note-36+1)/3) * scaling` gave 21 for note=60, sens=3
@@ -106,9 +133,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Notes
 - **Phase 2 Complete** (2026-02-16): Library extraction and clean room implementation finished
-- 17 Swift source files, all tests passing
+- 17 Swift source files, all 107 tests passing (17 test suites)
 - Clean room verification: `grep -ri msfa Sources/` returns 0 results
 - Performance: 16 voices × 512 frames renders in ~17.8ms on x86_64 (target: <2ms on ARM)
+- DX7 accuracy: Bit-exact waveform match to DEXED verified across all 14 voice comparison tests
 
 ---
 

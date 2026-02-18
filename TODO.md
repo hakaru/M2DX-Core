@@ -59,7 +59,9 @@ All 8 steps of Phase 2 have been completed as of 2026-02-16.
 - [x] Create `WaveformTests.swift`: renderBlock output, silent voice, feedback effects
 - [x] Create `ConcurrencyTests.swift`: SnapshotRing stress test, SynthEngine 1000 note on/off
 - [x] Create `PerformanceTests.swift`: 16 voices × 512 frames rendering benchmark
-- [x] Verify all 66 tests pass
+- [x] Create `ReferenceTests.swift`: 10 operator-level DEXED comparison tests (ScaleRate, ScaleVelocity, ScaleLevel, exp2, EG, algorithms)
+- [x] Create `VoiceComparisonTests.swift`: 14 voice-level waveform comparison tests against DEXED
+- [x] Verify all 107 tests pass (17 test suites, 0 failures)
 
 ### Step 8: CI Pipeline ✅
 
@@ -94,9 +96,13 @@ All 8 steps of Phase 2 have been completed as of 2026-02-16.
 ### DX7 Accuracy Improvements (2026-02-18) ✅
 
 - [x] **DEXED Reference Testing Infrastructure**
-  - Created DX7Ref C target with DEXED msfa reference functions
+  - Created DX7Ref C target with DEXED msfa reference functions (operator-level)
   - Implemented ReferenceTests.swift with 10 comprehensive comparison tests
   - All DSP functions verified to match DEXED exactly (ScaleRate, ScaleVelocity, ScaleLevel, exp2, EG advance, algorithm flags)
+- [x] **DEXED Voice-Level Rendering**
+  - Extended DX7Ref with complete voice rendering functions (sin lookup, frequency LUT, oscillator frequency, FM core render, voice init/render/noteoff)
+  - Implemented VoiceComparisonTests.swift with 14 waveform-level comparison tests
+  - All voice-level tests pass with exact waveform match to DEXED (107 total tests, 17 suites)
 - [x] **Keyboard Rate Scaling Bug Fix**
   - Fixed keyboardRateScaling() algorithm in ScalingTable.swift to match DEXED ScaleRate()
   - Changed from `min(7,(note-36+1)/3)*scaling` to `(scaling*min(31,max(0,note/3-7)))>>3`
@@ -118,6 +124,13 @@ All 8 steps of Phase 2 have been completed as of 2026-02-16.
 - [x] **Output Processing Refinement**
   - Removed hard clipping from SynthEngine output
   - Delegates dynamic range management to host FX chain
+- [x] **exp2LookupQ24 Integer Overflow**
+  - Fixed 32-bit wrapping multiply to match DEXED C int overflow behavior
+  - Changed from Swift Int (64-bit) to Int32 wrapping arithmetic (&*)
+- [x] **dgain Rounding Direction**
+  - Fixed envelope dgain calculation to use arithmetic right shift instead of division
+  - Matches DEXED env.cc rounding behavior exactly (floor instead of truncate toward zero)
+  - Added kLgBlockSize constant (6) for clarity
 
 ### Remaining Verification Tasks
 
