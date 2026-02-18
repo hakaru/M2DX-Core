@@ -106,13 +106,13 @@ package let kAMSDepthQ24: [Int32] = [0, 4_342_338, 7_171_437, 16_777_216]
 
 // MARK: - Keyboard Rate Scaling
 
-/// Rate scaling value added to qrate in EG advance().
-/// Formula: t = max(0, (note - 36 + 1) / 3), result = min(7, t) × scaling
+/// Rate scaling value added to raw rate before qrate conversion.
+/// Matches DEXED msfa ScaleRate(): x = clamp(note/3 - 7, 0, 31), result = (sensitivity * x) >> 3
 @inline(__always)
 package func keyboardRateScaling(note: UInt8, scaling: UInt8) -> Int {
     guard scaling > 0 else { return 0 }
-    let t = max(0, (Int(note) - 36 + 1) / 3)
-    return min(7, t) * Int(scaling)
+    let x = min(31, max(0, Int(note) / 3 - 7))
+    return (Int(scaling) * x) >> 3
 }
 
 // MARK: - Feedback Shift

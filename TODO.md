@@ -91,6 +91,34 @@ All 8 steps of Phase 2 have been completed as of 2026-02-16.
   - Fixed `DX7Operator.noteOn()` to reset `gainOut = 0` to prevent stale gain from previous note
   - All 73 tests pass
 
+### DX7 Accuracy Improvements (2026-02-18) ✅
+
+- [x] **DEXED Reference Testing Infrastructure**
+  - Created DX7Ref C target with DEXED msfa reference functions
+  - Implemented ReferenceTests.swift with 10 comprehensive comparison tests
+  - All DSP functions verified to match DEXED exactly (ScaleRate, ScaleVelocity, ScaleLevel, exp2, EG advance, algorithm flags)
+- [x] **Keyboard Rate Scaling Bug Fix**
+  - Fixed keyboardRateScaling() algorithm in ScalingTable.swift to match DEXED ScaleRate()
+  - Changed from `min(7,(note-36+1)/3)*scaling` to `(scaling*min(31,max(0,note/3-7)))>>3`
+  - Verified against DEXED for all 128 notes × 8 sensitivities
+- [x] **Envelope Rate Scaling Application Fix**
+  - Fixed DX7Envelope.advance() and recalcCurrentInc() to apply rateScaling to qrate instead of raw rate
+  - Matches DEXED env.cc implementation exactly
+  - Resolves E.PIANO1 sustain issue (1.3s → 40s+ decay)
+- [x] **Atomic Preset Loading API**
+  - Added SynthEngine.loadDX7Preset() for race-free preset application
+  - Eliminates intermediate snapshot leakage from multi-setter approach
+  - Includes PresetLoadTests.swift integration tests
+- [x] **MIDI Event Ordering Fix**
+  - Fixed drainMIDI() to process events in FIFO order
+  - Prevents stuck notes from out-of-order note on/off
+- [x] **Feedback Parameter Correction**
+  - Fixed feedback to apply preset-global value to operator 0 only
+  - Matches DX7 specification (algorithm-level, not per-operator)
+- [x] **Output Processing Refinement**
+  - Removed hard clipping from SynthEngine output
+  - Delegates dynamic range management to host FX chain
+
 ### Remaining Verification Tasks
 
 - [ ] **Sound Tuning Verification**: Compare audio output against real DX7 hardware for all 32 algorithms

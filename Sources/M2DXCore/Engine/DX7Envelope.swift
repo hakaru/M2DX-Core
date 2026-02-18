@@ -121,6 +121,9 @@ package struct DX7Envelope {
         rising = targetLevel > level
 
         if targetLevel == level {
+            // Stage 3 (release) must not auto-advance while key is held.
+            // DX7 sustains at L3 level until key release, even when L3 == L4.
+            if ix == 3 && down { return }
             advance(ix + 1)
             return
         }
@@ -134,7 +137,7 @@ package struct DX7Envelope {
         default: rate = 0
         }
 
-        var qrate = min(63, (rate * 41) >> 6)
+        var qrate = (rate * 41) >> 6
         qrate = min(63, qrate + rateScaling)
         let rawInc = (4 + (qrate & 3)) << (8 + (qrate >> 2))
         inc = Int32((Int64(rawInc) * srMultiplier) >> 24)
@@ -150,7 +153,7 @@ package struct DX7Envelope {
         case 3: rate = rates.3
         default: rate = 0
         }
-        var qrate = min(63, (rate * 41) >> 6)
+        var qrate = (rate * 41) >> 6
         qrate = min(63, qrate + rateScaling)
         let rawInc = (4 + (qrate & 3)) << (8 + (qrate >> 2))
         inc = Int32((Int64(rawInc) * srMultiplier) >> 24)

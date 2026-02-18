@@ -8,6 +8,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Keyboard Rate Scaling (KRS) Algorithm** (2026-02-18)
+  - Fixed `keyboardRateScaling()` in ScalingTable.swift to match DEXED's ScaleRate() exactly
+  - Old algorithm: `min(7, (note-36+1)/3) * scaling` gave 21 for note=60, sens=3
+  - New algorithm: `(scaling * min(31, max(0, note/3-7))) >> 3` gives 4 for note=60, sens=3
+  - Corrects excessive envelope rate scaling that caused E.PIANO1 to decay in 1.3s instead of 40s+
+  - Verified against DEXED reference implementation (all 128 notes × 8 sensitivities match exactly)
+- **DX7Envelope Rate Scaling Application Order** (2026-02-18)
+  - Fixed `advance()` and `recalcCurrentInc()` to apply rateScaling to qrate instead of raw rate
+  - Old: `adjustedRate = min(99, rate + rateScaling); qrate = (adjustedRate*41)>>6` (applied to raw rate)
+  - New: `qrate = (rate*41)>>6; qrate = min(63, qrate + rateScaling)` (applied to qrate)
+  - Matches DEXED env.cc implementation exactly
+  - Combined with KRS fix, resolves sustain phase issues across all presets
+- **SynthEngine Preset Loading** (2026-02-18)
+  - Added `loadDX7Preset(_ preset: DX7Preset)` for atomic preset loading via single snapshot push
+  - Eliminates race condition from 40+ individual parameter setters
+  - Ensures consistent preset application without intermediate snapshots leaking to render thread
+- **SynthEngine MIDI Event Ordering** (2026-02-18)
+  - Fixed `drainMIDI()` to process events in FIFO order (previously reversed)
+  - Prevents out-of-order note on/off events causing stuck notes
+- **Feedback Scaling** (2026-02-18)
+  - Fixed feedback parameter to apply preset-global value to operator 0 only (was incorrectly per-operator)
+  - Matches DX7 specification (algorithm-level feedback, not per-operator)
+- **SynthEngine Output Clipping** (2026-02-18)
+  - Removed hard clipping (`min/max ±1.0`) from engine output
+  - Delegates dynamic range management to FX chain (Maximizer)
+  - Preserves peak transients for better limiter performance
 - **Issue #2**: Eliminated heap allocation on audio thread when SnapshotRing drops old snapshots
   - Changed `SynthParamSnapshot.slots` and `SynthParamSnapshot.slotConfigs` from dynamic `Array<T>` to fixed-size tuples (8 elements)
   - Added `activeSlotCount: Int` field to track active slots dynamically
@@ -41,6 +67,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - This ensures INIT VOICE and other presets sound identical regardless of prior CC message history
 
 ### Added
+- **DX7Ref C Target** (2026-02-18)
+  - Added test-only C target with DEXED msfa reference functions for comparison testing
+  - Includes: ScaleRate, ScaleVelocity, ScaleLevel, scaleoutlevel, exp2 lookup, EG advance/getsample, algorithm flags
+  - Apache 2.0 licensed reference implementation (Sources/DX7Ref/, not included in production library)
+  - Enables bit-exact verification of M2DX DSP against DEXED
+- **ReferenceTests.swift** (2026-02-18)
+  - Added 10 comprehensive comparison tests verifying M2DX matches DEXED exactly
+  - Tests: ScaleRate (1024 cases), ScaleVelocity (1024 cases), ScaleLevel (2000 cases), scaleOutputLevel (100 cases), exp2 lookup, EG inc (3200 cases), EG level trace (3000+ blocks), algorithm flags (32 algorithms)
+  - All tests pass with exact match to DEXED reference functions
+  - Provides regression protection for DSP accuracy
+- **PresetLoadTests.swift** (2026-02-18)
+  - Integration tests for atomic preset loading via `loadDX7Preset()`
+  - Verifies snapshot consistency and parameter mapping
+  - Tests INIT VOICE and E.PIANO1 preset application
 - **Swift Package**: Created `Package.swift` with Swift 6.0, macOS 15+ / iOS 18+ support
 - **Tables**: Self-generated Q24 sin table, Q30 exp2 table, frequency table, scaling table (all computed from mathematical functions)
 - **Infrastructure**: Lock-free `SnapshotRing<T>` SPSC ring buffer using `Synchronization.Atomic`
