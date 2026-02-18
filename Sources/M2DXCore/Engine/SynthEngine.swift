@@ -131,10 +131,24 @@ public final class SynthEngine: @unchecked Sendable {
 
     // MARK: - UI Thread Parameter Setters
 
+    private var batchDepth = 0
+
+    /// Begin a batch update — suppresses snapshot pushes until endBatch().
+    /// Nestable. Call endBatch() to push the final snapshot.
+    public func beginBatch() { batchDepth += 1 }
+
+    /// End a batch update — pushes the snapshot if this is the outermost batch.
+    public func endBatch() {
+        batchDepth = max(0, batchDepth - 1)
+        if batchDepth == 0 { bumpVersion() }
+    }
+
     @inline(__always)
     private func bumpVersion() {
         shadowSnapshot.version &+= 1
-        snapshotRing.pushLatest(shadowSnapshot)
+        if batchDepth == 0 {
+            snapshotRing.pushLatest(shadowSnapshot)
+        }
     }
 
     public func setSampleRate(_ sr: Float) {
@@ -412,6 +426,94 @@ public final class SynthEngine: @unchecked Sendable {
         bumpVersion()
     }
 
+    /// Load a DX7 preset into slot 0 atomically.
+    /// Directly writes all parameters to the shadow snapshot and pushes once.
+    /// This avoids intermediate snapshot races that occur with individual setters.
+    public func loadDX7Preset(_ preset: DX7Preset, slotIdx: Int = 0) {
+        guard slotIdx >= 0, slotIdx < shadowSnapshot.activeSlotCount else { return }
+
+        // Build operator snapshots
+        func makeOpSnap(_ op: DX7OperatorPreset, isFeedbackOp: Bool, voiceFeedback: Int) -> OperatorSnapshot {
+            var s = OperatorSnapshot()
+            s.level = op.normalizedLevel
+            s.ratio = op.frequencyRatio
+            s.detune = powf(2.0, op.detuneCents / 1200.0)
+            // Feedback stored as Float(fb)/7.0 — only on the feedback operator (op0)
+            s.feedback = isFeedbackOp ? Float(voiceFeedback) / 7.0 : 0
+            s.dx7OutputLevel = op.outputLevel
+            s.dx7EgR0 = op.egRate1; s.dx7EgR1 = op.egRate2
+            s.dx7EgR2 = op.egRate3; s.dx7EgR3 = op.egRate4
+            s.dx7EgL0 = op.egLevel1; s.dx7EgL1 = op.egLevel2
+            s.dx7EgL2 = op.egLevel3; s.dx7EgL3 = op.egLevel4
+            let levels = op.egLevelsNormalized
+            s.egR0 = Float(op.egRate1); s.egR1 = Float(op.egRate2)
+            s.egR2 = Float(op.egRate3); s.egR3 = Float(op.egRate4)
+            s.egL0 = levels.0; s.egL1 = levels.1
+            s.egL2 = levels.2; s.egL3 = levels.3
+            s.velocitySensitivity = UInt8(clamping: op.velocitySensitivity)
+            s.ampModSensitivity = UInt8(clamping: op.ampModSensitivity)
+            s.keyboardRateScaling = UInt8(clamping: op.keyboardRateScaling)
+            s.klsBreakPoint = UInt8(clamping: op.klsBreakPoint)
+            s.klsLeftDepth = UInt8(clamping: op.klsLeftDepth)
+            s.klsRightDepth = UInt8(clamping: op.klsRightDepth)
+            s.klsLeftCurve = UInt8(clamping: op.klsLeftCurve)
+            s.klsRightCurve = UInt8(clamping: op.klsRightCurve)
+            s.fixedFrequency = UInt8(clamping: op.frequencyMode)
+            s.fixedFreqCoarse = UInt8(clamping: op.frequencyCoarse)
+            s.fixedFreqFine = UInt8(clamping: op.frequencyFine)
+            return s
+        }
+
+        var slot = SlotSnapshot()
+        slot.algorithm = max(0, min(kNumAlgorithms - 1, preset.algorithm))
+
+        // DX7Preset.operators: [OP1, OP2, OP3, OP4, OP5, OP6] (OP1=carrier in Alg1)
+        // kAlgorithmFlags opIdx: 0=OP6, 1=OP5, 2=OP4, 3=OP3, 4=OP2, 5=OP1
+        // Map: operators[i] → opIdx = 5 - i
+        // Feedback goes on opIdx 0 (= OP6 = operators[5])
+        let ops = preset.operators
+        if ops.count >= 6 {
+            slot.ops.0 = makeOpSnap(ops[5], isFeedbackOp: true, voiceFeedback: preset.feedback)
+            slot.ops.1 = makeOpSnap(ops[4], isFeedbackOp: false, voiceFeedback: 0)
+            slot.ops.2 = makeOpSnap(ops[3], isFeedbackOp: false, voiceFeedback: 0)
+            slot.ops.3 = makeOpSnap(ops[2], isFeedbackOp: false, voiceFeedback: 0)
+            slot.ops.4 = makeOpSnap(ops[1], isFeedbackOp: false, voiceFeedback: 0)
+            slot.ops.5 = makeOpSnap(ops[0], isFeedbackOp: false, voiceFeedback: 0)
+        }
+
+        // LFO
+        slot.lfoSpeed = UInt8(clamping: preset.lfoSpeed)
+        slot.lfoDelay = UInt8(clamping: preset.lfoDelay)
+        slot.lfoPMD = UInt8(clamping: preset.lfoPMD)
+        slot.lfoAMD = UInt8(clamping: preset.lfoAMD)
+        slot.lfoSync = UInt8(clamping: preset.lfoSync)
+        slot.lfoWaveform = UInt8(clamping: preset.lfoWaveform)
+        slot.lfoPMS = UInt8(clamping: preset.lfoPMS)
+
+        // Pitch EG
+        slot.pitchEGR0 = UInt8(clamping: preset.pitchEGR1)
+        slot.pitchEGR1 = UInt8(clamping: preset.pitchEGR2)
+        slot.pitchEGR2 = UInt8(clamping: preset.pitchEGR3)
+        slot.pitchEGR3 = UInt8(clamping: preset.pitchEGR4)
+        slot.pitchEGL0 = UInt8(clamping: preset.pitchEGL1)
+        slot.pitchEGL1 = UInt8(clamping: preset.pitchEGL2)
+        slot.pitchEGL2 = UInt8(clamping: preset.pitchEGL3)
+        slot.pitchEGL3 = UInt8(clamping: preset.pitchEGL4)
+        slot.transpose = Int8(clamping: preset.transpose)
+
+        // Controller mapping — DX7 defaults
+        slot.wheelPitch = 50; slot.wheelAmp = 0; slot.wheelEGBias = 0
+        slot.footPitch = 0; slot.footAmp = 0; slot.footEGBias = 0
+        slot.breathPitch = 0; slot.breathAmp = 0; slot.breathEGBias = 0
+        slot.aftertouchPitch = 0; slot.aftertouchAmp = 0; slot.aftertouchEGBias = 0
+
+        // Write to shadow snapshot and push atomically
+        shadowSnapshot.setSlot(at: slotIdx, slot)
+        resetControllers()
+        shadowSnapshot.version &+= 1
+        snapshotRing.pushLatest(shadowSnapshot)
+    }
+
     /// Reset all MIDI controller state to defaults.
     /// Call when switching presets to clear stale CC values.
     public func resetControllers() {
@@ -447,13 +549,17 @@ public final class SynthEngine: @unchecked Sendable {
     public func render(into bufferL: UnsafeMutablePointer<Float>,
                        bufferR: UnsafeMutablePointer<Float>,
                        frameCount: Int) {
-        // Pop latest snapshot
+        // Pop latest snapshot first so MIDI handlers see current params
         if let newSnapshot = snapshotRing.popLatest() {
             currentSnapshot = newSnapshot
         }
         let snapshot = currentSnapshot
 
-        // Apply parameter changes
+        // Drain MIDI before applyParams so allNotesOff is processed
+        // before intermediate preset change snapshots corrupt active voices.
+        drainMIDI()
+
+        // Apply parameter changes to all voices
         if snapshot.version != appliedVersion {
             appliedVersion = snapshot.version
 
@@ -487,11 +593,13 @@ public final class SynthEngine: @unchecked Sendable {
             }
             effectiveMaxVoices = (currentOversamplingMode == .off) ? voicesForMode : max(8, voicesForMode / 2)
 
+            // Apply per-voice params unconditionally.
+            // Preset loads use loadDX7Preset (atomic 1-push), so versionDelta is always 1.
             for i in 0..<kMaxVoices {
                 let slotIdx = voicesDX7[i].slotId
                 let slot = slotIdx < snapshot.activeSlotCount ? snapshot.slot(at: slotIdx) : snapshot.slot(at: 0)
                 voicesDX7[i].algorithm = slot.algorithm
-                voicesDX7[i].feedbackShiftValue = feedbackShift(Int(slot.ops.0.feedback))
+                voicesDX7[i].feedbackShiftValue = feedbackShift(Int(slot.ops.0.feedback * 7.0 + 0.5))
                 voicesDX7[i].applyParams(slot.ops.0, opIndex: 0)
                 voicesDX7[i].applyParams(slot.ops.1, opIndex: 1)
                 voicesDX7[i].applyParams(slot.ops.2, opIndex: 2)
@@ -500,9 +608,6 @@ public final class SynthEngine: @unchecked Sendable {
                 voicesDX7[i].applyParams(slot.ops.5, opIndex: 5)
             }
         }
-
-        // Drain MIDI events
-        drainMIDI()
 
         // Render
         if currentOversamplingMode == .off {
@@ -688,10 +793,8 @@ public final class SynthEngine: @unchecked Sendable {
                 }
             }
 
-            for s in 0..<blockSize {
-                outBufL[s] = min(1.0, max(-1.0, outBufL[s]))
-                outBufR[s] = min(1.0, max(-1.0, outBufR[s]))
-            }
+            // No hard clipping here — let the FX chain's Maximizer
+            // (look-ahead peak limiter) handle peak limiting gracefully.
 
             offset += blockSize
         }
@@ -748,7 +851,7 @@ public final class SynthEngine: @unchecked Sendable {
 
             voicesDX7[target].algorithm = slot.algorithm
             voicesDX7[target].slotId = slotIdx
-            voicesDX7[target].feedbackShiftValue = feedbackShift(Int(slot.ops.0.feedback))
+            voicesDX7[target].feedbackShiftValue = feedbackShift(Int(slot.ops.0.feedback * 7.0 + 0.5))
 
             voicesDX7[target].applyParams(slot.ops.0, opIndex: 0)
             voicesDX7[target].applyParams(slot.ops.1, opIndex: 1)

@@ -365,8 +365,8 @@ struct SynthEngineNoteTests {
         // If we get here without crash, test passes
     }
 
-    @Test("Output is clipped to [-1, 1]")
-    func outputClipped() {
+    @Test("Output is finite (no NaN/Inf)")
+    func outputFinite() {
         let engine = SynthEngine()
         engine.setSampleRate(44100)
         engine.setAlgorithm(31)
@@ -377,7 +377,7 @@ struct SynthEngineNoteTests {
             engine.setOperatorDX7EGLevels(i, l1: 99, l2: 99, l3: 99, l4: 0)
         }
 
-        // Play many notes at once to force clipping
+        // Play many notes at once — output may exceed ±1.0 (clipping handled by FX chain)
         for note in UInt8(36)...UInt8(72) {
             engine.sendMIDI(MIDIEvent(kind: .noteOn, data1: note, data2: UInt32(0x7F00)))
         }
@@ -394,8 +394,8 @@ struct SynthEngineNoteTests {
         }
 
         for i in 0..<frameCount {
-            #expect(bufL[i] >= -1.0 && bufL[i] <= 1.0, "Output L[\(i)] = \(bufL[i]) out of range")
-            #expect(bufR[i] >= -1.0 && bufR[i] <= 1.0, "Output R[\(i)] = \(bufR[i]) out of range")
+            #expect(bufL[i].isFinite, "Output L[\(i)] = \(bufL[i]) is not finite")
+            #expect(bufR[i].isFinite, "Output R[\(i)] = \(bufR[i]) is not finite")
         }
     }
 }

@@ -25,9 +25,14 @@ let package = Package(
                 .linkedFramework("Accelerate"),
             ]
         ),
+        // DEXED msfa reference (C) — test-only, not included in production
+        .target(
+            name: "DX7Ref",
+            publicHeadersPath: "include"
+        ),
         .testTarget(
             name: "M2DXCoreTests",
-            dependencies: ["M2DXCore"]
+            dependencies: ["M2DXCore", "DX7Ref"]
         ),
     ]
 )
