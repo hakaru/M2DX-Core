@@ -92,6 +92,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Can be disabled with `resetControllers: false` for individual parameter adjustments
   - Fixed `DX7Operator.noteOn()` to reset `gainOut = 0` to prevent stale gain carry-over from previous notes
   - This ensures INIT VOICE and other presets sound identical regardless of prior CC message history
+- **SynthEngine Output Scaling Normalization** (2026-02-18)
+  - Fixed output scaling divisor from 33554432.0 (2^25) to 268435456.0 (2^28)
+  - Root cause: Previous /2^25 was 8× too hot compared to DEXED's normalization (>> 4, >> 9, / 32768 = / 2^28)
+  - Multi-carrier algorithms (e.g. Algorithm 32 with 6 carriers) were clipping at ~1.48 peak amplitude
+  - Now correctly normalized: single carrier peak ~0.06, 6-carrier peak ~0.375
+  - Prevents output distortion on presets with multiple carriers
+  - All 107 tests pass
 
 ### Added
 - **DX7Ref C Target** (2026-02-18)

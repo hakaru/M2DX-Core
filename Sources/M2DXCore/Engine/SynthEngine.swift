@@ -784,8 +784,10 @@ public final class SynthEngine: @unchecked Sendable {
 
                 let pL = panGainL[i]
                 let pR = panGainR[i]
-                let scale = vol * pL / 33554432.0
-                let scaleR = vol * pR / 33554432.0
+                // DEXED normalizes Q24 output as: >> 4, >> 9, / 32768 = / 2^28.
+                // Previous /2^25 was 8× too hot, clipping on multi-carrier algorithms.
+                let scale = vol * pL / 268435456.0
+                let scaleR = vol * pR / 268435456.0
                 for s in 0..<blockSize {
                     let sample = Float(blockBuf[s])
                     outBufL[s] += sample * scale
