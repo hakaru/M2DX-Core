@@ -107,7 +107,7 @@ package let kAMSDepthQ24: [Int32] = [0, 4_342_338, 7_171_437, 16_777_216]
 // MARK: - Keyboard Rate Scaling
 
 /// Rate scaling value added to raw rate before qrate conversion.
-/// Matches DEXED msfa ScaleRate(): x = clamp(note/3 - 7, 0, 31), result = (sensitivity * x) >> 3
+/// Matches DEXED ScaleRate(): x = clamp(note/3 - 7, 0, 31), result = (sensitivity * x) >> 3
 @inline(__always)
 package func keyboardRateScaling(note: UInt8, scaling: UInt8) -> Int {
     guard scaling > 0 else { return 0 }

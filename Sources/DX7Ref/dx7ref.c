@@ -1,4 +1,4 @@
-// dx7ref.c — DEXED msfa reference functions for comparison testing
+// dx7ref.c — DEXED reference functions for comparison testing
 // Ported from DEXED (https://github.com/asb2m10/dexed) under Apache 2.0 license.
 // Original copyright: Copyright 2012 Google Inc. / Pascal Gauthier
 // SPDX-License-Identifier: Apache-2.0
