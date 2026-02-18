@@ -134,6 +134,7 @@ All 8 steps of Phase 2 have been completed as of 2026-02-16.
 
 ### Remaining Verification Tasks
 
+- [x] **Output Scaling Normalization** (2026-02-18): Fixed SynthEngine divisor from 2^25 to 2^28 to match DEXED normalization (prevents clipping on multi-carrier algorithms)
 - [ ] **Sound Tuning Verification**: Compare audio output against real DX7 hardware for all 32 algorithms
 - [ ] **ARM Performance Benchmarks**: Profile rendering performance on Apple Silicon (target: <2ms for 16 voices × 512 frames)
 - [ ] **Integration Testing**: Test library integration with M2DX app
