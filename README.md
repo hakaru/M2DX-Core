@@ -41,11 +41,11 @@ swift test
 swift test --verbose
 ```
 
-All 66 tests should pass. Performance benchmarks may vary depending on your hardware (x86_64 vs ARM).
+All 107 tests should pass. Performance benchmarks may vary depending on your hardware (x86_64 vs ARM).
 
 ### Test Suite
 
-The library includes comprehensive test coverage across 6 test suites:
+The library includes comprehensive test coverage across 8 test suites:
 
 | Test Suite | Tests | Coverage |
 |------------|-------|----------|
@@ -55,6 +55,8 @@ The library includes comprehensive test coverage across 6 test suites:
 | **WaveformTests** | 8 | renderBlock output, silent voice, feedback modulation effects |
 | **ConcurrencyTests** | 3 | SnapshotRing stress test, SynthEngine concurrent note on/off |
 | **PerformanceTests** | 2 | 16 voices × 512 frames rendering benchmark |
+| **ReferenceTests** | 10 | Operator-level DEXED comparison (ScaleRate, ScaleVelocity, ScaleLevel, exp2, EG, algorithms) |
+| **VoiceComparisonTests** | 14 | Voice-level waveform comparison against DEXED (INIT VOICE, algorithms, feedback, velocity, rate scaling, KLS, detune, E.PIANO) |
 
 Run tests with:
 ```bash
@@ -144,8 +146,9 @@ See [TODO.md](TODO.md) for the complete roadmap.
 - [x] DX7 presets, algorithms, and SysEx parser
 - [x] Full synthesis engine (envelope, operator, voice, polyphony)
 - [x] Accelerate-based DSP (downsampler, voice mixer)
-- [x] 66 tests across 6 test suites
+- [x] 107 tests across 8 test suites (including voice-level DEXED comparison)
 - [x] GitHub Actions CI pipeline
+- [x] Bit-exact waveform verification against DEXED reference implementation
 
 ### 🎯 Next: Phase 3 — SPM Library Release
 

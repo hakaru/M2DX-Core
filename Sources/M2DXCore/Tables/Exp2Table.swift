@@ -45,11 +45,13 @@ nonisolated(unsafe) let kExp2Tab: UnsafePointer<Int32> = {
 /// Typical usage: gain = exp2LookupQ24(egLevel - 14*(1<<24))
 @inline(__always)
 package func exp2LookupQ24(_ x: Int32) -> Int32 {
-    let lowbits = Int(x) & ((1 << 14) - 1)          // 14-bit fraction
-    let xIdx = (Int(x) >> 13) & 2046                 // 10-bit index * 2 (interleaved)
-    let dy = Int(kExp2Tab[xIdx])                      // delta
-    let y0 = Int(kExp2Tab[xIdx + 1])                  // base value (Q30)
-    let y = y0 + ((dy * lowbits) >> 14)               // linear interpolation (Q30)
+    let lowbits = Int32(x) & ((1 << 14) - 1)         // 14-bit fraction
+    let xIdx = Int((x >> 13) & 2046)                  // 10-bit index * 2 (interleaved)
+    let dy = kExp2Tab[xIdx]                            // delta (Int32)
+    let y0 = kExp2Tab[xIdx + 1]                        // base value (Q30, Int32)
+    // DEXED uses int (32-bit) arithmetic; match overflow behavior exactly
+    let interpol = (dy &* lowbits) >> 14               // Int32 wrapping multiply
+    let y = Int(y0 &+ interpol)                        // Int32 wrapping add, then widen
     let shift = 6 - (Int(x) >> 24)                    // integer part determines octave shift
     if shift >= 31 { return 0 }
     if shift <= 0 { return Int32(clamping: y << (-shift)) }

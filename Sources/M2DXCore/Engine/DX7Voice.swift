@@ -239,7 +239,7 @@ package struct DX7Voice {
         _ gain1: Int32, _ gain2: Int32,
         _ add: Bool, _ n: Int
     ) {
-        let dgain = (gain2 &- gain1 &+ Int32(n >> 1)) / Int32(n)
+        let dgain = (gain2 &- gain1 &+ Int32(n >> 1)) >> kLgBlockSize
         var gain = gain1
         var phase = phase0
         for i in 0..<n {
@@ -258,7 +258,7 @@ package struct DX7Voice {
         _ gain1: Int32, _ gain2: Int32,
         _ add: Bool, _ n: Int
     ) {
-        let dgain = (gain2 &- gain1 &+ Int32(n >> 1)) / Int32(n)
+        let dgain = (gain2 &- gain1 &+ Int32(n >> 1)) >> kLgBlockSize
         var gain = gain1
         var phase = phase0
         for i in 0..<n {
@@ -278,7 +278,7 @@ package struct DX7Voice {
         _ fbBuf: inout (Int32, Int32),
         _ fbShift: Int, _ add: Bool, _ n: Int
     ) {
-        let dgain = (gain2 &- gain1 &+ Int32(n >> 1)) / Int32(n)
+        let dgain = (gain2 &- gain1 &+ Int32(n >> 1)) >> kLgBlockSize
         var gain = gain1
         var phase = phase0
         var y0 = fbBuf.0

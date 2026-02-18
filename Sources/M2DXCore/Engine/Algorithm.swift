@@ -7,6 +7,7 @@ package let kNumOperators = 6
 package let kMaxVoices = 128
 package let kNumAlgorithms = 32
 package let kBlockSize = 64
+package let kLgBlockSize: Int32 = 6  // log2(kBlockSize)
 
 /// Gain threshold for skipping silent operators
 package let kGainThreshold: Int32 = 1120

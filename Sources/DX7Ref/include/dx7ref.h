@@ -11,6 +11,12 @@
 extern "C" {
 #endif
 
+// --- Constants ---
+
+#define DX7REF_LG_N 6
+#define DX7REF_N (1 << DX7REF_LG_N)  // 64 samples per block
+#define DX7REF_FEEDBACK_BITDEPTH 8
+
 // --- Scaling Functions ---
 
 /// DEXED ScaleRate: keyboard rate scaling
@@ -41,6 +47,32 @@ int dx7ref_scale_outlevel(int outlevel);
 /// Input: x in Q24 log domain
 /// Returns: amplitude in Q24
 int32_t dx7ref_exp2_lookup(int32_t x);
+
+// --- Sin Lookup ---
+
+/// DEXED Sin::lookup: Q24 phase to Q24 amplitude
+/// Input: phase in Q24 (full cycle = 2^24)
+/// Returns: sine value in Q24 (range ±2^24)
+int32_t dx7ref_sin_lookup(int32_t phase);
+
+// --- Frequency Lookup ---
+
+/// Initialize the frequency LUT for the given sample rate.
+/// Must be called before dx7ref_freq_lookup().
+void dx7ref_freq_init(double sample_rate);
+
+/// DEXED Freqlut::lookup: log-frequency to Q24 phase increment.
+/// Input: logfreq in Q24 (as computed by dx7ref_osc_freq)
+/// Returns: phase increment per sample in Q24
+int32_t dx7ref_freq_lookup(int32_t logfreq);
+
+// --- Oscillator Frequency ---
+
+/// Compute log-frequency for a DX7 operator.
+/// midinote: 0-127, mode: 0=ratio, 1=fixed
+/// coarse: 0-31, fine: 0-99, detune: 0-14 (7=center)
+/// Returns: logfreq in Q24 format (same as DEXED osc_freq)
+int32_t dx7ref_osc_freq(int midinote, int mode, int coarse, int fine, int detune);
 
 // --- EG (Envelope Generator) ---
 
@@ -82,6 +114,43 @@ int dx7ref_eg_compute_inc(int rate, int rate_scaling);
 /// flags[6]: operator order [0]=OP6, [1]=OP5, ..., [5]=OP1
 /// Returns 0 on success, -1 if algorithm number is out of range
 int dx7ref_get_algorithm_flags(int algorithm, uint8_t flags[6]);
+
+// --- Voice-Level Rendering ---
+
+/// Per-operator parameters (matches DEXED FmOpParams)
+typedef struct {
+    int32_t phase;      // Q24 phase accumulator
+    int32_t freq;       // Q24 per-sample phase increment
+    int32_t gain_out;   // previous block's gain (for interpolation)
+    int32_t level_in;   // EG level (input to exp2)
+} dx7ref_op_params_t;
+
+/// Complete voice state for reference rendering
+typedef struct {
+    dx7ref_eg_t      eg[6];           // envelope generators
+    dx7ref_op_params_t params[6];     // operator parameters (phase, freq, gain, level)
+    int32_t          basepitch[6];    // log-frequency for each operator
+    int32_t          fb_buf[2];       // feedback delay line
+    int              algorithm;       // 0-31
+    int              fb_shift;        // feedback shift (16=disabled, 1=max)
+    int              op_mode[6];      // 0=ratio, 1=fixed
+} dx7ref_voice_t;
+
+/// Initialize a voice from a 156-byte DX7 patch + note/velocity.
+/// patch: 156-byte unpacked voice data (6 ops × 21 bytes + 34 global bytes)
+/// midinote: 0-127, velocity: 0-127 (7-bit)
+/// sample_rate: audio sample rate (e.g. 44100.0)
+/// Call dx7ref_freq_init() before this if sample_rate differs from previous call.
+void dx7ref_voice_init(dx7ref_voice_t *v, const uint8_t patch[156],
+                       int midinote, int velocity, double sample_rate);
+
+/// Render N=64 samples from a voice into an Int32 output buffer.
+/// Output is raw Q24 voice output (sum of carrier operators).
+/// buf must be zeroed by caller before first call.
+void dx7ref_voice_render(dx7ref_voice_t *v, int32_t *buf);
+
+/// Trigger note-off for a voice.
+void dx7ref_voice_noteoff(dx7ref_voice_t *v);
 
 #ifdef __cplusplus
 }
