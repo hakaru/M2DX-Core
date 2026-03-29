@@ -1,6 +1,138 @@
 // DX7Voice.swift
 // M2DX-Core — DX7 6-OP voice with flag-based algorithm dispatch
 
+import Darwin
+
+// MARK: - Pitch EG
+
+/// Simple 4-stage pitch envelope generator that outputs semitones directly.
+/// Operates in Float arithmetic at block rate (64 samples/block).
+/// Level 50 = center (0 semitones), 0 = -48 semitones, 99 = +48 semitones.
+package struct PitchEG {
+    var rates:  (UInt8, UInt8, UInt8, UInt8) = (99, 99, 99, 99)
+    var levels: (UInt8, UInt8, UInt8, UInt8) = (50, 50, 50, 50)
+    /// -1 = idle, 0-3 = active stages
+    var stage: Int = -1
+    /// Current interpolated level (0-99 float)
+    var currentLevel: Float = 50.0
+    var targetLevel: Float = 50.0
+    var increment: Float = 0.0
+    var down: Bool = false
+    var enabled: Bool = false
+
+    /// Current pitch offset in semitones (-48 to +48).
+    var semitones: Float {
+        (currentLevel - 50.0) / 49.0 * 48.0
+    }
+
+    mutating func noteOn(
+        r0: UInt8, r1: UInt8, r2: UInt8, r3: UInt8,
+        l0: UInt8, l1: UInt8, l2: UInt8, l3: UInt8,
+        sampleRate: Float
+    ) {
+        rates  = (r0, r1, r2, r3)
+        levels = (l0, l1, l2, l3)
+        enabled = r0 != 99 || r1 != 99 || r2 != 99 || r3 != 99 ||
+                  l0 != 50 || l1 != 50 || l2 != 50 || l3 != 50
+        guard enabled else { stage = -1; return }
+
+        currentLevel = Float(l0)   // Start at L0 (pre-attack level)
+        stage = 0
+        down = true
+        advanceStage(sampleRate: sampleRate)
+    }
+
+    mutating func noteOff(sampleRate: Float) {
+        guard enabled else { return }
+        down = false
+        if stage >= 0 && stage < 3 {
+            stage = 3
+            advanceStage(sampleRate: sampleRate)
+        }
+    }
+
+    private mutating func advanceStage(sampleRate: Float) {
+        guard stage >= 0 && stage < 4 else {
+            stage = -1
+            return
+        }
+        // DX7 Pitch EG stages:
+        //  Stage 0: L0 → L1 at R0
+        //  Stage 1: L1 → L2 at R1
+        //  Stage 2: L2 → L3 at R2  (sustain while key held)
+        //  Stage 3: L3 → L0 at R3  (release, return to pre-attack level)
+        let lvl: Float
+        let rate: UInt8
+        switch stage {
+        case 0: lvl = Float(levels.1); rate = rates.0
+        case 1: lvl = Float(levels.2); rate = rates.1
+        case 2: lvl = Float(levels.3); rate = rates.2
+        case 3: lvl = Float(levels.0); rate = rates.3
+        default: stage = -1; return
+        }
+        targetLevel = lvl
+
+        let blocksPerSecond = sampleRate / Float(kBlockSize)
+        if rate >= 99 {
+            // Instant: jump immediately, recurse to next stage
+            currentLevel = targetLevel
+            increment = 0.0
+            // Hold sustain stage when key is down
+            if stage == 2 && down { return }
+            stage += 1
+            if stage < 4 {
+                advanceStage(sampleRate: sampleRate)
+            } else {
+                stage = -1
+                currentLevel = 50.0
+            }
+        } else {
+            // Exponential time curve: rate 0 ≈ very slow, rate 98 ≈ fast
+            let timeSeconds = powf(10.0, Float(99 - Int(rate)) / 30.0) * 0.01
+            let totalBlocks = max(1.0, timeSeconds * blocksPerSecond)
+            increment = (targetLevel - currentLevel) / totalBlocks
+        }
+    }
+
+    /// Call once per 64-sample block. Returns true while envelope is active.
+    @discardableResult
+    mutating func process(sampleRate: Float) -> Bool {
+        guard enabled && stage >= 0 else { return false }
+
+        // Sustain: hold at L3 while key is held
+        if stage == 2 && down && increment == 0.0 { return true }
+
+        if increment == 0.0 {
+            // Already at target — advance to next stage
+            if stage == 2 && down { return true }
+            stage += 1
+            if stage >= 4 { stage = -1; currentLevel = 50.0; return false }
+            advanceStage(sampleRate: sampleRate)
+            return stage >= 0
+        }
+
+        // Interpolate toward target
+        currentLevel += increment
+        let reached: Bool
+        if increment > 0 {
+            reached = currentLevel >= targetLevel
+        } else {
+            reached = currentLevel <= targetLevel
+        }
+
+        if reached {
+            currentLevel = targetLevel
+            increment = 0.0
+            if stage == 2 && down { return true }
+            stage += 1
+            if stage >= 4 { stage = -1; currentLevel = 50.0; return false }
+            advanceStage(sampleRate: sampleRate)
+        }
+
+        return stage >= 0
+    }
+}
+
 // MARK: - DX7 Voice
 
 /// DX7 voice using flag-based algorithm dispatch.
@@ -25,11 +157,15 @@ package struct DX7Voice {
     var perNoteAftertouch: Float = 0.0
     var detached: Bool = false
 
+    // Pitch EG
+    var pitchEG = PitchEG()
+
     mutating func resetPerNoteState() {
         perNotePitchBendFactor = 1.0
         perNoteVolume = 1.0
         perNoteAftertouch = 0.0
         detached = false
+        pitchEG = PitchEG()
     }
 
     mutating func checkActive() {

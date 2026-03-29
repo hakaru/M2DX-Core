@@ -787,10 +787,17 @@ public final class SynthEngine: @unchecked Sendable {
                 guard s < slotCount else { continue }
                 let sm = slotMods[s]
 
+                // Pitch EG — advance once per block, get semitone offset
+                var pitchEGSemitones: Float = 0
+                if voicesDX7[i].pitchEG.enabled {
+                    voicesDX7[i].pitchEG.process(sampleRate: snapshot.sampleRate)
+                    pitchEGSemitones = voicesDX7[i].pitchEG.semitones
+                }
+
                 // Compute combined pitch factor including per-note pitch bend and RPN tuning
                 let pnpbFactor = voicesDX7[i].perNotePitchBendFactor
                 let rpnFactor = rpnTuningOffset != 0 ? pitchBendFactorExt(rpnTuningOffset) : 1.0
-                if sm.hasPitchMod || pnpbFactor != 1.0 || rpnFactor != 1.0 {
+                if sm.hasPitchMod || pnpbFactor != 1.0 || rpnFactor != 1.0 || pitchEGSemitones != 0 {
                     let slot = snapshot.slot(at: s)
                     let lfoPitch = lfoCurrentValue[s] * Float(slot.lfoPMD) / 99.0 * sm.pmsDepth
                     let controllerPitch: Float
@@ -799,7 +806,7 @@ public final class SynthEngine: @unchecked Sendable {
                     } else {
                         controllerPitch = sm.wheelPitchDepth + sm.footPitchDepth + sm.breathPitchDepth + sm.atPitchDepth
                     }
-                    let factor = pitchBendValue * pitchBendFactorExt(lfoPitch + controllerPitch) * pnpbFactor * rpnFactor
+                    let factor = pitchBendValue * pitchBendFactorExt(lfoPitch + controllerPitch + pitchEGSemitones) * pnpbFactor * rpnFactor
                     voicesDX7[i].applyPitchBend(factor)
                 }
 
@@ -965,6 +972,14 @@ public final class SynthEngine: @unchecked Sendable {
                 }
             }
 
+            // Pitch EG
+            voicesDX7[target].pitchEG.noteOn(
+                r0: slot.pitchEGR0, r1: slot.pitchEGR1,
+                r2: slot.pitchEGR2, r3: slot.pitchEGR3,
+                l0: slot.pitchEGL0, l1: slot.pitchEGL1,
+                l2: slot.pitchEGL2, l3: slot.pitchEGL3,
+                sampleRate: snapshot.sampleRate)
+
             if pitchBendValue != 1.0 {
                 voicesDX7[target].applyPitchBend(pitchBendValue)
             }
@@ -1018,6 +1033,9 @@ public final class SynthEngine: @unchecked Sendable {
         for i in 0..<kMaxVoices {
             if voicesDX7[i].active && voicesDX7[i].midiNote == note {
                 voicesDX7[i].noteOff(held: sustainPedalOn)
+                if !sustainPedalOn {
+                    voicesDX7[i].pitchEG.noteOff(sampleRate: currentSnapshot.sampleRate)
+                }
             }
         }
     }
