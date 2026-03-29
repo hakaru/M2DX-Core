@@ -17,6 +17,13 @@ public enum OversamplingMode: UInt8, Sendable, CaseIterable {
 public struct MIDIEvent: Sendable {
     public enum Kind: UInt8, Sendable {
         case noteOn, noteOff, controlChange, pitchBend
+        case channelPressure      // data2 = 32-bit pressure value
+        case polyPressure         // data1 = note, data2 = 32-bit pressure value
+        case perNotePitchBend     // data1 = note, data2 = 32-bit bend value
+        case perNoteCC            // data1 = note, data2 = (index << 24) | (value & 0x00FFFFFF)
+        case perNoteManagement    // data1 = note, data2 = flags (bit1=Detach, bit0=Reset)
+        case registeredController // data1 = bank, data2 = (index << 24) | (value & 0x00FFFFFF)
+        case assignableController // data1 = bank, data2 = (index << 24) | (value & 0x00FFFFFF)
     }
     public let kind: Kind
     public let data1: UInt8
@@ -63,6 +70,10 @@ public final class SynthEngine: @unchecked Sendable {
     private var footDepth: Float = 0
     private var breathDepth: Float = 0
     private var aftertouchDepth: Float = 0
+
+    // RPN tuning state
+    private var rpnFineTuningCents: Float = 0
+    private var rpnCoarseTuningSemitones: Float = 0
 
     // LFO state
     private var lfoPhase: [Float] = Array(repeating: 0, count: kMaxSlots)
@@ -125,6 +136,26 @@ public final class SynthEngine: @unchecked Sendable {
                 doControlChange(event.data1, value32: event.data2)
             case .pitchBend:
                 doPitchBend32(event.data2)
+            case .channelPressure:
+                doChannelPressure(event.data2)
+            case .polyPressure:
+                doPolyPressure(event.data1, value32: event.data2)
+            case .perNotePitchBend:
+                doPerNotePitchBend(event.data1, value32: event.data2)
+            case .perNoteCC:
+                let index = UInt8(event.data2 >> 24)
+                let value = event.data2 & 0x00FFFFFF
+                doPerNoteCC(event.data1, index: index, value: value)
+            case .perNoteManagement:
+                doPerNoteManagement(event.data1, flags: event.data2)
+            case .registeredController:
+                let index = UInt8(event.data2 >> 24)
+                let value = event.data2 & 0x00FFFFFF
+                doRPN(event.data1, index: index, value: value)
+            case .assignableController:
+                let index = UInt8(event.data2 >> 24)
+                let value = event.data2 & 0x00FFFFFF
+                doNRPN(event.data1, index: index, value: value)
             }
         }
     }
@@ -747,25 +778,47 @@ public final class SynthEngine: @unchecked Sendable {
                 updateLFOForSlot(s, snapshot.slot(at: s))
             }
 
+            // RPN tuning offset (semitones), computed once per block
+            let rpnTuningOffset = rpnFineTuningCents / 100.0 + rpnCoarseTuningSemitones
+
             for i in 0..<maxV {
                 guard voicesDX7[i].active else { continue }
                 let s = voicesDX7[i].slotId
                 guard s < slotCount else { continue }
                 let sm = slotMods[s]
-                if sm.hasPitchMod {
+
+                // Compute combined pitch factor including per-note pitch bend and RPN tuning
+                let pnpbFactor = voicesDX7[i].perNotePitchBendFactor
+                let rpnFactor = rpnTuningOffset != 0 ? pitchBendFactorExt(rpnTuningOffset) : 1.0
+                if sm.hasPitchMod || pnpbFactor != 1.0 || rpnFactor != 1.0 {
                     let slot = snapshot.slot(at: s)
                     let lfoPitch = lfoCurrentValue[s] * Float(slot.lfoPMD) / 99.0 * sm.pmsDepth
-                    let controllerPitch = sm.wheelPitchDepth + sm.footPitchDepth + sm.breathPitchDepth + sm.atPitchDepth
-                    let factor = pitchBendValue * pitchBendFactorExt(lfoPitch + controllerPitch)
+                    let controllerPitch: Float
+                    if voicesDX7[i].detached {
+                        controllerPitch = 0
+                    } else {
+                        controllerPitch = sm.wheelPitchDepth + sm.footPitchDepth + sm.breathPitchDepth + sm.atPitchDepth
+                    }
+                    let factor = pitchBendValue * pitchBendFactorExt(lfoPitch + controllerPitch) * pnpbFactor * rpnFactor
                     voicesDX7[i].applyPitchBend(factor)
                 }
 
+                // Amp mod — skip global controllers for detached voices
                 let lfoUni = (lfoCurrentValue[s] + 1.0) * 0.5
                 let lfoAtten = 1.0 - lfoUni
                 let amdDepth = lfoAtten * slotMods[s].lfoAMDNorm
-                let controllerAmd = 1.0 - slotMods[s].controllerAmpMod
+                let controllerAmd: Float = voicesDX7[i].detached ? 0.0 : (1.0 - slotMods[s].controllerAmpMod)
                 let totalAmd = (amdDepth + controllerAmd) * 12.0
-                voicesDX7[i].lfoAmpMod = Int32(totalAmd * Float(1 << 24))
+                var lfoAmpModVal = Int32(totalAmd * Float(1 << 24))
+
+                // Per-note volume attenuation in log domain
+                let pnVol = voicesDX7[i].perNoteVolume
+                if pnVol < 1.0 {
+                    let safeVol = pnVol < 0.001 ? 0.001 : pnVol
+                    let volAtten = -logf(safeVol) * Float(1 << 24) / 0.6931471805599453 // log(2)
+                    lfoAmpModVal = lfoAmpModVal &+ Int32(volAtten)
+                }
+                voicesDX7[i].lfoAmpMod = lfoAmpModVal
             }
 
             for i in 0..<maxV {
@@ -1003,5 +1056,71 @@ public final class SynthEngine: @unchecked Sendable {
             voicesDX7[i].sustained = false
             voicesDX7[i].noteOff()
         }
+    }
+
+    // MARK: - MIDI 2.0 Handlers
+
+    private func doChannelPressure(_ value32: UInt32) {
+        aftertouchDepth = Float(value32) / Float(UInt32.max)
+    }
+
+    private func doPolyPressure(_ note: UInt8, value32: UInt32) {
+        let depth = Float(value32) / Float(UInt32.max)
+        for i in 0..<kMaxVoices where voicesDX7[i].active && voicesDX7[i].midiNote == note {
+            voicesDX7[i].perNoteAftertouch = depth
+        }
+    }
+
+    private func doPerNotePitchBend(_ note: UInt8, value32: UInt32) {
+        let range = Float(currentSnapshot.pitchBendRange)
+        let signed = Int32(bitPattern: value32 &- 0x80000000)
+        let semitones = Float(signed) / Float(0x80000000) * range
+        let factor = pitchBendFactorExt(semitones)
+        for i in 0..<kMaxVoices where voicesDX7[i].active && voicesDX7[i].midiNote == note {
+            voicesDX7[i].perNotePitchBendFactor = factor
+        }
+    }
+
+    private func doPerNoteCC(_ note: UInt8, index: UInt8, value: UInt32) {
+        let normalized = Float(value) / Float(0x00FFFFFF)
+        for i in 0..<kMaxVoices where voicesDX7[i].active && voicesDX7[i].midiNote == note {
+            switch index {
+            case 7: voicesDX7[i].perNoteVolume = normalized
+            default: break
+            }
+        }
+    }
+
+    private func doPerNoteManagement(_ note: UInt8, flags: UInt32) {
+        let detach = (flags & 0x02) != 0
+        let reset = (flags & 0x01) != 0
+        for i in 0..<kMaxVoices where voicesDX7[i].active && voicesDX7[i].midiNote == note {
+            if reset {
+                voicesDX7[i].resetPerNoteState()
+                if detach { voicesDX7[i].detached = true }
+            } else if detach {
+                voicesDX7[i].detached = true
+            }
+        }
+    }
+
+    private func doRPN(_ bank: UInt8, index: UInt8, value: UInt32) {
+        switch (bank, index) {
+        case (0, 0): // Pitch Bend Range
+            let semitones = UInt8(value >> 17)  // top 7 bits of 24-bit value
+            shadowSnapshot.pitchBendRange = max(1, min(24, semitones))
+            bumpVersion()
+        case (0, 1): // Fine Tuning — center 0x800000 = 0 cents, range ±100
+            let signed = Int32(bitPattern: (value << 8) &- 0x80000000)
+            rpnFineTuningCents = Float(signed) / Float(0x80000000) * 100.0
+        case (0, 2): // Coarse Tuning — center 0x800000 = 0 semitones, range ±64
+            let signed = Int32(bitPattern: (value << 8) &- 0x80000000)
+            rpnCoarseTuningSemitones = Float(signed) / Float(0x80000000) * 64.0
+        default: break
+        }
+    }
+
+    private func doNRPN(_ bank: UInt8, index: UInt8, value: UInt32) {
+        // Vendor-specific: reserved for future use
     }
 }
