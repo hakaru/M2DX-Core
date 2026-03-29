@@ -19,6 +19,19 @@ package struct DX7Voice {
     var lfoAmpMod: Int32 = 0
     var feedbackShiftValue: Int = 16
 
+    // MIDI 2.0 Per-Note state
+    var perNotePitchBendFactor: Float = 1.0
+    var perNoteVolume: Float = 1.0
+    var perNoteAftertouch: Float = 0.0
+    var detached: Bool = false
+
+    mutating func resetPerNoteState() {
+        perNotePitchBendFactor = 1.0
+        perNoteVolume = 1.0
+        perNoteAftertouch = 0.0
+        detached = false
+    }
+
     mutating func checkActive() {
         if active {
             if !(ops.0.isActive || ops.1.isActive || ops.2.isActive ||
@@ -39,6 +52,7 @@ package struct DX7Voice {
         midiNote = originalNote ?? n
         active = true
         releasing = false
+        resetPerNoteState()
         let freq: Float = kMIDIFreqLUT[Int(n & 0x7F)]
         ops.0.noteOn(baseFreq: freq); ops.1.noteOn(baseFreq: freq); ops.2.noteOn(baseFreq: freq)
         ops.3.noteOn(baseFreq: freq); ops.4.noteOn(baseFreq: freq); ops.5.noteOn(baseFreq: freq)
