@@ -142,6 +142,63 @@ All 8 steps of Phase 2 have been completed as of 2026-02-16.
 
 ---
 
+## Phase 3a: Real-Time Contract Cleanup (Pre-Release)
+
+Identified by Codex critical review on 2026-04-26 + code verification. These RT-contract bugs in the current Swift codebase block Phase 4 multi-language porting (bit-exact Golden Master cannot be generated while determinism is broken) and must be fixed before Phase 3 SPM release.
+
+### P0 — Blocks Golden Master / Multi-Language Port
+
+- [ ] **SnapshotRing latest-value semantics fix** (`Sources/M2DXCore/Infrastructure/SnapshotRing.swift:49`)
+  - Bug: drops NEW value when ring is full instead of overwriting OLDEST. Contradicts `"latest value semantics"` docstring (line 14-15).
+  - Fix: triple-buffer pattern or seqlock-based latest-value swap (single producer cannot move readIndex safely in vanilla SPSC).
+
+- [ ] **doRPN SPSC violation** (`Sources/M2DXCore/Engine/SynthEngine.swift:1125-1138`)
+  - Bug: audio thread (via `drainMIDI` → `:154` → `doRPN`) writes `shadowSnapshot.pitchBendRange` + calls `bumpVersion()`. Violates SnapshotRing's single-producer contract.
+  - Fix: keep RPN pitch-bend-sensitivity in audio-local state; never touch `shadowSnapshot` from `drainMIDI` path.
+
+- [ ] **Per-slot pitchBendRange not respected** (`Sources/M2DXCore/Engine/SynthEngine.swift:1061`, vs `ParameterSnapshot.swift:99`)
+  - Bug: `doPitchBend32` / `doPerNotePitchBend` read only slot-0 convenience accessor. TX816/dual/split modes ignore per-slot `SlotSnapshot.pitchBendRange`.
+  - Fix: compute bend factor per-voice using its slot's range during block render; do not read snapshot's slot-0 convenience.
+
+- [ ] **slotMods heap allocation in render** (`Sources/M2DXCore/Engine/SynthEngine.swift:749`)
+  - Bug: `var slotMods = [SlotMod](repeating: ..., count: slotCount)` allocates Array per render call.
+  - Fix: pre-allocated `UnsafeMutablePointer<SlotMod>` scratch buffer of size `kMaxSlots` in `SynthEngine.init`, matching the existing `dx7BlockBuf` / `dx7Bus1` pattern. Move `SlotMod` to file scope.
+
+- [ ] **Float.random in S&H LFO** (`Sources/M2DXCore/Engine/SynthEngine.swift:710`)
+  - Bug: `lfoSHValue[slotIdx] = Float.random(in: -1...1)` is non-deterministic and breaks Golden Master at the Int32 stage. Affects `lfoAmpModVal` (Int32, line 819) and `lfoCurrentValue` → pitch factor (line 797).
+  - Fix: seedable PRNG (xoshiro256++ or splitmix64) embedded in SynthEngine state; deterministic across runs given same seed.
+
+- [ ] **masterTuning + RPN tuning unification** (`SynthEngine.swift:299, :927, :1131`)
+  - Bug: `masterTuning` reflects only at note-on; RPN fine/coarse tuning applies per block to active voices. Inconsistent scope — changing masterTuning during a held note has no effect.
+  - Fix: keep separate storage (UI-permanent vs audio-local performance offset) and sum (`masterTuning + rpnFineTuningCents + rpnCoarseTuningSemitones`) per block in render path. Document the design.
+
+### P1
+
+- [ ] **sendMIDI public producer ambiguity** (`SynthEngine.swift:122`)
+  - Risk: public API → multiple producers can call → SPSCRing single-producer contract may be violated.
+  - Fix: docstring "single producer only" guarantee, or convert internal queue to MPSC ring.
+
+- [ ] **VoiceMixer.swift dead code** (`Sources/M2DXCore/DSP/VoiceMixer.swift`)
+  - Status: vDSP-based `accumulateVoice` is never called; render uses scalar for-loop at `SynthEngine.swift:840-855`. Mono dst signature would not fit current stereo render path anyway.
+  - Decision: delete (Codex Q5 recommendation). If SIMD optimization is needed later, design a stereo-friendly variant after benchmarking.
+
+- [ ] **Pitch EG libm in render path** (`Sources/M2DXCore/Engine/DX7Voice.swift`, `pitchEG.process`)
+  - Status: `powf` / `expf` called on stage transitions in audio thread. RT-acceptable but undocumented.
+  - Fix: explicit policy comment "permitted libm calls in RT path" so future RT audits don't flag.
+
+### P2
+
+- [ ] **RTSafetyTests.swift** — malloc-hook (Linux: `__libc_malloc` interpose; macOS: `malloc_zone_register`) or `os_signpost` based test that asserts zero heap allocation across N render blocks. Run in CI after every change to SynthEngine / DSP.
+
+- [ ] **CI matrix expansion** — add Linux build job (no Accelerate) to validate Phase 4 platform-independent path readiness. Currently CI is macOS 15 single-job (`.github/workflows/ci.yml:11`).
+
+### Deferred (depends on Phase 3a completion)
+
+- **Phase 3b**: Golden Master test vector generation. Requires P0 determinism fixes (#5 in particular) before Int32 stage can be frozen as the multi-language reference.
+- **Phase 3 LICENSE work**: DX7Ref Apache-2.0 NOTICE integration (existing TODO.md item below).
+
+---
+
 ## Phase 3: SPM Library Release (Next)
 
 ### Swift Package Manager
