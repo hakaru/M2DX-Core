@@ -44,6 +44,23 @@ public struct MIDIEvent: Sendable {
 /// - No locks on the render path.
 public final class SynthEngine: @unchecked Sendable {
 
+    private struct SlotMod {
+        var pmsDepth: Float = 0
+        var hasPitchMod: Bool = false
+        var wheelPitchDepth: Float = 0
+        var footPitchDepth: Float = 0
+        var breathPitchDepth: Float = 0
+        var atPitchDepth: Float = 0
+        var controllerAmpMod: Float = 1.0
+        var lfoAMDNorm: Float = 0
+    }
+
+    private let slotModScratch: UnsafeMutablePointer<SlotMod> = {
+        let ptr = UnsafeMutablePointer<SlotMod>.allocate(capacity: kMaxSlots)
+        ptr.initialize(repeating: SlotMod(), count: kMaxSlots)
+        return ptr
+    }()
+
     private var shadowSnapshot = SynthParamSnapshot()
     private let snapshotRing = SnapshotRing<SynthParamSnapshot>(capacity: 64)
     private var currentSnapshot = SynthParamSnapshot()
@@ -114,6 +131,8 @@ public final class SynthEngine: @unchecked Sendable {
         dx7Bus1.deallocate()
         dx7Bus2.deallocate()
         floatScratch.deallocate()
+        slotModScratch.deinitialize(count: kMaxSlots)
+        slotModScratch.deallocate()
     }
 
     // MARK: - MIDI Event Queue
@@ -735,18 +754,8 @@ public final class SynthEngine: @unchecked Sendable {
 
         for i in 0..<maxV { voicesDX7[i].checkActive() }
 
-        // Per-slot modulation
-        struct SlotMod {
-            var pmsDepth: Float = 0
-            var hasPitchMod: Bool = false
-            var wheelPitchDepth: Float = 0
-            var footPitchDepth: Float = 0
-            var breathPitchDepth: Float = 0
-            var atPitchDepth: Float = 0
-            var controllerAmpMod: Float = 1.0
-            var lfoAMDNorm: Float = 0
-        }
-        var slotMods = [SlotMod](repeating: SlotMod(), count: slotCount)
+        // Per-slot modulation — uses pre-allocated slotModScratch (no heap alloc per render)
+        let slotMods = slotModScratch
         for s in 0..<slotCount {
             let slot = snapshot.slot(at: s)
             slotMods[s].pmsDepth = kPMSDepth[Int(min(slot.lfoPMS, 7))]
