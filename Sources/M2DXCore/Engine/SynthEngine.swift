@@ -55,6 +55,28 @@ public final class SynthEngine: @unchecked Sendable {
         var lfoAMDNorm: Float = 0
     }
 
+    /// SplitMix64 — small, fast, deterministic PRNG used for LFO Sample-and-Hold.
+    /// Replaces Float.random so that render output is reproducible given a fixed seed.
+    private struct SplitMix64 {
+        var state: UInt64
+
+        @inline(__always)
+        mutating func next() -> UInt64 {
+            state = state &+ 0x9E3779B97F4A7C15
+            var z = state
+            z = (z ^ (z >> 30)) &* 0xBF58476D1CE4E5B9
+            z = (z ^ (z >> 27)) &* 0x94D049BB133111EB
+            return z ^ (z >> 31)
+        }
+
+        /// Returns a Float in [-1, 1) by mapping a 32-bit slice via signed reinterpretation.
+        @inline(__always)
+        mutating func nextSignedUnit() -> Float {
+            let bits = UInt32(truncatingIfNeeded: next())
+            return Float(Int32(bitPattern: bits)) / Float(0x80000000)
+        }
+    }
+
     private let slotModScratch: UnsafeMutablePointer<SlotMod> = {
         let ptr = UnsafeMutablePointer<SlotMod>.allocate(capacity: kMaxSlots)
         ptr.initialize(repeating: SlotMod(), count: kMaxSlots)
@@ -98,6 +120,12 @@ public final class SynthEngine: @unchecked Sendable {
     private var lfoCurrentValue: [Float] = Array(repeating: 0, count: kMaxSlots)
     private var lfoDelayFadeIn: [Float] = Array(repeating: 0, count: kMaxSlots)
     private var lfoSHValue: [Float] = Array(repeating: 0, count: kMaxSlots)
+    /// Per-slot deterministic PRNG for Sample-and-Hold. Seeded at init from a fixed
+    /// constant XOR'd with the slot index so every slot has an independent stream
+    /// while overall output stays bit-reproducible across runs.
+    private var lfoSHPRNG: [SplitMix64] = (0..<kMaxSlots).map {
+        SplitMix64(state: 0xA5A5A5A55A5A5A5A &+ UInt64($0))
+    }
 
     private var currentTimbreMode: TimbreMode = .single
     private var effectiveMaxVoices: Int = 16
@@ -727,7 +755,7 @@ public final class SynthEngine: @unchecked Sendable {
         if lfoPhase[slotIdx] >= 1.0 {
             lfoPhase[slotIdx] -= 1.0
             if slot.lfoWaveform == 5 {
-                lfoSHValue[slotIdx] = Float.random(in: -1...1)
+                lfoSHValue[slotIdx] = lfoSHPRNG[slotIdx].nextSignedUnit()
             }
         }
 
