@@ -196,6 +196,7 @@ Identified by Codex critical review on 2026-04-26 + code verification. These RT-
 
 - **Phase 3b**: Golden Master test vector generation. Requires P0 determinism fixes (#5 in particular) before Int32 stage can be frozen as the multi-language reference.
 - **Phase 3 LICENSE work**: DX7Ref Apache-2.0 NOTICE integration (existing TODO.md item below).
+- **Phase 4 (Multi-Language Porting, planned)**: Rust kernel as primary second-language target. Decision rationale and entry conditions documented in `docs/20260427_003000_phase4a_rust_rationale.md`. Naming overlaps with the existing "Phase 4: TX816 Multi-Timbral" section below; renumber when port work actually starts.
 
 ---
 
