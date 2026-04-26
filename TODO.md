@@ -144,33 +144,33 @@ All 8 steps of Phase 2 have been completed as of 2026-02-16.
 
 ## Phase 3a: Real-Time Contract Cleanup (Pre-Release)
 
-Identified by Codex critical review on 2026-04-26 + code verification. These RT-contract bugs in the current Swift codebase block Phase 4 multi-language porting (bit-exact Golden Master cannot be generated while determinism is broken) and must be fixed before Phase 3 SPM release.
+Identified by Codex critical review on 2026-04-26 + code verification. These RT-contract bugs in the current Swift codebase blocked Phase 4 multi-language porting (bit-exact Golden Master cannot be generated while determinism is broken) and had to be fixed before Phase 3 SPM release.
 
-### P0 — Blocks Golden Master / Multi-Language Port
+### P0 — Blocks Golden Master / Multi-Language Port — ✅ 6/6 complete (2026-04-27)
 
-- [ ] **SnapshotRing latest-value semantics fix** (`Sources/M2DXCore/Infrastructure/SnapshotRing.swift:49`)
-  - Bug: drops NEW value when ring is full instead of overwriting OLDEST. Contradicts `"latest value semantics"` docstring (line 14-15).
-  - Fix: triple-buffer pattern or seqlock-based latest-value swap (single producer cannot move readIndex safely in vanilla SPSC).
+- [x] **SnapshotRing latest-value semantics fix** ✅ `69d987d`
+  - Was: dropped NEW value when ring was full instead of overwriting OLDEST. Contradicted the `"latest value semantics"` docstring.
+  - Fixed: rewrote as classic three-slot triple buffer with atomic state encoding (slot index in low bits, FRESH flag in bit 2). API: `init(capacity:)` → `init(initial:)`.
 
-- [ ] **doRPN SPSC violation** (`Sources/M2DXCore/Engine/SynthEngine.swift:1125-1138`)
-  - Bug: audio thread (via `drainMIDI` → `:154` → `doRPN`) writes `shadowSnapshot.pitchBendRange` + calls `bumpVersion()`. Violates SnapshotRing's single-producer contract.
-  - Fix: keep RPN pitch-bend-sensitivity in audio-local state; never touch `shadowSnapshot` from `drainMIDI` path.
+- [x] **doRPN SPSC violation** ✅ `acfcfe1`
+  - Was: audio thread (via `drainMIDI` → `doRPN`) wrote `shadowSnapshot.pitchBendRange` + called `bumpVersion()`. Violated SnapshotRing's single-producer contract.
+  - Fixed: new audio-local field `rpnPitchBendRangeOverride`; `doRPN` no longer touches `shadowSnapshot`. Reads via `effectivePitchBendRange(forSlot:)` helper.
 
-- [ ] **Per-slot pitchBendRange not respected** (`Sources/M2DXCore/Engine/SynthEngine.swift:1061`, vs `ParameterSnapshot.swift:99`)
-  - Bug: `doPitchBend32` / `doPerNotePitchBend` read only slot-0 convenience accessor. TX816/dual/split modes ignore per-slot `SlotSnapshot.pitchBendRange`.
-  - Fix: compute bend factor per-voice using its slot's range during block render; do not read snapshot's slot-0 convenience.
+- [x] **Per-slot pitchBendRange** ✅ `02a0815`
+  - Was: `doPitchBend32` / `doPerNotePitchBend` read only the slot-0 convenience accessor; TX816 / dual / split modes ignored per-slot `SlotSnapshot.pitchBendRange`.
+  - Fixed: replaced global `pitchBendValue` with `pitchBendValueBySlot: [Float]` (kMaxSlots entries). `doPitchBend32` pre-computes per-slot factors using each slot's own range; voices read by their `slotId`.
 
-- [ ] **slotMods heap allocation in render** (`Sources/M2DXCore/Engine/SynthEngine.swift:749`)
-  - Bug: `var slotMods = [SlotMod](repeating: ..., count: slotCount)` allocates Array per render call.
-  - Fix: pre-allocated `UnsafeMutablePointer<SlotMod>` scratch buffer of size `kMaxSlots` in `SynthEngine.init`, matching the existing `dx7BlockBuf` / `dx7Bus1` pattern. Move `SlotMod` to file scope.
+- [x] **slotMods heap allocation in render** ✅ `0123b6e`
+  - Was: `var slotMods = [SlotMod](repeating: ..., count: slotCount)` allocated an Array per render call.
+  - Fixed: moved `SlotMod` to a private nested struct on `SynthEngine`; pre-allocated `UnsafeMutablePointer<SlotMod>` scratch of size `kMaxSlots` in `init()`, deallocated in `deinit`.
 
-- [ ] **Float.random in S&H LFO** (`Sources/M2DXCore/Engine/SynthEngine.swift:710`)
-  - Bug: `lfoSHValue[slotIdx] = Float.random(in: -1...1)` is non-deterministic and breaks Golden Master at the Int32 stage. Affects `lfoAmpModVal` (Int32, line 819) and `lfoCurrentValue` → pitch factor (line 797).
-  - Fix: seedable PRNG (xoshiro256++ or splitmix64) embedded in SynthEngine state; deterministic across runs given same seed.
+- [x] **Float.random in S&H LFO** ✅ `b57c485`
+  - Was: S&H LFO used non-deterministic `Float.random(in:)`. Affected the Int32 kernel via `lfoAmpModVal` and the Float stage via `lfoCurrentValue` → pitch factor; would have prevented bit-exact Golden Master.
+  - Fixed: per-slot `SplitMix64` PRNG seeded at init from a fixed constant XOR'd with slot index. Reproducible across runs.
 
-- [ ] **masterTuning + RPN tuning unification** (`SynthEngine.swift:299, :927, :1131`)
-  - Bug: `masterTuning` reflects only at note-on; RPN fine/coarse tuning applies per block to active voices. Inconsistent scope — changing masterTuning during a held note has no effect.
-  - Fix: keep separate storage (UI-permanent vs audio-local performance offset) and sum (`masterTuning + rpnFineTuningCents + rpnCoarseTuningSemitones`) per block in render path. Document the design.
+- [x] **masterTuning + RPN tuning unification** ✅ `29eca83`
+  - Was: `masterTuning` was applied at note-on by baking `kTuningLUT` into op.frequency; RPN fine/coarse tuning was summed per block. Two paths had inconsistent scope — changing master tuning during a held note had no effect.
+  - Fixed: removed the note-on master tuning override; new per-block `totalTuningOffset = (Float(snapshot.masterTuning) + rpnFineTuningCents) / 100 + rpnCoarseTuningSemitones` feeds `pitchBendFactorExt`. `kTuningLUT` is now unused (left in place pending separate cleanup).
 
 ### P1
 
@@ -188,15 +188,43 @@ Identified by Codex critical review on 2026-04-26 + code verification. These RT-
 
 ### P2
 
-- [ ] **RTSafetyTests.swift** — malloc-hook (Linux: `__libc_malloc` interpose; macOS: `malloc_zone_register`) or `os_signpost` based test that asserts zero heap allocation across N render blocks. Run in CI after every change to SynthEngine / DSP.
+- [ ] **RTSafetyTests.swift** — malloc-hook (Linux: `__libc_malloc` interpose; macOS: `malloc_zone_register`) or `os_signpost` based test that asserts zero heap allocation across N render blocks. Run in CI after every change to SynthEngine / DSP. **Phase 4a entry condition #4.**
 
 - [ ] **CI matrix expansion** — add Linux build job (no Accelerate) to validate Phase 4 platform-independent path readiness. Currently CI is macOS 15 single-job (`.github/workflows/ci.yml:11`).
 
-### Deferred (depends on Phase 3a completion)
+---
 
-- **Phase 3b**: Golden Master test vector generation. Requires P0 determinism fixes (#5 in particular) before Int32 stage can be frozen as the multi-language reference.
-- **Phase 3 LICENSE work**: DX7Ref Apache-2.0 NOTICE integration (existing TODO.md item below).
-- **Phase 4 (Multi-Language Porting, planned)**: Rust kernel as primary second-language target. Decision rationale and entry conditions documented in `docs/20260427_003000_phase4a_rust_rationale.md`. Naming overlaps with the existing "Phase 4: TX816 Multi-Timbral" section below; renumber when port work actually starts.
+## Phase 3b: Golden Master Test Vector Generation
+
+Generate language-neutral, deterministic test vectors that capture the current Swift kernel's output for representative scenarios. These vectors become the multi-language porting reference (replacing the Apache-2.0 DEXED dependency for Rust / C / C++ / C# kernels) and a regression detector for any future Swift-side optimisation.
+
+**Status**: ready to start (Phase 3a P0 unblocked determinism on 2026-04-27).
+**Phase 4a entry condition #1** per `docs/20260427_003000_phase4a_rust_rationale.md` — must complete before Rust code lands.
+
+### Sub-tasks
+
+- [ ] **Format spec** — `docs/golden-master-format.md` defining manifest schema, binary layout (Int32 LE block output, Float32 LE stereo output), scenario invariants, ULP tolerance for the Float stage.
+- [ ] **Scenario design** — 30+ scenarios covering: INIT VOICE basic note-on; each algorithm's signature behaviour; KLS curves; LFO triangle / saw / square / sin / S&H; RPN tuning; channel/poly pressure; per-note CC and pitch-bend; sustain pedal; multi-timbral (dual / split / TX816); oversampling on/off.
+- [ ] **Dump runner** — `Tests/GoldenMaster/Generator/GoldenMasterGenerator.swift` test target that drives `SynthEngine` through each scenario and writes Int32 block output + Float32 stereo output as `.bin` files alongside a `manifest.json`.
+- [ ] **Verification test** — `Tests/M2DXCoreTests/GoldenMasterTests.swift` that re-runs each scenario and asserts byte-identical Int32 output + ULP-tolerant Float output match against the committed `.bin` files. Runs in CI.
+- [ ] **Vector commit** — initial generation + `Tests/GoldenMaster/scenarios/<name>/{manifest.json, int32.bin, stereoL.bin, stereoR.bin}` committed to the repo (estimated total < 5 MB; acceptable inline).
+- [ ] **Documentation** — `docs/golden-master-usage.md` for port authors: how to consume the vectors, expected pass/fail criteria.
+
+### Out of scope (deferred to Phase 4a)
+
+- Rust / C / C++ / C# implementations consuming the vectors.
+- Float-stage bit-exact reproduction (libm transcendentals are platform-dependent; Float comparison stays ULP-tolerant by design).
+
+---
+
+## Sequencing — Next 4 Milestones
+
+1. **Phase 3b** (Golden Master) — current focus; satisfies Phase 4a entry condition #1.
+2. **Phase 3a P2** (`RTSafetyTests` + Linux CI job) — confirms Phase 3a P0; satisfies Phase 4a entry condition #4.
+3. **Phase 3** (SPM Library Release: public API stability, DocC, NOTICE for DX7Ref Apache-2.0).
+4. **Phase 4a** (Rust kernel under `ports/rust/`, gated on the five entry conditions in `docs/20260427_003000_phase4a_rust_rationale.md`).
+
+P1 items in Phase 3a (sendMIDI / VoiceMixer / Pitch EG comment) are minor and can interleave anywhere; they do not block downstream work. The existing "Phase 4: TX816 Multi-Timbral" section below will be renumbered to Phase 5 when Phase 4 (port) work actually starts.
 
 ---
 
