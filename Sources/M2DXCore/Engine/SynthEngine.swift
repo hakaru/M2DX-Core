@@ -88,9 +88,10 @@ public final class SynthEngine: @unchecked Sendable {
     private var breathDepth: Float = 0
     private var aftertouchDepth: Float = 0
 
-    // RPN tuning state
+    // RPN state (audio-local; written by drainMIDI on render thread, never crosses thread boundary)
     private var rpnFineTuningCents: Float = 0
     private var rpnCoarseTuningSemitones: Float = 0
+    private var rpnPitchBendRangeOverride: UInt8 = 0  // 0 = no override, else 1-24 takes priority over snapshot
 
     // LFO state
     private var lfoPhase: [Float] = Array(repeating: 0, count: kMaxSlots)
@@ -1067,9 +1068,15 @@ public final class SynthEngine: @unchecked Sendable {
         }
     }
 
+    @inline(__always)
+    private func effectivePitchBendRange() -> Float {
+        let override = rpnPitchBendRangeOverride
+        return override != 0 ? Float(override) : Float(currentSnapshot.pitchBendRange)
+    }
+
     private func doPitchBend32(_ value: UInt32) {
         let signed = Int64(value) - 0x80000000
-        let range = Float(currentSnapshot.pitchBendRange)
+        let range = effectivePitchBendRange()
         let semitones = Float(signed) / Float(0x80000000) * range
         pitchBendValue = pitchBendFactorExt(semitones)
         for i in 0..<kMaxVoices {
@@ -1099,7 +1106,7 @@ public final class SynthEngine: @unchecked Sendable {
     }
 
     private func doPerNotePitchBend(_ note: UInt8, value32: UInt32) {
-        let range = Float(currentSnapshot.pitchBendRange)
+        let range = effectivePitchBendRange()
         let signed = Int32(bitPattern: value32 &- 0x80000000)
         let semitones = Float(signed) / Float(0x80000000) * range
         let factor = pitchBendFactorExt(semitones)
@@ -1133,10 +1140,9 @@ public final class SynthEngine: @unchecked Sendable {
 
     private func doRPN(_ bank: UInt8, index: UInt8, value: UInt32) {
         switch (bank, index) {
-        case (0, 0): // Pitch Bend Range
+        case (0, 0): // Pitch Bend Range — audio-local override (do NOT touch shadowSnapshot from render thread)
             let semitones = UInt8(value >> 17)  // top 7 bits of 24-bit value
-            shadowSnapshot.pitchBendRange = max(1, min(24, semitones))
-            bumpVersion()
+            rpnPitchBendRangeOverride = max(1, min(24, semitones))
         case (0, 1): // Fine Tuning — center 0x800000 = 0 cents, range ±100
             let signed = Int32(bitPattern: (value << 8) &- 0x80000000)
             rpnFineTuningCents = Float(signed) / Float(0x80000000) * 100.0
