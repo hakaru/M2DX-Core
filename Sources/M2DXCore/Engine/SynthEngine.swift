@@ -816,8 +816,11 @@ public final class SynthEngine: @unchecked Sendable {
                 updateLFOForSlot(s, snapshot.slot(at: s))
             }
 
-            // RPN tuning offset (semitones), computed once per block
-            let rpnTuningOffset = rpnFineTuningCents / 100.0 + rpnCoarseTuningSemitones
+            // Global tuning offset (semitones), computed once per block.
+            // Sums UI master tuning (snapshot, Int16 cents) and RPN fine/coarse tuning
+            // (audio-local). Master tuning now takes effect on held notes, not just at
+            // note-on, fixing the prior scope mismatch with RPN tuning.
+            let totalTuningOffset = (Float(snapshot.masterTuning) + rpnFineTuningCents) / 100.0 + rpnCoarseTuningSemitones
 
             for i in 0..<maxV {
                 guard voicesDX7[i].active else { continue }
@@ -832,10 +835,10 @@ public final class SynthEngine: @unchecked Sendable {
                     pitchEGSemitones = voicesDX7[i].pitchEG.semitones
                 }
 
-                // Compute combined pitch factor including per-note pitch bend and RPN tuning
+                // Compute combined pitch factor including per-note pitch bend and global tuning
                 let pnpbFactor = voicesDX7[i].perNotePitchBendFactor
-                let rpnFactor = rpnTuningOffset != 0 ? pitchBendFactorExt(rpnTuningOffset) : 1.0
-                if sm.hasPitchMod || pnpbFactor != 1.0 || rpnFactor != 1.0 || pitchEGSemitones != 0 {
+                let tuningFactor = totalTuningOffset != 0 ? pitchBendFactorExt(totalTuningOffset) : 1.0
+                if sm.hasPitchMod || pnpbFactor != 1.0 || tuningFactor != 1.0 || pitchEGSemitones != 0 {
                     let slot = snapshot.slot(at: s)
                     let lfoPitch = lfoCurrentValue[s] * Float(slot.lfoPMD) / 99.0 * sm.pmsDepth
                     let controllerPitch: Float
@@ -844,7 +847,7 @@ public final class SynthEngine: @unchecked Sendable {
                     } else {
                         controllerPitch = sm.wheelPitchDepth + sm.footPitchDepth + sm.breathPitchDepth + sm.atPitchDepth
                     }
-                    let factor = pitchBendValue * pitchBendFactorExt(lfoPitch + controllerPitch + pitchEGSemitones) * pnpbFactor * rpnFactor
+                    let factor = pitchBendValue * pitchBendFactorExt(lfoPitch + controllerPitch + pitchEGSemitones) * pnpbFactor * tuningFactor
                     voicesDX7[i].applyPitchBend(factor)
                 }
 
@@ -962,18 +965,10 @@ public final class SynthEngine: @unchecked Sendable {
 
             voicesDX7[target].noteOn(transposedNote, velocity16: velocity16, midiNote: note)
 
-            // Master tuning
-            if snapshot.masterTuning != 0 {
-                let tuningIdx = Int(snapshot.masterTuning) + 100
-                let tuningFactor = kTuningLUT[max(0, min(200, tuningIdx))]
-                for opIdx in 0..<6 {
-                    voicesDX7[target].withOp(opIdx) { op in
-                        let freq = op.baseFrequency * op.ratio * op.detune * tuningFactor
-                        op.frequency = freq
-                        op.updateFreqPublic()
-                    }
-                }
-            }
+            // Master tuning is applied per-block in renderFramesDX7 alongside RPN
+            // fine/coarse tuning, so it takes effect immediately on held notes
+            // rather than only at note-on. (kTuningLUT in FrequencyTable.swift is now
+            // unused; left in place pending a separate cleanup.)
 
             // Per-operator velocity/KLS/AMS/rateScaling
             for opIdx in 0..<6 {
