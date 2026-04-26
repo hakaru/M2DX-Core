@@ -104,7 +104,10 @@ public final class SynthEngine: @unchecked Sendable {
     private var expression: Float = 1.0
     private var algorithm: Int = 0
     private var sustainPedalOn: Bool = false
-    private var pitchBendValue: Float = 1.0
+    /// Per-slot pitch bend factor. Recomputed by doPitchBend32 using each slot's
+    /// own SlotSnapshot.pitchBendRange (or the RPN override if set), so TX816 /
+    /// dual / split modes honor per-slot bend range correctly.
+    private var pitchBendValueBySlot: [Float] = Array(repeating: 1.0, count: kMaxSlots)
     private var modWheelDepth: Float = 0
     private var footDepth: Float = 0
     private var breathDepth: Float = 0
@@ -600,7 +603,7 @@ public final class SynthEngine: @unchecked Sendable {
         footDepth = 0
         breathDepth = 0
         aftertouchDepth = 0
-        pitchBendValue = 1.0
+        for i in 0..<kMaxSlots { pitchBendValueBySlot[i] = 1.0 }
         sustainPedalOn = false
         for i in 0..<kMaxVoices {
             voicesDX7[i].sustained = false
@@ -847,7 +850,7 @@ public final class SynthEngine: @unchecked Sendable {
                     } else {
                         controllerPitch = sm.wheelPitchDepth + sm.footPitchDepth + sm.breathPitchDepth + sm.atPitchDepth
                     }
-                    let factor = pitchBendValue * pitchBendFactorExt(lfoPitch + controllerPitch + pitchEGSemitones) * pnpbFactor * tuningFactor
+                    let factor = pitchBendValueBySlot[s] * pitchBendFactorExt(lfoPitch + controllerPitch + pitchEGSemitones) * pnpbFactor * tuningFactor
                     voicesDX7[i].applyPitchBend(factor)
                 }
 
@@ -1013,8 +1016,9 @@ public final class SynthEngine: @unchecked Sendable {
                 l2: slot.pitchEGL2, l3: slot.pitchEGL3,
                 sampleRate: snapshot.sampleRate)
 
-            if pitchBendValue != 1.0 {
-                voicesDX7[target].applyPitchBend(pitchBendValue)
+            let bendFactor = pitchBendValueBySlot[slotIdx]
+            if bendFactor != 1.0 {
+                voicesDX7[target].applyPitchBend(bendFactor)
             }
         }
     }
@@ -1092,18 +1096,24 @@ public final class SynthEngine: @unchecked Sendable {
     }
 
     @inline(__always)
-    private func effectivePitchBendRange() -> Float {
+    private func effectivePitchBendRange(forSlot s: Int) -> Float {
         let override = rpnPitchBendRangeOverride
-        return override != 0 ? Float(override) : Float(currentSnapshot.pitchBendRange)
+        if override != 0 { return Float(override) }
+        return Float(currentSnapshot.slot(at: s).pitchBendRange)
     }
 
     private func doPitchBend32(_ value: UInt32) {
         let signed = Int64(value) - 0x80000000
-        let range = effectivePitchBendRange()
-        let semitones = Float(signed) / Float(0x80000000) * range
-        pitchBendValue = pitchBendFactorExt(semitones)
-        for i in 0..<kMaxVoices {
-            if voicesDX7[i].active { voicesDX7[i].applyPitchBend(pitchBendValue) }
+        let normalized = Float(signed) / Float(0x80000000)
+        // Pre-compute factor per slot using each slot's own SlotSnapshot.pitchBendRange,
+        // so TX816 / dual / split honor per-slot bend range. RPN override (if set) wins
+        // for all slots.
+        for s in 0..<kMaxSlots {
+            let semitones = normalized * effectivePitchBendRange(forSlot: s)
+            pitchBendValueBySlot[s] = pitchBendFactorExt(semitones)
+        }
+        for i in 0..<kMaxVoices where voicesDX7[i].active {
+            voicesDX7[i].applyPitchBend(pitchBendValueBySlot[voicesDX7[i].slotId])
         }
     }
 
@@ -1129,12 +1139,11 @@ public final class SynthEngine: @unchecked Sendable {
     }
 
     private func doPerNotePitchBend(_ note: UInt8, value32: UInt32) {
-        let range = effectivePitchBendRange()
         let signed = Int32(bitPattern: value32 &- 0x80000000)
-        let semitones = Float(signed) / Float(0x80000000) * range
-        let factor = pitchBendFactorExt(semitones)
+        let normalized = Float(signed) / Float(0x80000000)
         for i in 0..<kMaxVoices where voicesDX7[i].active && voicesDX7[i].midiNote == note {
-            voicesDX7[i].perNotePitchBendFactor = factor
+            let semitones = normalized * effectivePitchBendRange(forSlot: voicesDX7[i].slotId)
+            voicesDX7[i].perNotePitchBendFactor = pitchBendFactorExt(semitones)
         }
     }
 
