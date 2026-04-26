@@ -10,7 +10,7 @@ struct SnapshotRingTests {
 
     @Test("Basic push and pop")
     func basicPushPop() {
-        let ring = SnapshotRing<Int>(capacity: 4)
+        let ring = SnapshotRing<Int>(initial: 0)
         ring.pushLatest(42)
         let value = ring.popLatest()
         #expect(value == 42, "Should pop 42")
@@ -18,14 +18,14 @@ struct SnapshotRingTests {
 
     @Test("Pop returns nil when empty")
     func popEmpty() {
-        let ring = SnapshotRing<Int>(capacity: 4)
+        let ring = SnapshotRing<Int>(initial: 0)
         let value = ring.popLatest()
         #expect(value == nil, "Empty ring should return nil")
     }
 
     @Test("hasData reports correctly")
     func hasDataFlag() {
-        let ring = SnapshotRing<Int>(capacity: 4)
+        let ring = SnapshotRing<Int>(initial: 0)
         #expect(!ring.hasData, "Empty ring should not have data")
         ring.pushLatest(1)
         #expect(ring.hasData, "Ring with data should report hasData")
@@ -35,7 +35,7 @@ struct SnapshotRingTests {
 
     @Test("popLatest skips intermediate values")
     func popLatestSkipsIntermediate() {
-        let ring = SnapshotRing<Int>(capacity: 8)
+        let ring = SnapshotRing<Int>(initial: 0)
         ring.pushLatest(1)
         ring.pushLatest(2)
         ring.pushLatest(3)
@@ -43,23 +43,23 @@ struct SnapshotRingTests {
         #expect(value == 3, "popLatest should return most recent value, got \(String(describing: value))")
     }
 
-    @Test("Full ring drops oldest on push")
-    func fullRingDrops() {
-        let ring = SnapshotRing<Int>(capacity: 4)
+    @Test("Latest-value semantics: many pushes return the most recent")
+    func latestValuePreserved() {
+        // Triple-buffer always accepts new pushes; older unpublished values are
+        // overwritten so popLatest returns the most recent.
+        let ring = SnapshotRing<Int>(initial: 0)
         ring.pushLatest(1)
         ring.pushLatest(2)
         ring.pushLatest(3)
         ring.pushLatest(4)
-        // Ring is now full, next push should be dropped
         ring.pushLatest(5)
         let value = ring.popLatest()
-        // Should get 4 (last successfully pushed), not 5 (dropped)
-        #expect(value == 4, "Full ring should drop new push, got \(String(describing: value))")
+        #expect(value == 5, "popLatest should return the most recent value, got \(String(describing: value))")
     }
 
     @Test("Sequential push/pop cycle")
     func sequentialCycle() {
-        let ring = SnapshotRing<Int>(capacity: 16)
+        let ring = SnapshotRing<Int>(initial: 0)
         for i in 0..<100 {
             ring.pushLatest(i)
             let v = ring.popLatest()
@@ -69,7 +69,7 @@ struct SnapshotRingTests {
 
     @Test("Concurrent producer/consumer stress test")
     func concurrentStressTest() async {
-        let ring = SnapshotRing<Int>(capacity: 128)
+        let ring = SnapshotRing<Int>(initial: 0)
         let iterations = 100_000
 
         // Producer task

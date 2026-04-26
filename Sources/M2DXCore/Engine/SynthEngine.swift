@@ -84,7 +84,7 @@ public final class SynthEngine: @unchecked Sendable {
     }()
 
     private var shadowSnapshot = SynthParamSnapshot()
-    private let snapshotRing = SnapshotRing<SynthParamSnapshot>(capacity: 64)
+    private let snapshotRing = SnapshotRing<SynthParamSnapshot>(initial: SynthParamSnapshot())
     private var currentSnapshot = SynthParamSnapshot()
 
     private let downsampler = Downsampler()
