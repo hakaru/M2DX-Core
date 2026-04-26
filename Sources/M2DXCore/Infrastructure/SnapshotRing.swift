@@ -1,85 +1,84 @@
 // SnapshotRing.swift
-// M2DX-Core — Lock-free SPSC ring buffer for UI → audio thread snapshot transfer
+// M2DX-Core — Lock-free SPSC triple buffer for UI → audio thread snapshot transfer
 // Uses Synchronization.Atomic (macOS 15+ / iOS 18+, no external dependencies).
 
 import Synchronization
 
-/// Lock-free SPSC (Single-Producer Single-Consumer) ring buffer
-/// optimized for "latest value" semantics.
+/// Lock-free SPSC (Single-Producer Single-Consumer) **triple buffer** with
+/// true latest-value semantics.
 ///
-/// - **Producer** (UI thread) calls `pushLatest(_:)` to enqueue the newest snapshot.
-/// - **Consumer** (render thread) calls `popLatest()` to retrieve only the most
-///   recent snapshot, skipping any intermediate values.
-/// - Capacity is fixed at init (must be a power of 2).
+/// - **Producer** (UI thread) calls `pushLatest(_:)` to publish the newest snapshot.
+///   When the producer outpaces the consumer, older unpublished values are
+///   discarded — the consumer always sees the most recent value on its next pop.
+/// - **Consumer** (render thread) calls `popLatest()` to retrieve the most recent
+///   published snapshot, or `nil` if no new value has been published since the
+///   last pop.
 ///
-/// Thread-safety: exactly one producer and one consumer. No locks, no CAS loops.
-/// Memory ordering: releasing store on writeIndex, acquiring load on readIndex.
+/// Three storage slots are pre-allocated and seeded with `initial` at init time;
+/// subsequent pushes are pure assignments (no memory init on the hot path).
+///
+/// Thread-safety: exactly one producer and one consumer.
+/// Memory ordering: producer publishes via release on `exchange`; consumer
+/// acquires via the same exchange / load.
 package final class SnapshotRing<T>: @unchecked Sendable {
     private let storage: UnsafeMutablePointer<T>
-    private let mask: Int  // capacity - 1 (for fast modulo)
-    private let capacity: Int
-    private let _writeIndex = Atomic<Int>(0)
-    private let _readIndex = Atomic<Int>(0)
 
-    /// Create a ring buffer with the given capacity (must be a power of 2).
-    init(capacity: Int = 128) {
-        precondition(capacity > 0 && (capacity & (capacity - 1)) == 0,
-                     "SnapshotRing capacity must be a power of 2")
-        self.capacity = capacity
-        self.mask = capacity - 1
-        self.storage = .allocate(capacity: capacity)
+    /// Encoded state: bits 0..1 = currently-published slot index (0, 1, or 2),
+    /// bit 2 = FRESH flag (set by producer on publish, cleared by consumer on read).
+    private let _state = Atomic<Int>(0)
+
+    private static var SLOT_MASK: Int { 0x3 }
+    private static var FRESH_FLAG: Int { 0x4 }
+
+    /// Producer-private — slot the producer is currently filling.
+    private var writerSlot: Int = 1
+    /// Consumer-private — slot the consumer last read from.
+    private var readerSlot: Int = 2
+
+    /// Seed all three storage slots with `initial` so subsequent pushes can use
+    /// plain assignment instead of `initialize(to:)`.
+    init(initial: T) {
+        self.storage = .allocate(capacity: 3)
+        for i in 0..<3 { (storage + i).initialize(to: initial) }
+        // Initial state: pending = slot 0, NOT FRESH. Writer owns 1, reader owns 2.
+        _state.store(0, ordering: .relaxed)
     }
 
     deinit {
-        let r = _readIndex.load(ordering: .relaxed)
-        let w = _writeIndex.load(ordering: .relaxed)
-        for i in r..<w {
-            (storage + (i & mask)).deinitialize(count: 1)
-        }
+        for i in 0..<3 { (storage + i).deinitialize(count: 1) }
         storage.deallocate()
     }
 
     // MARK: - Producer (UI thread)
 
-    /// Push a new snapshot. If the ring is full the value is dropped.
+    /// Publish the latest snapshot. Always succeeds; older unconsumed values are
+    /// discarded automatically (latest-value semantics).
     func pushLatest(_ value: T) {
-        let w = _writeIndex.load(ordering: .relaxed)
-        let r = _readIndex.load(ordering: .acquiring)
-
-        if w - r >= capacity { return }
-
-        let slot = w & mask
-        (storage + slot).initialize(to: value)
-        _writeIndex.store(w + 1, ordering: .releasing)
+        // Plain assignment into our private slot (already initialized at init).
+        (storage + writerSlot).pointee = value
+        // Atomically publish: swap our slot index (with FRESH set) into _state and
+        // take ownership of whatever slot was previously published.
+        let newState = writerSlot | Self.FRESH_FLAG
+        let oldState = _state.exchange(newState, ordering: .acquiringAndReleasing)
+        writerSlot = oldState & Self.SLOT_MASK
     }
 
     // MARK: - Consumer (render thread)
 
-    /// Pop only the latest snapshot, skipping all intermediate values.
-    /// Returns `nil` if the ring is empty.
+    /// Returns the latest published snapshot, or `nil` if no new value has been
+    /// published since the last call.
     func popLatest() -> T? {
-        let w = _writeIndex.load(ordering: .acquiring)
-        let r = _readIndex.load(ordering: .relaxed)
-
-        if w == r { return nil }
-
-        let latestIndex = w - 1
-        for i in r..<latestIndex {
-            (storage + (i & mask)).deinitialize(count: 1)
-        }
-
-        let latestSlot = latestIndex & mask
-        let value = (storage + latestSlot).move()
-
-        _readIndex.store(w, ordering: .releasing)
-
-        return value
+        // Cheap pre-check: if FRESH is clear, no new data — avoid the exchange.
+        let cur = _state.load(ordering: .acquiring)
+        if (cur & Self.FRESH_FLAG) == 0 { return nil }
+        // Take ownership of the published slot, give up our reader slot, clear FRESH.
+        let oldState = _state.exchange(readerSlot, ordering: .acquiringAndReleasing)
+        readerSlot = oldState & Self.SLOT_MASK
+        return (storage + readerSlot).pointee
     }
 
-    /// Check if there are unread snapshots without consuming them.
+    /// Whether new data has been published since the last `popLatest()`.
     var hasData: Bool {
-        let w = _writeIndex.load(ordering: .acquiring)
-        let r = _readIndex.load(ordering: .relaxed)
-        return w != r
+        return (_state.load(ordering: .acquiring) & Self.FRESH_FLAG) != 0
     }
 }
