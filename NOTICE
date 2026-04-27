@@ -1,0 +1,59 @@
+M2DX-Core
+Copyright (c) 2024-2026 Hakaru
+
+================================================================================
+Third-party attribution
+================================================================================
+
+This product contains code derived from the "music-synthesizer-for-android"
+(MSFA) project, originally developed by Google Inc. and licensed under the
+Apache License, Version 2.0.
+
+  Project: music-synthesizer-for-android
+  URL:     https://github.com/google/music-synthesizer-for-android
+  Author:  Raph Levien (initially), Google Inc.
+  License: Apache License 2.0
+  Copyright 2012 Google Inc.
+
+The same code was carried over into the DEXED project's `src/msfa/` subtree,
+which retains the original Apache 2.0 headers from MSFA. The C reference
+implementation in this repository (Sources/DX7Ref/) was ported from those
+Apache-2.0-licensed files.
+
+  Reference project: DEXED (https://github.com/asb2m10/dexed)
+  DEXED as a whole is licensed under GPL v3, but the `src/msfa/` files used
+  for this port retain the upstream MSFA Apache 2.0 license. No GPL-only
+  Dexed code (UI layer, Mark I model, plugin glue, etc.) has been ported.
+
+================================================================================
+Scope and modifications
+================================================================================
+
+The DX7Ref C target (`Sources/DX7Ref/`) is a TEST-ONLY target. It is built
+only when running `swift test` and is not linked into production builds.
+
+Modifications applied while porting:
+  - Translation from C++ to plain C
+  - Flattening into a procedural API for Swift bridging
+  - All public symbols namespaced with `dx7ref_` prefix
+  - Header comments at the top of each file annotate provenance and
+    SPDX-License-Identifier: Apache-2.0
+
+The remainder of this repository (the `M2DXCore` Swift target — engine,
+voices, tables, DSP, presets) is original work by the M2DX-Core authors,
+licensed under the MIT License (see `LICENSE`). Tables and computational
+kernels in the Swift target are independently generated from the
+mathematical definitions of FM synthesis and the publicly documented
+behavior of the DX7 hardware.
+
+================================================================================
+Files and licenses
+================================================================================
+
+  Sources/DX7Ref/                             Apache 2.0 (test-only)
+    See LICENSES/Apache-2.0.txt
+  Sources/M2DXCore/                           MIT
+    See LICENSE
+  Tests/M2DXCoreTests/                        MIT (test code authored here)
+
+The full Apache License 2.0 text is provided in `LICENSES/Apache-2.0.txt`.

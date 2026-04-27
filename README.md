@@ -1,16 +1,16 @@
 # M2DX-Core
 
-**DX7 FM Synthesis Library for Swift**
+**DX7-Style FM Synthesis Library for Swift**
 
-M2DX-Core is an FM synthesis library that reproduces the Yamaha DX7 sound engine in pure Swift. All code is originally implemented based on the DX7's published hardware specifications and the mathematical definition of FM synthesis.
+M2DX-Core is a 6-operator / 32-algorithm FM synthesis library written in Swift. The production target (`M2DXCore`) is independently implemented from the publicly documented DX7 hardware behavior and the mathematical definition of FM synthesis. A separate test-only C target (`DX7Ref`) ports reference functions from the Apache-2.0-licensed `msfa` code so that the Swift implementation can be cross-validated at the bit level — see [NOTICE](NOTICE) for attribution and scope.
 
 ## Status
 
-**Phase 2 Complete** (2026-02-16) — The library extraction and clean room implementation is complete. All synthesis components, tests, and CI pipeline are functional. The next phase will focus on public API design and SPM release preparation.
+**Phase 2 Complete** (2026-02-16) — The library extraction is complete: the Swift production target is implemented from spec and cross-validated against the `msfa` C reference (`DX7Ref`, test-only). All synthesis components, tests, and CI pipeline are functional. The next phase focuses on public API design and SPM release preparation.
 
 ## Key Features
 
-- **MIT License** — Free for commercial and non-commercial use, no restrictions
+- **MIT License** for the production `M2DXCore` Swift target. The test-only `DX7Ref` C target is Apache-2.0 (see [NOTICE](NOTICE))
 - **Swift 6** — Strict concurrency, value semantics, zero-allocation audio rendering
 - **MIDI 2.0 Native** — 16-bit velocity, 32-bit CC, per-note controllers (MPE-compatible)
 - **Apple Accelerate** — Hardware-accelerated DSP using vDSP (SIMD optimization)
@@ -83,13 +83,15 @@ M2DX-Core provides two synthesis modes:
 
 ## Technical Highlights
 
-### Original Implementation
+### Implementation Approach
 
-All lookup tables and computation kernels are independently implemented:
+The production `M2DXCore` Swift target implements all synthesis logic and tables independently:
 
 - **Sin / Exp2 Tables**: Generated at compile time from mathematical functions
-- **Velocity, KLS, EG Rate Tables**: Derived from FM synthesis definitions and publicly available hardware specifications
-- **32 Algorithm Routing**: Encoded from Yamaha DX7 operator connection topology
+- **Velocity, KLS, EG Rate Tables**: Derived from FM synthesis definitions and publicly documented hardware behavior
+- **32 Algorithm Routing**: Encoded from the operator connection topology described in DX7 service literature
+
+The separate `DX7Ref` C target (test-only, not linked into production) ports reference functions from the Apache-2.0 `msfa` code; the Swift implementation is verified bit-for-bit against this reference. See [NOTICE](NOTICE) for full attribution and modification log.
 
 ### Real-time Safety
 
@@ -128,11 +130,18 @@ Apple Accelerate (vDSP) is used for batch DSP operations:
 | Synchronization (stdlib) | Swift 6.0+ | Lock-free atomic operations for SPSC ring buffer |
 | Accelerate (system) | — | vDSP batch DSP operations (mixing, clipping, conversion) |
 
-Note: This library uses Swift 6.0's built-in `Synchronization` module for atomic operations, eliminating the need for external dependencies like swift-atomics.
+Note: The production target uses only Swift 6.0's built-in `Synchronization` module and Apple's Accelerate. There are no external Swift package dependencies.
 
-## License
+## License & Attribution
 
-MIT License — See [LICENSE](LICENSE) for details.
+| Target | License | Notes |
+|--------|---------|-------|
+| `M2DXCore` (production) | MIT | See [LICENSE](LICENSE) |
+| `DX7Ref` (test-only C) | Apache 2.0 | Ported from `msfa` (Google Inc., 2012). See [NOTICE](NOTICE) and [LICENSES/Apache-2.0.txt](LICENSES/Apache-2.0.txt) |
+
+The Apache-2.0-licensed `DX7Ref` target is built only by `swift test` and is not part of any binary an application links against. Downstream consumers of `M2DXCore` therefore depend only on MIT-licensed code at runtime.
+
+DX7 is a registered trademark of Yamaha Corporation. M2DX-Core is not affiliated with or endorsed by Yamaha. References to DX7 are nominative use to describe the family of FM synthesis algorithms this library implements.
 
 ## Roadmap
 
