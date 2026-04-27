@@ -41,8 +41,9 @@ public enum DX7FactoryPresets {
         var result: [DX7Preset] = []
         result.append(contentsOf: DX7Preset.keysBatch)
         result.append(contentsOf: DX7Preset.bassBatch)
-        // Future batches: brassBatch, stringsBatch,
-        //                 organBatch, percussionBatch, woodwindBatch, otherBatch
+        result.append(contentsOf: DX7Preset.brassBatch)
+        result.append(contentsOf: DX7Preset.stringsBatch)
+        // Future batches: organBatch, percussionBatch, woodwindBatch, otherBatch
         return result
     }()
 
