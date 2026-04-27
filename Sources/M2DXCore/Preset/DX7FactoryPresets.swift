@@ -48,8 +48,20 @@ public enum DX7FactoryPresets {
     @available(*, deprecated, message: "Yamaha factory ROM SysEx is no longer bundled. Use customPresets, or load your own .syx via DX7SysExParser.")
     public static let factoryROMs: [DX7Preset] = []
 
-    @available(*, deprecated, message: "Yamaha factory ROM SysEx is no longer bundled. Load your own banks at runtime if you need bank metadata.")
-    public static let banks: [DX7SysExBank] = []
+    /// Synthetic banks grouped by `PresetCategory`, derived from `customPresets`.
+    /// Only categories that contain at least one preset appear in the bank list,
+    /// so the UI grows automatically as new batches land. Bank index here is also
+    /// what `selectPresetByBank(msb:lsb:program:)` uses for MIDI Bank Select MSB.
+    public static let banks: [DX7SysExBank] = {
+        let order: [PresetCategory] = [.keys, .bass, .brass, .strings,
+                                       .organ, .percussion, .woodwind, .other]
+        return order.compactMap { category in
+            let presetsInCategory = customPresets.filter { $0.category == category }
+            guard !presetsInCategory.isEmpty else { return nil }
+            return DX7SysExBank(name: category.rawValue.uppercased(),
+                                presets: presetsInCategory)
+        }
+    }()
 
     private static func loadBanks(files: [String], subdirectory: String) -> [DX7Preset] {
         var presets: [DX7Preset] = []
