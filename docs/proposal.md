@@ -1,7 +1,7 @@
 # M2DX-Core: DX7 FM Synthesis Library for Swift
 
-**Date:** 2026-02-15
-**License:** MIT
+**Date:** 2026-02-15 (license updated 2026-04-27)
+**License:** Apache License 2.0
 **Platform:** iOS 18+ / macOS 14+
 **Language:** Swift 6
 **Status:** Draft
@@ -10,15 +10,15 @@
 
 ## 1. Overview
 
-M2DX-Core is an FM synthesis library that reproduces the Yamaha DX7 sound engine (OPS: YM21280) in pure Swift.
+M2DX-Core is a 6-operator / 32-algorithm FM synthesis library written in Swift, in the lineage of the Yamaha DX7 family.
 
-All code is **originally implemented** based on the DX7's published hardware specifications and the mathematical definition of FM synthesis. It does not depend on any existing DX7 reimplementation (msfa, Dexed, etc.) and is provided under the **MIT License**.
+The Swift production target (`M2DXCore`) is independently implemented from the DX7's published hardware behavior and the mathematical definition of FM synthesis. A separate test-only C target (`DX7Ref`) ports reference functions from the Apache-2.0-licensed MSFA code so that the Swift implementation can be cross-validated at the bit level — see [NOTICE](../NOTICE) for full attribution. The repository as a whole is provided under the **Apache License 2.0**.
 
 ### Key Differentiators
 
 | Feature | msfa (C++) | Dexed (C++/JUCE) | **M2DX-Core (Swift)** |
 |---------|-----------|-------------------|----------------------|
-| License | Apache 2.0 | GPL v3 | **MIT** |
+| License | Apache 2.0 | GPL v3 | **Apache 2.0** |
 | Thread Safety | Manual locking | JUCE message thread | **Swift 6 Strict Concurrency** |
 | MIDI | 1.0 (7-bit) | 1.0 (7-bit) | **2.0 (16-bit velocity, 32-bit CC, MPE)** |
 | Parameter Transfer | Shared mutable state | JUCE ValueTree | **Lock-free SPSC + Value Semantics** |
@@ -166,7 +166,7 @@ No other external dependencies.
 - [ ] Swift Package Manager with `Package.swift`
 - [ ] Public API design (minimal surface: `SynthEngine` + `Preset` + `NoteEvent`)
 - [ ] API documentation (DocC)
-- [ ] MIT LICENSE file
+- [x] Apache 2.0 LICENSE file + NOTICE (2026-04-27)
 
 ### Phase 4: TX816 Multi-Timbral (Future)
 
@@ -179,13 +179,13 @@ No other external dependencies.
 
 ## 6. License
 
-**MIT License**
+**Apache License, Version 2.0** (see [`LICENSE`](../LICENSE))
 
-- Free for commercial and non-commercial use, modification, and redistribution.
-- The only obligation is to include the LICENSE file (copyright notice + MIT text).
-- All code is originally implemented. No dependency on msfa (Apache 2.0) or Dexed (GPL).
-- All LUTs (Sin, Exp2, Velocity, KLS, etc.) are generated from mathematical functions and publicly available hardware specifications.
-- FM synthesis kernels, envelopes, and operator structures are designed from the mathematical definition of phase modulation and publicly documented DX7 behavior.
+- Free for commercial and non-commercial use, modification, and redistribution under the Apache 2.0 terms (patent grant, attribution requirements, statement of changes for modified files).
+- Distribution and derivative works must include the [`LICENSE`](../LICENSE) text and the [`NOTICE`](../NOTICE) file as required by Apache 2.0 §4.
+- Apps that bundle this library (statically or dynamically) must surface the `NOTICE` contents to end-users (e.g. an in-app About / Acknowledgements screen).
+- The Swift `M2DXCore` target is independently implemented from FM synthesis math and the publicly documented DX7 hardware behavior. The test-only `DX7Ref` C target ports reference functions from the Apache-2.0 MSFA code (Google Inc., 2012); see [NOTICE](../NOTICE) for the full attribution and modification log.
+- All LUTs (Sin, Exp2, Velocity, KLS, etc.) in `M2DXCore` are generated at build/runtime from mathematical functions and publicly available hardware specifications.
 
 ---
 

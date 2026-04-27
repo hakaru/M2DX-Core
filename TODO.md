@@ -67,7 +67,7 @@ All 8 steps of Phase 2 have been completed as of 2026-02-16.
 
 - [x] Create `.github/workflows/ci.yml` for macOS 15 + Xcode 16
 - [x] Configure `swift build` and `swift test` in CI
-- [x] Verify clean room implementation (no msfa references)
+- [x] Verify scope: M2DXCore Swift target uses no MSFA imports/symbols at runtime; DX7Ref C target ports MSFA Apache 2.0 (test-only, see NOTICE)
 
 ### Real-Time Safety Improvements ✅
 
@@ -264,11 +264,12 @@ P1 items in Phase 3a (sendMIDI / VoiceMixer / Pitch EG comment) are minor and ca
 
 ### Licensing
 
-- [ ] Create MIT LICENSE file with copyright notice
-- [ ] Add license headers to all source files
-- [ ] Create NOTICE file documenting independent implementation
-- [ ] Verify no unintended license obligations
-- [ ] Document DX7 trademark usage policy (descriptive use only)
+- [x] Apache License 2.0 set at repository root (`LICENSE`)
+- [x] `NOTICE` file with MSFA / Google Inc. attribution and modification log
+- [x] `LICENSES/Apache-2.0.txt` for SPDX/REUSE tooling
+- [ ] Add Apache 2.0 short headers (SPDX-License-Identifier) to each source file
+- [ ] Surface `NOTICE` contents in any consumer app (M2DX iOS About / Acknowledgements screen) — required by Apache 2.0 §4(d)
+- [ ] Document DX7 trademark usage policy (nominative / descriptive use only)
 
 ## Phase 4: TX816 Multi-Timbral (Future)
 

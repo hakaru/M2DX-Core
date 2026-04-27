@@ -40,20 +40,23 @@ Modifications applied while porting:
     SPDX-License-Identifier: Apache-2.0
 
 The remainder of this repository (the `M2DXCore` Swift target — engine,
-voices, tables, DSP, presets) is original work by the M2DX-Core authors,
-licensed under the MIT License (see `LICENSE`). Tables and computational
-kernels in the Swift target are independently generated from the
-mathematical definitions of FM synthesis and the publicly documented
-behavior of the DX7 hardware.
+voices, tables, DSP, presets) is licensed under the same Apache License,
+Version 2.0 (see `LICENSE`). Tables and computational kernels in the Swift
+target are independently generated from the mathematical definitions of
+FM synthesis and the publicly documented behavior of the DX7 hardware,
+with bit-level cross-validation against the MSFA C reference described
+above.
 
 ================================================================================
 Files and licenses
 ================================================================================
 
-  Sources/DX7Ref/                             Apache 2.0 (test-only)
-    See LICENSES/Apache-2.0.txt
-  Sources/M2DXCore/                           MIT
-    See LICENSE
-  Tests/M2DXCoreTests/                        MIT (test code authored here)
+  LICENSE                                     Apache License 2.0
+  Sources/DX7Ref/                             Apache 2.0 (test-only;
+                                              ported from MSFA — see above)
+  Sources/M2DXCore/                           Apache 2.0 (independent Swift
+                                              implementation)
+  Tests/M2DXCoreTests/                        Apache 2.0
 
-The full Apache License 2.0 text is provided in `LICENSES/Apache-2.0.txt`.
+The full Apache License 2.0 text is provided in `LICENSE` (canonical) and
+mirrored under `LICENSES/Apache-2.0.txt` for SPDX/REUSE tooling.
