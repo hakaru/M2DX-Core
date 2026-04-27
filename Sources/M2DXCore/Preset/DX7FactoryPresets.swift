@@ -1,12 +1,18 @@
 // DX7FactoryPresets.swift
-// M2DX-Core — Factory preset library loaded from SysEx bulk dumps
+// M2DX-Core — Factory preset library (hand-designed, original).
+//
+// Production presets are now defined directly in Swift across per-category
+// files (KeysPresets.swift, BassPresets.swift, ...). No Yamaha factory ROM
+// SysEx is bundled or referenced. The legacy SysEx loaders below remain as
+// deprecated convenience helpers for users who want to load their own .syx
+// banks at runtime.
 
 import Foundation
 
-/// DX7 factory presets loaded from bundled SysEx files
+/// DX7 factory presets, hand-designed in Swift.
 public enum DX7FactoryPresets {
 
-    /// INIT VOICE - default blank patch
+    /// INIT VOICE - default blank patch (algorithm 1, OP1 carrier only).
     public static let initVoice = DX7Preset(
         name: "INIT VOICE", algorithm: 0, feedback: 0,
         operators: [
@@ -22,24 +28,28 @@ public enum DX7FactoryPresets {
         category: .other
     )
 
-    /// All factory presets
+    /// All factory presets shipped with M2DX-Core.
     public static let all: [DX7Preset] = {
         var result = [initVoice]
-        result.append(contentsOf: factoryROMs)
+        result.append(contentsOf: customPresets)
         return result
     }()
 
-    /// ROM1A through ROM4B (8 banks × 32 = 256 presets)
-    public static let factoryROMs: [DX7Preset] = {
-        let files = ["rom1a", "rom1b", "rom2a", "rom2b", "rom3a", "rom3b", "rom4a", "rom4b"]
-        return loadBanks(files: files, subdirectory: "SysEx")
+    /// Hand-designed factory presets aggregated from per-category batches.
+    /// Each batch lives in its own file (KeysPresets.swift, BassPresets.swift, ...).
+    public static let customPresets: [DX7Preset] = {
+        var result: [DX7Preset] = []
+        result.append(contentsOf: DX7Preset.keysBatch)
+        // Future batches: bassBatch, brassBatch, stringsBatch,
+        //                 organBatch, percussionBatch, woodwindBatch, otherBatch
+        return result
     }()
 
-    /// Bank metadata for UI grouping
-    public static let banks: [DX7SysExBank] = {
-        let romFiles = ["rom1a", "rom1b", "rom2a", "rom2b", "rom3a", "rom3b", "rom4a", "rom4b"]
-        return loadBankObjects(files: romFiles, subdirectory: "SysEx")
-    }()
+    @available(*, deprecated, message: "Yamaha factory ROM SysEx is no longer bundled. Use customPresets, or load your own .syx via DX7SysExParser.")
+    public static let factoryROMs: [DX7Preset] = []
+
+    @available(*, deprecated, message: "Yamaha factory ROM SysEx is no longer bundled. Load your own banks at runtime if you need bank metadata.")
+    public static let banks: [DX7SysExBank] = []
 
     private static func loadBanks(files: [String], subdirectory: String) -> [DX7Preset] {
         var presets: [DX7Preset] = []
