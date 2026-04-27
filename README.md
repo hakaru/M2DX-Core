@@ -10,7 +10,7 @@ M2DX-Core is a 6-operator / 32-algorithm FM synthesis library written in Swift. 
 
 ## Key Features
 
-- **MIT License** for the production `M2DXCore` Swift target. The test-only `DX7Ref` C target is Apache-2.0 (see [NOTICE](NOTICE))
+- **Apache License 2.0** for the entire repository. Includes attribution to MSFA (Apache 2.0) for the test-only `DX7Ref` reference target — see [NOTICE](NOTICE)
 - **Swift 6** — Strict concurrency, value semantics, zero-allocation audio rendering
 - **MIDI 2.0 Native** — 16-bit velocity, 32-bit CC, per-note controllers (MPE-compatible)
 - **Apple Accelerate** — Hardware-accelerated DSP using vDSP (SIMD optimization)
@@ -134,12 +134,14 @@ Note: The production target uses only Swift 6.0's built-in `Synchronization` mod
 
 ## License & Attribution
 
+The entire repository is licensed under the **Apache License, Version 2.0** (see [LICENSE](LICENSE)).
+
 | Target | License | Notes |
 |--------|---------|-------|
-| `M2DXCore` (production) | MIT | See [LICENSE](LICENSE) |
-| `DX7Ref` (test-only C) | Apache 2.0 | Ported from `msfa` (Google Inc., 2012). See [NOTICE](NOTICE) and [LICENSES/Apache-2.0.txt](LICENSES/Apache-2.0.txt) |
+| `M2DXCore` (production) | Apache 2.0 | Independent Swift implementation from the DX7 hardware spec and FM synthesis math |
+| `DX7Ref` (test-only C) | Apache 2.0 | Ported from MSFA `msfa` core (Google Inc., 2012). See [NOTICE](NOTICE) |
 
-The Apache-2.0-licensed `DX7Ref` target is built only by `swift test` and is not part of any binary an application links against. Downstream consumers of `M2DXCore` therefore depend only on MIT-licensed code at runtime.
+When you redistribute this library or a derivative — including statically linked into an application — Apache 2.0 §4(d) requires you to surface the contents of [NOTICE](NOTICE) somewhere visible to recipients (e.g. an in-app About / Acknowledgements screen).
 
 DX7 is a registered trademark of Yamaha Corporation. M2DX-Core is not affiliated with or endorsed by Yamaha. References to DX7 are nominative use to describe the family of FM synthesis algorithms this library implements.
 
@@ -164,7 +166,7 @@ See [TODO.md](TODO.md) for the complete roadmap.
 - [ ] Public API design and documentation
 - [ ] DocC documentation for all public types
 - [ ] API stability guarantees
-- [ ] MIT license headers
+- [ ] Apache 2.0 short license headers per source file
 - [ ] Getting-started tutorial and code examples
 
 ### 🔮 Future: Phase 4 — TX816 Multi-Timbral

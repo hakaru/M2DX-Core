@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **License: MIT → Apache License 2.0** (2026-04-27)
+  - The repository as a whole (`M2DXCore` Swift target + `DX7Ref` C test target + tests + docs) is now Apache 2.0
+  - `LICENSE` replaced with the canonical Apache License 2.0 text
+  - `NOTICE` updated to reflect that the production Swift target is Apache 2.0 alongside the previously-Apache-2.0 `DX7Ref`
+  - `LICENSES/Apache-2.0.txt` retained for SPDX/REUSE tooling compatibility
+  - Rationale: the test target ports MSFA C code (Apache 2.0). Distributing the rest of the repository under MIT could be read as relicensing of MSFA-derived code, which §4 of Apache 2.0 does not permit. Switching the whole repository to Apache 2.0 removes that ambiguity. Apache 2.0 remains permissive enough for downstream closed-source apps (with the §4(d) NOTICE-display obligation).
+
 ### Added
 - **DX7Ref Voice-Level Rendering** (2026-02-18)
   - Added complete voice rendering functions to DX7Ref C target for waveform-level comparison testing

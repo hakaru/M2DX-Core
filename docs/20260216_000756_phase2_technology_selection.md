@@ -384,7 +384,7 @@ Per the proposal, M2DX-Core should have minimal dependencies:
 
 2. **Accelerate vDSP**: Use C-style API with pre-allocated `UnsafeMutablePointer<Float>` buffers. Apply to voice mixing (`vDSP_vsma`), output gain (`vDSP_vmul`), clipping (`vDSP_vclip`), and downsampling (`vDSP_desamp`). Not for per-sample operator kernel.
 
-3. **DX7 OPS Tables**: Generate all tables from mathematical definitions at compile time or initialization. Sin table: `-log2(sin((n+0.5)/1024 * pi/2)) * 1024`. Exp2 table: `round(2^(frac) * 2048)` with shift. No dependency on msfa/Dexed table data.
+3. **DX7 OPS Tables**: Generate all tables from mathematical definitions at compile time or initialization. Sin table: `-log2(sin((n+0.5)/1024 * pi/2)) * 1024`. Exp2 table: `round(2^(frac) * 2048)` with shift. The Swift production target generates tables from these formulas; bit-level equivalence with the MSFA Apache-2.0 reference is verified via the test-only `DX7Ref` target (see NOTICE).
 
 4. **MIDI 2.0**: Library accepts `NoteEvent` value type with 16-bit velocity, 32-bit CC. Host app handles CoreMIDI port management and UMP->NoteEvent conversion.
 
