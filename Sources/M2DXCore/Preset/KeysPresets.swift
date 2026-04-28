@@ -206,9 +206,9 @@ public extension DX7Preset {
             ],
             category: .keys,
             lfoSpeed: 28,
-            lfoWaveform: 0,
             lfoPMD: 4,
             lfoAMD: 8,
+            lfoWaveform: 0,
             lfoPMS: 3
         ),
 
