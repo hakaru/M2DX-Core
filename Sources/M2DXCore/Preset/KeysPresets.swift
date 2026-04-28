@@ -2,115 +2,112 @@
 // M2DX-Core — Original hand-designed DX7-style key presets (Apache 2.0).
 //
 // Every parameter value below was synthesized from FM theory + the explicit
-// design-intent comments above each preset. No Yamaha factory ROM SysEx file
-// was opened, parsed, or referenced while generating this batch. See NOTICE.
+// design-intent comments above each preset. Independent FM-theory derivation
+// only; no proprietary patch data was opened, parsed, or referenced while
+// generating this batch. See NOTICE.
 
 import Foundation
 
 public extension DX7Preset {
-    /// KEYS-category factory presets. The E.PIANO family is intentionally
+    /// KEYS-category preset bank. The E.PIANO family is intentionally
     /// over-represented — it's the patch family the user identified as the
     /// most "DX-like" and the strongest centerpiece of the bank.
     static let keysBatch: [DX7Preset] = [
-        /// E.PIANO 1 — warm Rhodes-like fundamental, woody mid body, short metallic tine.
-        /// Algorithm 5 keeps three independent modulator-carrier pairs, so OP6 → OP5 can
-        /// add tine without hardening the whole patch. OP2 → OP1 supplies low body, OP4 →
-        /// OP3 supplies the struck bar, and OP6 self-feedback adds a controlled noisy edge
-        /// to the high-ratio tine. Velocity sensitivity is concentrated on the modulators;
-        /// negative-left KLS reduces modulation in the bass for cleaner low notes. Carrier
-        /// plateaus 88-92 / 72-80 sustain the held body; egRate4 72/75 keeps staccato clean.
+        /// E.PIANO 1 is a warm Rhodes-style voice built on three independent modulator-carrier pairs.
+        /// Algorithm 5 lets OP2 → OP1 hold the fundamental, OP4 → OP3 shape the wooden bar, and OP6 → OP5 add a short tine without cross-contaminating the sustain.
+        /// The primary carrier is pinned at full level while the two extra carriers sit lower and detuned for width.
+        /// Modulator levels are deliberately restrained, with nonzero sustain shelves so the FM color remains audible after the strike.
+        /// Feedback stays on the high-ratio tine pair for controlled sparkle rather than a noisy attack.
         DX7Preset(
             name: "E.PIANO 1",
             algorithm: 4,
             feedback: 3,
             operators: [
-                .init(outputLevel: 97, detune: 6, egRate2: 58, egRate3: 37, egRate4: 72, egLevel2: 92, egLevel3: 80, velocitySensitivity: 2, keyboardRateScaling: 1), // OP1 (carrier): warm fundamental sustain
-                .init(outputLevel: 42, frequencyFine: 3, egRate2: 70, egRate3: 45, egRate4: 75, egLevel2: 30, egLevel3: 2, velocitySensitivity: 3, keyboardRateScaling: 2, klsBreakPoint: 41, klsLeftDepth: 18, klsRightDepth: 0, klsLeftCurve: 1, klsRightCurve: 0), // OP2 (modulator → OP1): soft low-ratio bark
-                .init(outputLevel: 88, detune: 8, egRate2: 62, egRate3: 34, egRate4: 72, egLevel2: 90, egLevel3: 78, velocitySensitivity: 2, keyboardRateScaling: 1), // OP3 (carrier): midrange tine body
-                .init(outputLevel: 46, frequencyCoarse: 2, detune: 8, egRate2: 76, egRate3: 49, egRate4: 75, egLevel2: 27, egLevel3: 1, velocitySensitivity: 4, keyboardRateScaling: 2, klsBreakPoint: 43, klsLeftDepth: 24, klsRightDepth: 0, klsLeftCurve: 1, klsRightCurve: 0), // OP4 (modulator → OP3): velocity-opened hammer overtone
-                .init(outputLevel: 75, detune: 7, egRate2: 71, egRate3: 52, egRate4: 72, egLevel2: 88, egLevel3: 72, velocitySensitivity: 1, keyboardRateScaling: 2), // OP5 (carrier): short metallic tine carrier
-                .init(outputLevel: 52, frequencyCoarse: 8, frequencyFine: 6, detune: 9, feedback: 3, egRate2: 83, egRate3: 68, egRate4: 75, egLevel2: 24, egLevel3: 0, velocitySensitivity: 6, keyboardRateScaling: 3, klsBreakPoint: 44, klsLeftDepth: 31, klsRightDepth: 8, klsLeftCurve: 1, klsRightCurve: 3), // OP6 (modulator → OP5, feedback): bright tine attack
+                .init(outputLevel: 99, detune: 6, egRate2: 58, egRate3: 36, egRate4: 74, egLevel1: 99, egLevel2: 94, egLevel3: 84, velocitySensitivity: 2, keyboardRateScaling: 1), // OP1 (carrier): warm fundamental sustain
+                .init(outputLevel: 34, frequencyFine: 3, detune: 7, egRate2: 64, egRate3: 38, egRate4: 76, egLevel2: 32, egLevel3: 12, velocitySensitivity: 3, keyboardRateScaling: 2, klsBreakPoint: 41, klsLeftDepth: 18, klsRightDepth: 0, klsLeftCurve: 1, klsRightCurve: 0), // OP2 (modulator → OP1): soft low-ratio bark
+                .init(outputLevel: 92, detune: 8, egRate2: 60, egRate3: 34, egRate4: 74, egLevel1: 99, egLevel2: 93, egLevel3: 82, velocitySensitivity: 2, keyboardRateScaling: 1), // OP3 (carrier): woody midrange body
+                .init(outputLevel: 38, frequencyCoarse: 2, detune: 8, egRate2: 66, egRate3: 40, egRate4: 76, egLevel2: 30, egLevel3: 10, velocitySensitivity: 4, keyboardRateScaling: 2, klsBreakPoint: 43, klsLeftDepth: 22, klsRightDepth: 0, klsLeftCurve: 1, klsRightCurve: 0), // OP4 (modulator → OP3): velocity-opened hammer overtone
+                .init(outputLevel: 80, detune: 9, egRate2: 66, egRate3: 44, egRate4: 74, egLevel1: 99, egLevel2: 92, egLevel3: 80, velocitySensitivity: 1, keyboardRateScaling: 2), // OP5 (carrier): short metallic tine carrier
+                .init(outputLevel: 46, frequencyCoarse: 8, frequencyFine: 6, detune: 9, feedback: 3, egRate2: 72, egRate3: 48, egRate4: 76, egLevel2: 28, egLevel3: 8, velocitySensitivity: 6, keyboardRateScaling: 3, klsBreakPoint: 44, klsLeftDepth: 30, klsRightDepth: 8, klsLeftCurve: 1, klsRightCurve: 3), // OP6 (modulator → OP5, feedback): bright tine attack
             ],
             category: .keys
         ),
 
-        /// E.PIANO 2 — bright Rhodes Mk II character with a harder tine edge.
-        /// Higher OP6 ratio (coarse 10), higher modulator output (62), and velocity sensitivity 7
-        /// give a sharper bell-like attack on hard hits without making the body permanently bright.
-        /// Feedback 4 (slightly more than EP 1's 3) clips OP6 into a crisper tine timbre.
-        /// Faster carrier release (egRate4 75/78) tightens the staccato tail to match the punchy attack.
-        /// Modulator plateaus stay near zero so the tine character vanishes cleanly between notes.
+        /// E.PIANO 2 is a bell-tinged Mk II voice using the branched Algorithm 7 layout.
+        /// OP2 → OP1 carries the warm body while the OP6 → OP5 → OP3 branch and OP4 → OP3 branch create a harder struck tine.
+        /// Keeping OP3 as the secondary carrier at a high but controlled level gives the tone more top-end focus than E.PIANO 1.
+        /// The two branch modulators decay close to the carrier decay and retain small sustain shelves, preventing the attack from swelling louder than the body.
+        /// Feedback on OP6 supplies the bell edge without forcing every note into a bright static color.
         DX7Preset(
             name: "E.PIANO 2",
-            algorithm: 4,
+            algorithm: 6,
             feedback: 4,
             operators: [
-                .init(outputLevel: 97, detune: 6, egRate2: 60, egRate3: 39, egRate4: 75, egLevel2: 93, egLevel3: 81, velocitySensitivity: 2, keyboardRateScaling: 1), // OP1 (carrier): full fundamental body
-                .init(outputLevel: 45, frequencyFine: 4, egRate2: 72, egRate3: 47, egRate4: 77, egLevel2: 28, egLevel3: 1, velocitySensitivity: 4, keyboardRateScaling: 2, klsBreakPoint: 41, klsLeftDepth: 20, klsRightDepth: 0, klsLeftCurve: 1, klsRightCurve: 0), // OP2 (modulator → OP1): bark and body shimmer
-                .init(outputLevel: 87, detune: 8, egRate2: 63, egRate3: 36, egRate4: 75, egLevel2: 91, egLevel3: 79, velocitySensitivity: 2, keyboardRateScaling: 1), // OP3 (carrier): midrange sustain layer
-                .init(outputLevel: 48, frequencyCoarse: 2, detune: 9, egRate2: 77, egRate3: 51, egRate4: 77, egLevel2: 29, egLevel3: 1, velocitySensitivity: 5, keyboardRateScaling: 2, klsBreakPoint: 43, klsLeftDepth: 22, klsRightDepth: 0, klsLeftCurve: 1, klsRightCurve: 0), // OP4 (modulator → OP3): hammer transient
-                .init(outputLevel: 76, detune: 7, egRate2: 72, egRate3: 54, egRate4: 75, egLevel2: 89, egLevel3: 73, velocitySensitivity: 1, keyboardRateScaling: 2), // OP5 (carrier): bright tine sustain
-                .init(outputLevel: 62, frequencyCoarse: 10, frequencyFine: 2, detune: 9, feedback: 4, egRate2: 85, egRate3: 70, egRate4: 77, egLevel2: 26, egLevel3: 0, velocitySensitivity: 7, keyboardRateScaling: 3, klsBreakPoint: 44, klsLeftDepth: 34, klsRightDepth: 6, klsLeftCurve: 1, klsRightCurve: 3), // OP6 (modulator → OP5, feedback): high-ratio crisper tine
+                .init(outputLevel: 99, detune: 6, egRate2: 60, egRate3: 38, egRate4: 75, egLevel1: 99, egLevel2: 95, egLevel3: 85, velocitySensitivity: 2, keyboardRateScaling: 1), // OP1 (carrier): full fundamental body
+                .init(outputLevel: 34, frequencyFine: 4, detune: 7, egRate2: 66, egRate3: 40, egRate4: 77, egLevel2: 31, egLevel3: 12, velocitySensitivity: 4, keyboardRateScaling: 2, klsBreakPoint: 41, klsLeftDepth: 18, klsRightDepth: 0, klsLeftCurve: 1, klsRightCurve: 0), // OP2 (modulator → OP1): bark and body shimmer
+                .init(outputLevel: 92, detune: 8, egRate2: 62, egRate3: 37, egRate4: 75, egLevel1: 99, egLevel2: 94, egLevel3: 83, velocitySensitivity: 2, keyboardRateScaling: 1), // OP3 (carrier): bell-tinged secondary body
+                .init(outputLevel: 36, frequencyCoarse: 3, detune: 8, egRate2: 68, egRate3: 41, egRate4: 77, egLevel2: 30, egLevel3: 11, velocitySensitivity: 5, keyboardRateScaling: 2, klsBreakPoint: 43, klsLeftDepth: 20, klsRightDepth: 2, klsLeftCurve: 1, klsRightCurve: 2), // OP4 (modulator → OP3): direct hammer partial
+                .init(outputLevel: 32, frequencyCoarse: 2, frequencyFine: 5, detune: 6, egRate2: 68, egRate3: 42, egRate4: 77, egLevel2: 28, egLevel3: 10, velocitySensitivity: 4, keyboardRateScaling: 2), // OP5 (modulator → OP3): branched bell index
+                .init(outputLevel: 44, frequencyCoarse: 10, frequencyFine: 2, detune: 9, feedback: 4, egRate2: 74, egRate3: 46, egRate4: 77, egLevel2: 26, egLevel3: 8, velocitySensitivity: 7, keyboardRateScaling: 3, klsBreakPoint: 44, klsLeftDepth: 32, klsRightDepth: 7, klsLeftCurve: 1, klsRightCurve: 3), // OP6 (modulator → OP5, feedback): high-ratio tine driver
             ],
             category: .keys
         ),
 
-        /// E.PIANO 3 — dark Wurlitzer character. Mellow, reedy, less tine.
-        /// Algorithm 5 retained, but lower OP6 OL (40) lets the reedy OP4 character dominate the onset.
-        /// Slow carrier attack (egRate2 ~52) gives Wurly's breathy bloom; narrow detune (7/8/6) gives the
-        /// focused, slightly nasal core. Feedback 2 keeps OP6 subtle to avoid Rhodes-style brightness.
-        /// Modulator plateaus near zero so the reed tail decays cleanly without residual buzz.
+        /// E.PIANO 3 is a dark Wurly-style additive patch with no active FM branches.
+        /// Algorithm 32 makes every operator a carrier, so the tone is built from layered partials rather than moving sidebands.
+        /// The primary carrier stays full level, one secondary carrier reinforces the body, and the remaining tertiary carriers taper into a reedy upper spectrum.
+        /// Slightly uneven detune and slower decay rates keep the sound rounded and vocal instead of glassy.
         DX7Preset(
             name: "E.PIANO 3",
-            algorithm: 4,
-            feedback: 2,
+            algorithm: 31,
+            feedback: 0,
             operators: [
-                .init(outputLevel: 97, detune: 7, egRate2: 55, egRate3: 34, egRate4: 72, egLevel2: 91, egLevel3: 80, velocitySensitivity: 2, keyboardRateScaling: 1), // OP1 (carrier): warm rounded fundamental
-                .init(outputLevel: 40, frequencyFine: 2, egRate2: 52, egRate3: 40, egRate4: 74, egLevel2: 26, egLevel3: 2, velocitySensitivity: 3, keyboardRateScaling: 2, klsBreakPoint: 40, klsLeftDepth: 16, klsRightDepth: 0, klsLeftCurve: 1, klsRightCurve: 0), // OP2 (modulator → OP1): slow-bloom reedy bark
-                .init(outputLevel: 87, detune: 8, egRate2: 58, egRate3: 32, egRate4: 72, egLevel2: 90, egLevel3: 78, velocitySensitivity: 1, keyboardRateScaling: 1), // OP3 (carrier): midrange reedy body sustain
-                .init(outputLevel: 46, frequencyCoarse: 2, detune: 8, egRate2: 54, egRate3: 44, egRate4: 74, egLevel2: 29, egLevel3: 1, velocitySensitivity: 4, keyboardRateScaling: 2, klsBreakPoint: 42, klsLeftDepth: 20, klsRightDepth: 0, klsLeftCurve: 1, klsRightCurve: 0), // OP4 (modulator → OP3): reed-character overtone bloom
-                .init(outputLevel: 74, detune: 6, egRate2: 68, egRate3: 48, egRate4: 72, egLevel2: 88, egLevel3: 71, velocitySensitivity: 1, keyboardRateScaling: 1), // OP5 (carrier): gentle upper partial sustain
-                .init(outputLevel: 40, frequencyCoarse: 7, frequencyFine: 1, detune: 7, feedback: 2, egRate2: 76, egRate3: 60, egRate4: 74, egLevel2: 22, egLevel3: 0, velocitySensitivity: 5, keyboardRateScaling: 3, klsBreakPoint: 43, klsLeftDepth: 28, klsRightDepth: 4, klsLeftCurve: 1, klsRightCurve: 2), // OP6 (modulator → OP5, feedback): soft nasal tine edge
+                .init(outputLevel: 99, frequencyCoarse: 1, detune: 7, egRate2: 54, egRate3: 33, egRate4: 74, egLevel1: 99, egLevel2: 94, egLevel3: 86, velocitySensitivity: 2, keyboardRateScaling: 1), // OP1 (carrier): dark fundamental body
+                .init(outputLevel: 92, frequencyCoarse: 1, frequencyFine: 2, detune: 6, egRate2: 53, egRate3: 32, egRate4: 74, egLevel1: 99, egLevel2: 93, egLevel3: 84, velocitySensitivity: 2, keyboardRateScaling: 1), // OP2 (carrier): close beating reed body
+                .init(outputLevel: 85, frequencyCoarse: 2, detune: 8, egRate2: 55, egRate3: 31, egRate4: 74, egLevel1: 99, egLevel2: 92, egLevel3: 82, velocitySensitivity: 1, keyboardRateScaling: 1), // OP3 (carrier): mellow octave support
+                .init(outputLevel: 82, frequencyCoarse: 3, frequencyFine: 1, detune: 5, egRate2: 57, egRate3: 30, egRate4: 74, egLevel1: 99, egLevel2: 92, egLevel3: 80, velocitySensitivity: 1, keyboardRateScaling: 1), // OP4 (carrier): soft nasal third partial
+                .init(outputLevel: 79, frequencyCoarse: 4, detune: 9, egRate2: 58, egRate3: 30, egRate4: 74, egLevel1: 99, egLevel2: 92, egLevel3: 79, velocitySensitivity: 1, keyboardRateScaling: 1), // OP5 (carrier): quiet upper reed color
+                .init(outputLevel: 76, frequencyCoarse: 6, detune: 6, egRate2: 60, egRate3: 29, egRate4: 74, egLevel1: 99, egLevel2: 92, egLevel3: 78, velocitySensitivity: 1, keyboardRateScaling: 2), // OP6 (carrier): faint airy partial
             ],
             category: .keys
         ),
 
-        /// E.PIANO 4 — CP70-style acoustic-electric piano with a percussive hammer attack.
-        /// Algorithm 15 routes OP6 into both OP5 directly and the OP4 → OP3 branch, giving a piano-like
-        /// shared attack transient followed by separate decay tails. Lower egLevel3 (60-72) on carriers
-        /// produces a piano-style decay arc rather than a sustained EP plateau. OP6 velocity sensitivity 7
-        /// makes the hammer expressive. Feedback 3 adds a slightly inharmonic edge recalling steel-string brightness.
+        /// E.PIANO 4 is a CP70-style acoustic-electric piano with a shared high hammer source.
+        /// Algorithm 15 lets the upper side of the patch use OP6 as a common transient driver into OP5 and OP4, giving the attack one coordinated strike.
+        /// OP1 keeps the low piano body stable while OP3 supplies the brighter string-like secondary carrier.
+        /// The modulator decay rates are matched to the carriers closely enough that the hammer does not bloom louder after the initial hit.
+        /// Moderate feedback on the shared high operator adds steel-like grain without turning the sustain into a bell.
         DX7Preset(
             name: "E.PIANO 4",
             algorithm: 14,
             feedback: 3,
             operators: [
-                .init(outputLevel: 97, detune: 6, egRate2: 63, egRate3: 42, egRate4: 73, egLevel2: 93, egLevel3: 72, velocitySensitivity: 2, keyboardRateScaling: 2), // OP1 (carrier): fundamental piano sustain arc
-                .init(outputLevel: 44, frequencyFine: 3, egRate2: 74, egRate3: 52, egRate4: 75, egLevel2: 28, egLevel3: 1, velocitySensitivity: 4, keyboardRateScaling: 2, klsBreakPoint: 41, klsLeftDepth: 18, klsRightDepth: 0, klsLeftCurve: 1, klsRightCurve: 0), // OP2 (modulator → OP1): string harmonic warmth
-                .init(outputLevel: 86, detune: 8, egRate2: 61, egRate3: 40, egRate4: 73, egLevel2: 91, egLevel3: 68, velocitySensitivity: 2, keyboardRateScaling: 2), // OP3 (carrier): mid-piano body decay
-                .init(outputLevel: 50, frequencyCoarse: 2, detune: 8, egRate2: 79, egRate3: 55, egRate4: 75, egLevel2: 30, egLevel3: 1, velocitySensitivity: 5, keyboardRateScaling: 3, klsBreakPoint: 43, klsLeftDepth: 22, klsRightDepth: 2, klsLeftCurve: 1, klsRightCurve: 2), // OP4 (modulator → OP3): upper harmonic brightening
-                .init(outputLevel: 73, detune: 7, egRate2: 70, egRate3: 50, egRate4: 73, egLevel2: 89, egLevel3: 60, velocitySensitivity: 2, keyboardRateScaling: 2), // OP5 (carrier): treble string decay tail
-                .init(outputLevel: 57, frequencyCoarse: 9, frequencyFine: 3, detune: 9, feedback: 3, egRate2: 88, egRate3: 74, egRate4: 75, egLevel2: 27, egLevel3: 0, velocitySensitivity: 7, keyboardRateScaling: 4, klsBreakPoint: 44, klsLeftDepth: 36, klsRightDepth: 8, klsLeftCurve: 1, klsRightCurve: 3), // OP6 (modulator → OP5/OP4, feedback): shared percussive hammer attack
+                .init(outputLevel: 99, detune: 6, egRate2: 64, egRate3: 42, egRate4: 76, egLevel1: 99, egLevel2: 96, egLevel3: 82, velocitySensitivity: 2, keyboardRateScaling: 2), // OP1 (carrier): fundamental piano body
+                .init(outputLevel: 36, frequencyCoarse: 2, frequencyFine: 2, detune: 7, egRate2: 70, egRate3: 44, egRate4: 78, egLevel2: 32, egLevel3: 12, velocitySensitivity: 4, keyboardRateScaling: 2, klsBreakPoint: 41, klsLeftDepth: 16, klsRightDepth: 2, klsLeftCurve: 1, klsRightCurve: 2), // OP2 (modulator → OP1): low string harmonic warmth
+                .init(outputLevel: 92, detune: 8, egRate2: 62, egRate3: 40, egRate4: 76, egLevel1: 99, egLevel2: 94, egLevel3: 80, velocitySensitivity: 2, keyboardRateScaling: 2), // OP3 (carrier): bright CP-style string body
+                .init(outputLevel: 38, frequencyCoarse: 2, detune: 8, egRate2: 68, egRate3: 42, egRate4: 78, egLevel2: 30, egLevel3: 11, velocitySensitivity: 5, keyboardRateScaling: 3, klsBreakPoint: 43, klsLeftDepth: 20, klsRightDepth: 4, klsLeftCurve: 1, klsRightCurve: 2), // OP4 (modulator → OP3): upper harmonic brightener
+                .init(outputLevel: 34, frequencyCoarse: 5, frequencyFine: 2, detune: 6, egRate2: 72, egRate3: 44, egRate4: 78, egLevel2: 28, egLevel3: 10, velocitySensitivity: 4, keyboardRateScaling: 3), // OP5 (modulator → OP4): shared hammer color stage
+                .init(outputLevel: 44, frequencyCoarse: 9, frequencyFine: 3, detune: 9, feedback: 3, egRate2: 74, egRate3: 46, egRate4: 78, egLevel2: 26, egLevel3: 9, velocitySensitivity: 7, keyboardRateScaling: 4, klsBreakPoint: 44, klsLeftDepth: 34, klsRightDepth: 8, klsLeftCurve: 1, klsRightCurve: 3), // OP6 (modulator → OP5/OP4, feedback): shared percussive hammer source
             ],
             category: .keys
         ),
 
-        /// E.PIANO 5 — Suitcase warm-bell hybrid. EP body fused with light bell partial.
-        /// Algorithm 7 routes OP2 → OP1 for a sustained EP fundamental and OP6 → OP5 → OP3 + OP4 → OP3
-        /// for a bell-leaning secondary stack. OP3 sits at coarse 1 (NOT high inharmonic) so it reads as
-        /// EP-style body rather than a bell partial. OP4 at coarse 3 OL 48 adds moderate ring without
-        /// dominating. Light chorus (lfoPMD 2) gives the Suitcase shimmer; feedback 3 keeps tine present.
+        /// E.PIANO 5 is a layered Suitcase voice that uses Algorithm 22 as a mostly additive layout.
+        /// The five audible carriers create a broad body, octave, and upper shimmer while OP6 supplies one restrained shared brightness source.
+        /// OP1 is the full-level anchor, OP2 is the secondary carrier, and OP3 through OP5 sit in tertiary ranges so the stack stays loud but not overloaded.
+        /// The shared modulator keeps its FM shelf through sustain, which makes the chorus-like Suitcase sheen persist without a late decay swell.
+        /// Light pitch modulation adds motion after the attack while preserving the dry FM core.
         DX7Preset(
             name: "E.PIANO 5",
-            algorithm: 6,
-            feedback: 3,
+            algorithm: 21,
+            feedback: 2,
             operators: [
-                .init(outputLevel: 97, detune: 7, egRate2: 60, egRate3: 38, egRate4: 73, egLevel2: 92, egLevel3: 80, velocitySensitivity: 2, keyboardRateScaling: 1), // OP1 (carrier): warm EP fundamental
-                .init(outputLevel: 44, frequencyFine: 3, egRate2: 72, egRate3: 48, egRate4: 75, egLevel2: 28, egLevel3: 2, velocitySensitivity: 3, keyboardRateScaling: 2, klsBreakPoint: 41, klsLeftDepth: 18, klsRightDepth: 0, klsLeftCurve: 1, klsRightCurve: 0), // OP2 (modulator → OP1): fundamental warmth bark
-                .init(outputLevel: 86, frequencyCoarse: 1, detune: 8, egRate2: 65, egRate3: 40, egRate4: 73, egLevel2: 90, egLevel3: 78, velocitySensitivity: 2, keyboardRateScaling: 1), // OP3 (carrier): EP-style body sustain (secondary)
-                .init(outputLevel: 48, frequencyCoarse: 3, detune: 9, egRate2: 80, egRate3: 56, egRate4: 75, egLevel2: 30, egLevel3: 1, velocitySensitivity: 4, keyboardRateScaling: 2), // OP4 (modulator → OP3): moderate bell ring partial
-                .init(outputLevel: 74, detune: 6, egRate2: 70, egRate3: 50, egRate4: 73, egLevel2: 88, egLevel3: 72, velocitySensitivity: 1, keyboardRateScaling: 2), // OP5 (carrier): tine overtone sustain
-                .init(outputLevel: 50, frequencyCoarse: 8, detune: 9, feedback: 3, egRate2: 84, egRate3: 68, egRate4: 75, egLevel2: 25, egLevel3: 0, velocitySensitivity: 5, keyboardRateScaling: 3, klsBreakPoint: 44, klsLeftDepth: 30, klsRightDepth: 6, klsLeftCurve: 1, klsRightCurve: 3), // OP6 (modulator → OP5, feedback): tine attack shimmer
+                .init(outputLevel: 99, frequencyCoarse: 1, detune: 7, egRate2: 60, egRate3: 36, egRate4: 74, egLevel1: 99, egLevel2: 95, egLevel3: 86, velocitySensitivity: 2, keyboardRateScaling: 1), // OP1 (carrier): warm Suitcase fundamental
+                .init(outputLevel: 92, frequencyCoarse: 1, frequencyFine: 3, detune: 6, egRate2: 61, egRate3: 35, egRate4: 74, egLevel1: 99, egLevel2: 94, egLevel3: 84, velocitySensitivity: 2, keyboardRateScaling: 1), // OP2 (carrier): close secondary body
+                .init(outputLevel: 84, frequencyCoarse: 2, detune: 8, egRate2: 62, egRate3: 34, egRate4: 74, egLevel1: 99, egLevel2: 93, egLevel3: 82, velocitySensitivity: 1, keyboardRateScaling: 1), // OP3 (carrier): octave body layer
+                .init(outputLevel: 80, frequencyCoarse: 3, frequencyFine: 1, detune: 5, egRate2: 64, egRate3: 33, egRate4: 74, egLevel1: 99, egLevel2: 92, egLevel3: 80, velocitySensitivity: 1, keyboardRateScaling: 2), // OP4 (carrier): soft upper shimmer
+                .init(outputLevel: 76, frequencyCoarse: 4, frequencyFine: 2, detune: 9, egRate2: 66, egRate3: 34, egRate4: 74, egLevel1: 99, egLevel2: 92, egLevel3: 78, velocitySensitivity: 1, keyboardRateScaling: 2), // OP5 (carrier): quiet bell-like top
+                .init(outputLevel: 42, frequencyCoarse: 7, frequencyFine: 4, detune: 8, feedback: 2, egRate2: 66, egRate3: 39, egRate4: 76, egLevel2: 28, egLevel3: 12, velocitySensitivity: 5, keyboardRateScaling: 3, klsBreakPoint: 44, klsLeftDepth: 26, klsRightDepth: 8, klsLeftCurve: 1, klsRightCurve: 3), // OP6 (modulator → OP1..OP5, feedback): shared Suitcase shimmer
             ],
             category: .keys,
             lfoSpeed: 34,
@@ -118,45 +115,44 @@ public extension DX7Preset {
             lfoPMS: 2
         ),
 
-        /// E.PIANO 6 — Stage clean. Pure Rhodes character stripped of grit.
-        /// Algorithm 5 with feedback 1 keeps the tine edge barely audible; the fundamental body dominates.
-        /// All modulators sit at OL 35-45 with egLevel2 24-30 — a low FM index that avoids aliased sidebands.
-        /// Gentle pitch LFO (lfoSpeed 32, lfoPMD 2, lfoPMS 3) gives organic vibrato-style detune motion.
-        /// Carrier egRate4 70-72 / modulator 72-75 ensures tails don't linger. Studio-ready EP tone.
+        /// E.PIANO 6 is a clean Stage-style electric piano using the Algorithm 6 three-pair variant.
+        /// Its topology separates fundamental, mid body, and tine into three independent paths like E.PIANO 1, but the modulator levels and feedback are lower.
+        /// OP1 remains the dominant carrier, OP3 supplies a polished secondary body, and OP5 adds only a controlled tertiary tine.
+        /// The nonzero modulator shelves preserve FM identity during held notes while keeping the overall tone smooth and studio-ready.
         DX7Preset(
             name: "E.PIANO 6",
-            algorithm: 4,
+            algorithm: 5,
             feedback: 1,
             operators: [
-                .init(outputLevel: 97, detune: 7, egRate2: 57, egRate3: 36, egRate4: 70, egLevel2: 92, egLevel3: 80, velocitySensitivity: 2, keyboardRateScaling: 1), // OP1 (carrier): clean fundamental body
-                .init(outputLevel: 38, frequencyFine: 2, egRate2: 69, egRate3: 44, egRate4: 72, egLevel2: 26, egLevel3: 1, velocitySensitivity: 2, keyboardRateScaling: 1, klsBreakPoint: 40, klsLeftDepth: 14, klsRightDepth: 0, klsLeftCurve: 1, klsRightCurve: 0), // OP2 (modulator → OP1): subtle low bark
-                .init(outputLevel: 88, detune: 8, egRate2: 60, egRate3: 34, egRate4: 70, egLevel2: 91, egLevel3: 79, velocitySensitivity: 1, keyboardRateScaling: 1), // OP3 (carrier): mid sustain layer
-                .init(outputLevel: 40, frequencyCoarse: 2, detune: 8, egRate2: 74, egRate3: 47, egRate4: 72, egLevel2: 24, egLevel3: 1, velocitySensitivity: 3, keyboardRateScaling: 1, klsBreakPoint: 42, klsLeftDepth: 18, klsRightDepth: 0, klsLeftCurve: 1, klsRightCurve: 0), // OP4 (modulator → OP3): minimal hammer partial
-                .init(outputLevel: 74, detune: 7, egRate2: 68, egRate3: 49, egRate4: 70, egLevel2: 88, egLevel3: 71, velocitySensitivity: 1, keyboardRateScaling: 1), // OP5 (carrier): polished tine sustain
-                .init(outputLevel: 35, frequencyCoarse: 8, frequencyFine: 4, detune: 9, feedback: 1, egRate2: 80, egRate3: 64, egRate4: 72, egLevel2: 24, egLevel3: 0, velocitySensitivity: 4, keyboardRateScaling: 2, klsBreakPoint: 43, klsLeftDepth: 24, klsRightDepth: 2, klsLeftCurve: 1, klsRightCurve: 1), // OP6 (modulator → OP5, feedback): barely-there tine edge
+                .init(outputLevel: 99, detune: 7, egRate2: 56, egRate3: 34, egRate4: 72, egLevel1: 99, egLevel2: 94, egLevel3: 86, velocitySensitivity: 2, keyboardRateScaling: 1), // OP1 (carrier): clean fundamental body
+                .init(outputLevel: 32, frequencyFine: 2, detune: 7, egRate2: 62, egRate3: 36, egRate4: 74, egLevel2: 30, egLevel3: 13, velocitySensitivity: 2, keyboardRateScaling: 1, klsBreakPoint: 40, klsLeftDepth: 14, klsRightDepth: 0, klsLeftCurve: 1, klsRightCurve: 0), // OP2 (modulator → OP1): subtle low bark
+                .init(outputLevel: 92, detune: 8, egRate2: 58, egRate3: 33, egRate4: 72, egLevel1: 99, egLevel2: 93, egLevel3: 83, velocitySensitivity: 1, keyboardRateScaling: 1), // OP3 (carrier): polished mid sustain
+                .init(outputLevel: 34, frequencyCoarse: 2, detune: 8, egRate2: 64, egRate3: 35, egRate4: 74, egLevel2: 28, egLevel3: 12, velocitySensitivity: 3, keyboardRateScaling: 1, klsBreakPoint: 42, klsLeftDepth: 16, klsRightDepth: 0, klsLeftCurve: 1, klsRightCurve: 0), // OP4 (modulator → OP3): restrained hammer partial
+                .init(outputLevel: 80, detune: 6, egRate2: 64, egRate3: 42, egRate4: 72, egLevel1: 99, egLevel2: 92, egLevel3: 80, velocitySensitivity: 1, keyboardRateScaling: 1), // OP5 (carrier): gentle tine sustain
+                .init(outputLevel: 36, frequencyCoarse: 8, frequencyFine: 2, detune: 9, feedback: 1, egRate2: 70, egRate3: 44, egRate4: 74, egLevel2: 26, egLevel3: 10, velocitySensitivity: 4, keyboardRateScaling: 2, klsBreakPoint: 43, klsLeftDepth: 22, klsRightDepth: 2, klsLeftCurve: 1, klsRightCurve: 1), // OP6 (modulator → OP5, feedback): barely-there tine edge
             ],
             category: .keys,
             lfoSpeed: 32,
-            lfoPMD: 2,
-            lfoPMS: 3
+            lfoPMD: 1,
+            lfoPMS: 2
         ),
 
-        /// E.PIANO 7 — Driven grit. Saturated Rhodes sound from hard playing through a tube amp.
-        /// Alternating detune (5/9 across operators) creates a phaser-like beating effect — slow chorus
-        /// on a dirty amp. Feedback 5 pushes OP6 into strong self-modulation, adding crunch and clipped
-        /// upper harmonics without external overdrive. Faster carrier egRate3 (47-50) compresses the
-        /// mid-decay slope for the percussive punch typical of played-hard Rhodes.
+        /// E.PIANO 7 is the driven-grit patch built around Algorithm 2's linear stack with feedback on OP2.
+        /// OP2 directly modulates the full-level carrier, so the feedback produces audible bite at the point closest to the output instead of only adding distant fizz.
+        /// The deeper operators feed the stack at progressively lower levels, creating compressed upper harmonics without overwhelming the fundamental.
+        /// Matched decay rates and sustained FM shelves keep the gritty tone present during the note tail rather than only on the transient.
+        /// Wide detune offsets create slow beating that suggests an overdriven stage piano without adding an external effect.
         DX7Preset(
             name: "E.PIANO 7",
-            algorithm: 4,
+            algorithm: 1,
             feedback: 5,
             operators: [
-                .init(outputLevel: 97, detune: 5, egRate2: 59, egRate3: 47, egRate4: 72, egLevel2: 92, egLevel3: 79, velocitySensitivity: 2, keyboardRateScaling: 1), // OP1 (carrier): driven fundamental
-                .init(outputLevel: 46, frequencyFine: 3, egRate2: 71, egRate3: 48, egRate4: 74, egLevel2: 30, egLevel3: 2, velocitySensitivity: 4, keyboardRateScaling: 2, klsBreakPoint: 41, klsLeftDepth: 20, klsRightDepth: 0, klsLeftCurve: 1, klsRightCurve: 0), // OP2 (modulator → OP1): gritty bark oscillation
-                .init(outputLevel: 87, detune: 9, egRate2: 62, egRate3: 47, egRate4: 72, egLevel2: 90, egLevel3: 77, velocitySensitivity: 2, keyboardRateScaling: 1), // OP3 (carrier): phase-spread mid layer
-                .init(outputLevel: 48, frequencyCoarse: 2, detune: 5, egRate2: 76, egRate3: 50, egRate4: 74, egLevel2: 28, egLevel3: 1, velocitySensitivity: 5, keyboardRateScaling: 2, klsBreakPoint: 43, klsLeftDepth: 22, klsRightDepth: 0, klsLeftCurve: 1, klsRightCurve: 0), // OP4 (modulator → OP3): hammer crunch with spread detune
-                .init(outputLevel: 75, detune: 9, egRate2: 72, egRate3: 54, egRate4: 72, egLevel2: 88, egLevel3: 72, velocitySensitivity: 1, keyboardRateScaling: 2), // OP5 (carrier): hot upper tine carrier
-                .init(outputLevel: 58, frequencyCoarse: 8, frequencyFine: 6, detune: 5, feedback: 5, egRate2: 86, egRate3: 70, egRate4: 74, egLevel2: 26, egLevel3: 0, velocitySensitivity: 6, keyboardRateScaling: 3, klsBreakPoint: 44, klsLeftDepth: 32, klsRightDepth: 10, klsLeftCurve: 1, klsRightCurve: 3), // OP6 (modulator → OP5, feedback): saturated tine drive
+                .init(outputLevel: 99, detune: 5, egRate2: 60, egRate3: 45, egRate4: 74, egLevel1: 99, egLevel2: 95, egLevel3: 84, velocitySensitivity: 2, keyboardRateScaling: 1), // OP1 (carrier): driven fundamental
+                .init(outputLevel: 42, frequencyCoarse: 1, frequencyFine: 4, detune: 9, feedback: 5, egRate2: 66, egRate3: 49, egRate4: 76, egLevel2: 32, egLevel3: 12, velocitySensitivity: 5, keyboardRateScaling: 2, klsBreakPoint: 41, klsLeftDepth: 18, klsRightDepth: 4, klsLeftCurve: 1, klsRightCurve: 2), // OP2 (modulator → OP1, feedback): close feedback grit
+                .init(outputLevel: 36, frequencyCoarse: 2, frequencyFine: 1, detune: 5, egRate2: 70, egRate3: 50, egRate4: 76, egLevel2: 30, egLevel3: 11, velocitySensitivity: 4, keyboardRateScaling: 2), // OP3 (modulator → OP2): octave drive stage
+                .init(outputLevel: 34, frequencyCoarse: 3, frequencyFine: 2, detune: 9, egRate2: 74, egRate3: 52, egRate4: 76, egLevel2: 28, egLevel3: 10, velocitySensitivity: 4, keyboardRateScaling: 2), // OP4 (modulator → OP3): hard mid-harmonic pressure
+                .init(outputLevel: 30, frequencyCoarse: 4, frequencyFine: 3, detune: 6, egRate2: 78, egRate3: 54, egRate4: 76, egLevel2: 26, egLevel3: 9, velocitySensitivity: 3, keyboardRateScaling: 3), // OP5 (modulator → OP4): upper crunch stage
+                .init(outputLevel: 28, frequencyCoarse: 6, detune: 10, egRate2: 82, egRate3: 56, egRate4: 76, egLevel2: 24, egLevel3: 8, velocitySensitivity: 3, keyboardRateScaling: 3, klsBreakPoint: 44, klsLeftDepth: 24, klsRightDepth: 10, klsLeftCurve: 1, klsRightCurve: 3), // OP6 (modulator → OP5): distant high-harmonic grit
             ],
             category: .keys,
             lfoSpeed: 28,
@@ -164,22 +160,22 @@ public extension DX7Preset {
             lfoPMS: 4
         ),
 
-        /// E.PIANO 8 — Dyno bright. The "Dyno My Piano" treble-boost mod for Rhodes Stage.
-        /// Strong right-side KLS on modulators (klsRightDepth 14-16, klsRightCurve 3) progressively
-        /// increases FM index in the upper register, lifting high-note brilliance. OP6 OL 62 with
-        /// vel 7 gives an immediate edgy tine attack rewarding hard playing. Faster carrier egRate3
-        /// (52-55) gives a percussive mid-decay. Feedback 4 produces Dyno brightness without distortion.
+        /// E.PIANO 8 is a Dyno-bright voice built from Algorithm 12's split stack.
+        /// OP1 stays as a standalone clean carrier while OP3 receives both a direct bright modulator and the OP6 → OP5 → OP4 stack.
+        /// This lets the patch push treble bite into the secondary carrier without thinning the primary body.
+        /// Right-side keyboard scaling on the direct and stacked modulators raises the FM index in the upper register for the classic bright top.
+        /// Feedback on OP2 gives the direct branch extra edge while its sustained shelf keeps the brightness from disappearing too quickly.
         DX7Preset(
             name: "E.PIANO 8",
-            algorithm: 4,
+            algorithm: 11,
             feedback: 4,
             operators: [
-                .init(outputLevel: 97, detune: 6, egRate2: 61, egRate3: 52, egRate4: 73, egLevel2: 93, egLevel3: 74, velocitySensitivity: 2, keyboardRateScaling: 1), // OP1 (carrier): clear fundamental with faster mid-decay
-                .init(outputLevel: 42, frequencyFine: 3, egRate2: 73, egRate3: 50, egRate4: 75, egLevel2: 27, egLevel3: 1, velocitySensitivity: 4, keyboardRateScaling: 2, klsBreakPoint: 36, klsLeftDepth: 8, klsRightDepth: 14, klsLeftCurve: 0, klsRightCurve: 3), // OP2 (modulator → OP1): treble-boosted bark
-                .init(outputLevel: 87, detune: 8, egRate2: 62, egRate3: 55, egRate4: 73, egLevel2: 91, egLevel3: 72, velocitySensitivity: 2, keyboardRateScaling: 1), // OP3 (carrier): brighter mid sustain layer
-                .init(outputLevel: 48, frequencyCoarse: 2, detune: 9, egRate2: 78, egRate3: 53, egRate4: 75, egLevel2: 29, egLevel3: 1, velocitySensitivity: 5, keyboardRateScaling: 2, klsBreakPoint: 36, klsLeftDepth: 6, klsRightDepth: 16, klsLeftCurve: 0, klsRightCurve: 3), // OP4 (modulator → OP3): high-register FM index boost
-                .init(outputLevel: 76, detune: 7, egRate2: 73, egRate3: 54, egRate4: 73, egLevel2: 89, egLevel3: 73, velocitySensitivity: 2, keyboardRateScaling: 2), // OP5 (carrier): bright tine sustained layer
-                .init(outputLevel: 62, frequencyCoarse: 9, frequencyFine: 3, detune: 9, feedback: 4, egRate2: 87, egRate3: 71, egRate4: 75, egLevel2: 28, egLevel3: 0, velocitySensitivity: 7, keyboardRateScaling: 3, klsBreakPoint: 36, klsLeftDepth: 4, klsRightDepth: 15, klsLeftCurve: 0, klsRightCurve: 3), // OP6 (modulator → OP5, feedback): Dyno bright tine snap
+                .init(outputLevel: 99, detune: 6, egRate2: 61, egRate3: 42, egRate4: 75, egLevel1: 99, egLevel2: 95, egLevel3: 84, velocitySensitivity: 2, keyboardRateScaling: 1), // OP1 (carrier): standalone clean fundamental
+                .init(outputLevel: 42, frequencyCoarse: 2, frequencyFine: 2, detune: 8, feedback: 4, egRate2: 68, egRate3: 44, egRate4: 77, egLevel2: 30, egLevel3: 12, velocitySensitivity: 6, keyboardRateScaling: 2, klsBreakPoint: 36, klsLeftDepth: 6, klsRightDepth: 15, klsLeftCurve: 0, klsRightCurve: 3), // OP2 (modulator → OP3, feedback): direct Dyno bite
+                .init(outputLevel: 92, detune: 8, egRate2: 62, egRate3: 40, egRate4: 75, egLevel1: 99, egLevel2: 94, egLevel3: 82, velocitySensitivity: 2, keyboardRateScaling: 1), // OP3 (carrier): bright secondary tine body
+                .init(outputLevel: 38, frequencyCoarse: 3, frequencyFine: 4, detune: 9, egRate2: 68, egRate3: 42, egRate4: 77, egLevel2: 28, egLevel3: 11, velocitySensitivity: 5, keyboardRateScaling: 2, klsBreakPoint: 36, klsLeftDepth: 4, klsRightDepth: 16, klsLeftCurve: 0, klsRightCurve: 3), // OP4 (modulator → OP3): stacked high-register index
+                .init(outputLevel: 34, frequencyCoarse: 5, frequencyFine: 2, detune: 6, egRate2: 72, egRate3: 44, egRate4: 77, egLevel2: 26, egLevel3: 10, velocitySensitivity: 4, keyboardRateScaling: 3), // OP5 (modulator → OP4): upper stack color
+                .init(outputLevel: 30, frequencyCoarse: 9, frequencyFine: 1, detune: 10, egRate2: 76, egRate3: 46, egRate4: 77, egLevel2: 24, egLevel3: 8, velocitySensitivity: 4, keyboardRateScaling: 3, klsBreakPoint: 36, klsLeftDepth: 4, klsRightDepth: 14, klsLeftCurve: 0, klsRightCurve: 3), // OP6 (modulator → OP5): top-octave sheen
             ],
             category: .keys,
             lfoSpeed: 36,
@@ -187,47 +183,47 @@ public extension DX7Preset {
             lfoPMS: 2
         ),
 
-        /// E.PIANO 9 — Soft PF-style mellow. Lush, chorused FM e-piano à la Yamaha PF series.
-        /// Slow triangle LFO (lfoSpeed 28, waveform 0) drives both pitch (PMD 4, PMS 3) and amplitude
-        /// (AMD 8) for the warm swimming ensemble motion. OP6 at OL 40 / vel 4 gives a gentle even tine
-        /// across the dynamic range. Wide alternating detune (5/8/9/5/8/9) spreads pairs into natural
-        /// chorus without needing an effect. Feedback 2 keeps self-modulation subtle for soft playing.
+        /// E.PIANO 9 is a soft PF-style patch using Algorithm 28's hybrid additive-and-branched layout.
+        /// OP1, OP4, and OP5 form the audible carriers, with OP1 carrying the center, OP4 adding the secondary octave color, and OP5 providing a quiet tertiary pad-like tine.
+        /// The remaining operators apply gentle branch modulation at low levels so the sound blooms without becoming bell-heavy.
+        /// A slow LFO adds mild pitch and amplitude motion for a swimming ensemble feel while preserving the dry carrier balance.
+        /// The modulator shelves are deliberately higher than zero, keeping a little FM warmth in the sustain.
         DX7Preset(
             name: "E.PIANO 9",
-            algorithm: 4,
+            algorithm: 27,
             feedback: 2,
             operators: [
-                .init(outputLevel: 97, detune: 5, egRate2: 56, egRate3: 35, egRate4: 72, egLevel2: 92, egLevel3: 81, velocitySensitivity: 2, keyboardRateScaling: 1), // OP1 (carrier): mellow fundamental body
-                .init(outputLevel: 38, frequencyFine: 2, egRate2: 68, egRate3: 43, egRate4: 74, egLevel2: 25, egLevel3: 2, velocitySensitivity: 3, keyboardRateScaling: 1, klsBreakPoint: 40, klsLeftDepth: 14, klsRightDepth: 0, klsLeftCurve: 1, klsRightCurve: 0), // OP2 (modulator → OP1): gentle low bloom
-                .init(outputLevel: 87, detune: 8, egRate2: 59, egRate3: 34, egRate4: 72, egLevel2: 90, egLevel3: 80, velocitySensitivity: 1, keyboardRateScaling: 1), // OP3 (carrier): warm mid sustain
-                .init(outputLevel: 42, frequencyCoarse: 2, detune: 9, egRate2: 73, egRate3: 46, egRate4: 74, egLevel2: 26, egLevel3: 1, velocitySensitivity: 3, keyboardRateScaling: 1, klsBreakPoint: 42, klsLeftDepth: 16, klsRightDepth: 0, klsLeftCurve: 1, klsRightCurve: 0), // OP4 (modulator → OP3): soft hammer overtone
-                .init(outputLevel: 74, detune: 5, egRate2: 67, egRate3: 47, egRate4: 72, egLevel2: 88, egLevel3: 71, velocitySensitivity: 1, keyboardRateScaling: 1), // OP5 (carrier): soft tine sustain layer
-                .init(outputLevel: 40, frequencyCoarse: 7, frequencyFine: 3, detune: 8, feedback: 2, egRate2: 80, egRate3: 63, egRate4: 74, egLevel2: 22, egLevel3: 0, velocitySensitivity: 4, keyboardRateScaling: 2, klsBreakPoint: 43, klsLeftDepth: 26, klsRightDepth: 4, klsLeftCurve: 1, klsRightCurve: 2), // OP6 (modulator → OP5, feedback): mellow tine edge
+                .init(outputLevel: 99, frequencyCoarse: 1, detune: 7, egRate2: 56, egRate3: 33, egRate4: 72, egLevel1: 99, egLevel2: 94, egLevel3: 86, velocitySensitivity: 2, keyboardRateScaling: 1), // OP1 (carrier): mellow centered fundamental
+                .init(outputLevel: 32, frequencyFine: 2, detune: 6, egRate2: 62, egRate3: 35, egRate4: 74, egLevel2: 30, egLevel3: 13, velocitySensitivity: 3, keyboardRateScaling: 1, klsBreakPoint: 40, klsLeftDepth: 12, klsRightDepth: 0, klsLeftCurve: 1, klsRightCurve: 0), // OP2 (modulator → OP1): gentle low bloom
+                .init(outputLevel: 36, frequencyCoarse: 2, frequencyFine: 4, detune: 8, egRate2: 66, egRate3: 37, egRate4: 74, egLevel2: 28, egLevel3: 12, velocitySensitivity: 3, keyboardRateScaling: 1, klsBreakPoint: 42, klsLeftDepth: 14, klsRightDepth: 2, klsLeftCurve: 1, klsRightCurve: 2), // OP3 (modulator → OP4): soft octave color
+                .init(outputLevel: 92, frequencyCoarse: 2, detune: 8, egRate2: 60, egRate3: 34, egRate4: 72, egLevel1: 99, egLevel2: 93, egLevel3: 82, velocitySensitivity: 1, keyboardRateScaling: 1), // OP4 (carrier): warm secondary octave body
+                .init(outputLevel: 80, frequencyCoarse: 1, frequencyFine: 6, detune: 5, feedback: 2, egRate2: 66, egRate3: 36, egRate4: 72, egLevel1: 99, egLevel2: 92, egLevel3: 80, velocitySensitivity: 1, keyboardRateScaling: 1), // OP5 (carrier, feedback): soft chorused tertiary tine
+                .init(outputLevel: 34, frequencyCoarse: 6, frequencyFine: 3, detune: 9, egRate2: 72, egRate3: 38, egRate4: 74, egLevel2: 26, egLevel3: 10, velocitySensitivity: 4, keyboardRateScaling: 2, klsBreakPoint: 43, klsLeftDepth: 22, klsRightDepth: 4, klsLeftCurve: 1, klsRightCurve: 2), // OP6 (modulator → OP5): mellow upper branch shimmer
             ],
             category: .keys,
             lfoSpeed: 28,
-            lfoPMD: 4,
-            lfoAMD: 8,
+            lfoPMD: 3,
+            lfoAMD: 6,
             lfoWaveform: 0,
             lfoPMS: 3
         ),
 
-        /// E.PIANO 10 — DX classic FM character. Algorithm 1 (linear stack), the architecture behind
-        /// the original 1980s DX e-piano. Distinct from the 3-pair Rhodes-style sound: brighter, more
-        /// bell-leaning, the canonical FM e-piano timbre. Feedback 5 on OP6 drives strong self-modulation
-        /// into the upper stack, creating glassy, bell-forward sidebands. OP1 carrier at coarse 1 OL 98
-        /// dominates; OP3 at coarse 2 OL 80 adds the bell-like second-harmonic carrier.
+        /// E.PIANO 10 is the DX-classic patch and keeps Algorithm 1 as a full serial stack from OP6 down to OP1.
+        /// OP1 is the only audible carrier and stays at full level, while OP2 is the immediate brightness shaper that determines how much bell tone reaches the output.
+        /// Deeper operators are progressively quieter, so the upper stack contributes glass and motion without overpowering the carrier.
+        /// Feedback on OP6 energizes the top of the stack, giving the familiar crystalline FM attack while the sustained shelves keep the color present after the strike.
+        /// The result is intentionally brighter and more synthetic than the Rhodes-style paired algorithms.
         DX7Preset(
             name: "E.PIANO 10",
             algorithm: 0,
             feedback: 5,
             operators: [
-                .init(outputLevel: 98, frequencyCoarse: 1, detune: 7, egRate2: 70, egRate3: 45, egRate4: 73, egLevel2: 93, egLevel3: 81, velocitySensitivity: 2, keyboardRateScaling: 1), // OP1 (carrier): dominant fundamental sustain
-                .init(outputLevel: 46, frequencyCoarse: 2, frequencyFine: 1, detune: 8, egRate2: 78, egRate3: 55, egRate4: 75, egLevel2: 30, egLevel3: 2, velocitySensitivity: 3, keyboardRateScaling: 2, klsBreakPoint: 41, klsLeftDepth: 16, klsRightDepth: 6, klsLeftCurve: 1, klsRightCurve: 2), // OP2 (modulator → OP1): spectral warmth shaper
-                .init(outputLevel: 80, frequencyCoarse: 2, detune: 8, egRate2: 68, egRate3: 44, egRate4: 73, egLevel2: 91, egLevel3: 78, velocitySensitivity: 2, keyboardRateScaling: 1), // OP3 (carrier): bell-like second harmonic carrier
-                .init(outputLevel: 50, frequencyCoarse: 5, frequencyFine: 2, detune: 9, egRate2: 84, egRate3: 62, egRate4: 75, egLevel2: 28, egLevel3: 1, velocitySensitivity: 4, keyboardRateScaling: 2, klsBreakPoint: 43, klsLeftDepth: 20, klsRightDepth: 8, klsLeftCurve: 1, klsRightCurve: 3), // OP4 (modulator → OP3): mid-ratio glassy partial
-                .init(outputLevel: 46, frequencyCoarse: 3, frequencyFine: 4, detune: 6, egRate2: 88, egRate3: 68, egRate4: 75, egLevel2: 26, egLevel3: 1, velocitySensitivity: 4, keyboardRateScaling: 3), // OP5 (modulator → OP4): upper harmonic carrier coupling
-                .init(outputLevel: 52, frequencyCoarse: 1, frequencyFine: 0, detune: 9, feedback: 5, egRate2: 92, egRate3: 74, egRate4: 75, egLevel2: 23, egLevel3: 0, velocitySensitivity: 5, keyboardRateScaling: 3, klsBreakPoint: 44, klsLeftDepth: 28, klsRightDepth: 10, klsLeftCurve: 1, klsRightCurve: 3), // OP6 (modulator → OP5, feedback): self-modulating glassy sideband driver
+                .init(outputLevel: 99, frequencyCoarse: 1, detune: 7, egRate2: 66, egRate3: 44, egRate4: 74, egLevel1: 99, egLevel2: 95, egLevel3: 84, velocitySensitivity: 2, keyboardRateScaling: 1), // OP1 (carrier): dominant classic FM body
+                .init(outputLevel: 42, frequencyCoarse: 2, frequencyFine: 1, detune: 8, egRate2: 72, egRate3: 48, egRate4: 76, egLevel2: 32, egLevel3: 12, velocitySensitivity: 4, keyboardRateScaling: 2, klsBreakPoint: 41, klsLeftDepth: 16, klsRightDepth: 6, klsLeftCurve: 1, klsRightCurve: 2), // OP2 (modulator → OP1): immediate bell shaper
+                .init(outputLevel: 38, frequencyCoarse: 3, frequencyFine: 2, detune: 6, egRate2: 76, egRate3: 50, egRate4: 76, egLevel2: 30, egLevel3: 11, velocitySensitivity: 4, keyboardRateScaling: 2), // OP3 (modulator → OP2): mid-stack glass color
+                .init(outputLevel: 34, frequencyCoarse: 5, frequencyFine: 2, detune: 9, egRate2: 80, egRate3: 52, egRate4: 76, egLevel2: 28, egLevel3: 10, velocitySensitivity: 4, keyboardRateScaling: 3), // OP4 (modulator → OP3): high-ratio sparkle stage
+                .init(outputLevel: 30, frequencyCoarse: 7, frequencyFine: 3, detune: 5, egRate2: 84, egRate3: 54, egRate4: 76, egLevel2: 26, egLevel3: 9, velocitySensitivity: 3, keyboardRateScaling: 3), // OP5 (modulator → OP4): upper harmonic coupler
+                .init(outputLevel: 28, frequencyCoarse: 1, detune: 10, feedback: 5, egRate2: 88, egRate3: 56, egRate4: 76, egLevel2: 24, egLevel3: 8, velocitySensitivity: 4, keyboardRateScaling: 3, klsBreakPoint: 44, klsLeftDepth: 26, klsRightDepth: 10, klsLeftCurve: 1, klsRightCurve: 3), // OP6 (modulator → OP5, feedback): self-modulating glass driver
             ],
             category: .keys
         ),
