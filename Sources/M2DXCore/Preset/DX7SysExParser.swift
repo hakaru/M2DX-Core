@@ -55,13 +55,15 @@ public enum DX7SysExParser {
         }
         ops.reverse()
 
+        // DX7のフィードバックは常にOperator 6に適用されます。
+        // ops.reverse() 後、インデックス0がOperator 6に対応するため、ここで修正します。
         let voiceFB = Int(bytes[111] & 0x07)
-        var op5 = ops[5]
-        op5.feedback = voiceFB
-        ops[5] = op5
+        var op6 = ops[0]
+        op6.feedback = voiceFB
+        ops[0] = op6
 
         let algorithm = Int(bytes[110] & 0x1F)
-        let feedback = Int(bytes[111] & 0x07)
+        let feedback = voiceFB
 
         let pegR1 = Int(bytes[102]), pegR2 = Int(bytes[103])
         let pegR3 = Int(bytes[104]), pegR4 = Int(bytes[105])
