@@ -2,6 +2,7 @@
 // M2DX-Core — DX7 FM Synthesis Engine (voice management, render, MIDI)
 
 import Darwin
+import Synchronization
 
 // MARK: - Oversampling Mode
 
@@ -145,7 +146,19 @@ public final class SynthEngine: @unchecked Sendable {
     private let floatScratch = UnsafeMutablePointer<Float>.allocate(capacity: kBlockSize)
 
     // Lock-free MIDI event ring buffer (SPSC FIFO)
-    private let midiRing = SPSCRing<MIDIEvent>(capacity: 256)
+    // Capacity 1024 to reduce overflow risk (was 256; MIDI 2.0 per-note messages
+    // can burst heavily during MPE/polyphonic passages).
+    private let midiRing = SPSCRing<MIDIEvent>(capacity: 1024)
+
+    /// Diagnostic counter: number of MIDI events dropped due to ring overflow.
+    /// Accessed from UI thread (read) and audio thread indirectly (write via sendMIDI).
+    private let _droppedMIDICount = Atomic<Int>(0)
+
+    /// Number of MIDI events dropped due to ring buffer overflow since engine creation.
+    /// Check this periodically from the UI thread for diagnostics.
+    public var droppedMIDICount: Int {
+        _droppedMIDICount.load(ordering: .relaxed)
+    }
 
     public init() {
         for i in 0..<kMaxVoices {
@@ -170,8 +183,27 @@ public final class SynthEngine: @unchecked Sendable {
     // MARK: - MIDI Event Queue
 
     /// Enqueue a MIDI event (UI thread). Lock-free, allocation-free.
+    /// Note Off events are never silently dropped — if the ring is full,
+    /// the diagnostic counter increments but Note Off is retried after a
+    /// brief spin (at most 3 attempts) to avoid stuck notes.
     public func sendMIDI(_ event: MIDIEvent) {
-        midiRing.push(event)
+        if midiRing.push(event) { return }
+
+        // Ring is full — record the drop
+        _droppedMIDICount.wrappingAdd(1, ordering: .relaxed)
+
+        // For Note Off (and NoteOn with velocity 0), retry a few times.
+        // The render thread drains the ring every ~5ms at 48kHz/256 frames,
+        // so a brief spin has a good chance of succeeding.
+        let isNoteOff = event.kind == .noteOff ||
+            (event.kind == .noteOn && (event.data2 & 0xFFFF) == 0)
+        if isNoteOff {
+            for _ in 0..<3 {
+                if midiRing.push(event) { return }
+            }
+            // Still failed — stuck note is possible. The diagnostic counter
+            // alerts the UI layer to show a warning.
+        }
     }
 
     private func drainMIDI() {
@@ -695,33 +727,41 @@ public final class SynthEngine: @unchecked Sendable {
         if currentOversamplingMode == .off {
             renderFramesDX7(bufferL, bufferR, frameCount, snapshot)
         } else {
-            let osFrameCount = min(frameCount * 2, 2048)
-            let actualOutput = osFrameCount / 2
-            let osL = downsampler.oversampledL
-            let osR = downsampler.oversampledR
-            osL.initialize(repeating: 0, count: osFrameCount)
-            osR.initialize(repeating: 0, count: osFrameCount)
-            renderFramesDX7(osL, osR, osFrameCount, snapshot)
+            // Process in chunks of up to 1024 output frames (2048 oversampled)
+            // to stay within the downsampler's fixed buffer capacity.
+            // Previously, frameCount > 1024 caused zero-fill dropout.
+            let kMaxChunkOutput = 1024  // = kMaxOversampledFrames / 2
+            var remaining = frameCount
+            var outOffset = 0
 
-            switch currentOversamplingMode {
-            case .highQuality:
-                downsampler.downsampleHalfband(
-                    srcL: UnsafePointer(osL), srcR: UnsafePointer(osR),
-                    dstL: bufferL, dstR: bufferR,
-                    oversampledCount: osFrameCount, outputCount: actualOutput)
-            case .lowCPU:
-                downsampler.downsamplePolyphase(
-                    srcL: UnsafePointer(osL), srcR: UnsafePointer(osR),
-                    dstL: bufferL, dstR: bufferR,
-                    oversampledCount: osFrameCount, outputCount: actualOutput)
-            case .off: break
-            }
+            while remaining > 0 {
+                let chunkOutput = min(remaining, kMaxChunkOutput)
+                let chunkOS = chunkOutput * 2
 
-            if actualOutput < frameCount {
-                memset(bufferL.advanced(by: actualOutput), 0,
-                       (frameCount - actualOutput) * MemoryLayout<Float>.size)
-                memset(bufferR.advanced(by: actualOutput), 0,
-                       (frameCount - actualOutput) * MemoryLayout<Float>.size)
+                let osL = downsampler.oversampledL
+                let osR = downsampler.oversampledR
+                osL.initialize(repeating: 0, count: chunkOS)
+                osR.initialize(repeating: 0, count: chunkOS)
+                renderFramesDX7(osL, osR, chunkOS, snapshot)
+
+                switch currentOversamplingMode {
+                case .highQuality:
+                    downsampler.downsampleHalfband(
+                        srcL: UnsafePointer(osL), srcR: UnsafePointer(osR),
+                        dstL: bufferL.advanced(by: outOffset),
+                        dstR: bufferR.advanced(by: outOffset),
+                        oversampledCount: chunkOS, outputCount: chunkOutput)
+                case .lowCPU:
+                    downsampler.downsamplePolyphase(
+                        srcL: UnsafePointer(osL), srcR: UnsafePointer(osR),
+                        dstL: bufferL.advanced(by: outOffset),
+                        dstR: bufferR.advanced(by: outOffset),
+                        oversampledCount: chunkOS, outputCount: chunkOutput)
+                case .off: break
+                }
+
+                outOffset += chunkOutput
+                remaining -= chunkOutput
             }
 
             downsampler.applyCrossfade(bufferL: bufferL, bufferR: bufferR, frameCount: frameCount)

@@ -176,9 +176,30 @@ package final class Downsampler: @unchecked Sendable {
             dstL[i] = sumL; dstR[i] = sumR
         }
 
+        // Guard against short buffers: when oversampledCount < tailSize,
+        // tailStart would be negative causing OOB access. In that case,
+        // shift existing tail left and copy only available samples.
         let tailStart = oversampledCount - tailSize
-        for i in 0..<tailSize {
-            tailL[i] = srcL[tailStart + i]; tailR[i] = srcR[tailStart + i]
+        if tailStart >= 0 {
+            for i in 0..<tailSize {
+                tailL[i] = srcL[tailStart + i]; tailR[i] = srcR[tailStart + i]
+            }
+        } else {
+            // Short buffer: shift tail left by oversampledCount, then copy
+            // the entire source buffer into the end of the tail.
+            let shift = oversampledCount
+            if shift < tailSize {
+                // Move existing tail samples left
+                for i in 0..<(tailSize - shift) {
+                    tailL[i] = tailL[i + shift]; tailR[i] = tailR[i + shift]
+                }
+                // Copy all source samples into the tail end
+                for i in 0..<shift {
+                    tailL[tailSize - shift + i] = srcL[i]
+                    tailR[tailSize - shift + i] = srcR[i]
+                }
+            }
+            // If shift == 0 (empty buffer), leave tail unchanged.
         }
     }
 }
