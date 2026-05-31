@@ -160,11 +160,17 @@ package struct DX7Voice {
     // Pitch EG
     var pitchEG = PitchEG()
 
-    mutating func resetPerNoteState() {
+    /// Reset only the per-note controllers (MPE Per-Note Management "Reset"),
+    /// leaving the voice's pitch EG running.
+    mutating func resetPerNoteControllers() {
         perNotePitchBendFactor = 1.0
         perNoteVolume = 1.0
         perNoteAftertouch = 0.0
         detached = false
+    }
+
+    mutating func resetPerNoteState() {
+        resetPerNoteControllers()
         pitchEG = PitchEG()
     }
 
@@ -188,6 +194,7 @@ package struct DX7Voice {
         midiNote = originalNote ?? n
         active = true
         releasing = false
+        sustained = false   // a stolen/reused voice must not inherit pedal-hold
         resetPerNoteState()
         let freq: Float = kMIDIFreqLUT[Int(n & 0x7F)]
         ops.0.noteOn(baseFreq: freq); ops.1.noteOn(baseFreq: freq); ops.2.noteOn(baseFreq: freq)
@@ -231,7 +238,7 @@ package struct DX7Voice {
     ) {
         guard active else { return }
 
-        let alg = kAlgorithmFlags[min(algorithm, 31)]
+        let alg = kAlgorithmFlags[max(0, min(algorithm, 31))]  // lower clamp = defense-in-depth
         var hasContents = (true, false, false)  // output, bus1, bus2
 
         for opIdx in 0..<6 {
@@ -389,7 +396,11 @@ package struct DX7Voice {
         _ gain1: Int32, _ gain2: Int32,
         _ add: Bool, _ n: Int
     ) {
-        let dgain = (gain2 &- gain1 &+ Int32(n >> 1)) >> kLgBlockSize
+        // Full block: exact shift (bit-identical to the reference). Partial final
+        // block: divide by the actual length so the ramp still reaches gain2.
+        let dgain = (n == kBlockSize)
+            ? (gain2 &- gain1 &+ Int32(n >> 1)) >> kLgBlockSize
+            : (gain2 &- gain1) / Int32(n)
         var gain = gain1
         var phase = phase0
         for i in 0..<n {
@@ -408,7 +419,11 @@ package struct DX7Voice {
         _ gain1: Int32, _ gain2: Int32,
         _ add: Bool, _ n: Int
     ) {
-        let dgain = (gain2 &- gain1 &+ Int32(n >> 1)) >> kLgBlockSize
+        // Full block: exact shift (bit-identical to the reference). Partial final
+        // block: divide by the actual length so the ramp still reaches gain2.
+        let dgain = (n == kBlockSize)
+            ? (gain2 &- gain1 &+ Int32(n >> 1)) >> kLgBlockSize
+            : (gain2 &- gain1) / Int32(n)
         var gain = gain1
         var phase = phase0
         for i in 0..<n {
@@ -428,7 +443,11 @@ package struct DX7Voice {
         _ fbBuf: inout (Int32, Int32),
         _ fbShift: Int, _ add: Bool, _ n: Int
     ) {
-        let dgain = (gain2 &- gain1 &+ Int32(n >> 1)) >> kLgBlockSize
+        // Full block: exact shift (bit-identical to the reference). Partial final
+        // block: divide by the actual length so the ramp still reaches gain2.
+        let dgain = (n == kBlockSize)
+            ? (gain2 &- gain1 &+ Int32(n >> 1)) >> kLgBlockSize
+            : (gain2 &- gain1) / Int32(n)
         var gain = gain1
         var phase = phase0
         var y0 = fbBuf.0
@@ -461,12 +480,17 @@ package struct DX7Voice {
     }
 
     mutating func applyParams(_ params: OperatorSnapshot, opIndex: Int) {
+        let pb = pitchBendFactor
         withOp(opIndex) { op in
             op.setOutputLevel(params.dx7OutputLevel)
             op.ratio = params.ratio
             op.detune = params.detune
             op.env.setRates(params.dx7EgR0, params.dx7EgR1, params.dx7EgR2, params.dx7EgR3)
             op.env.setLevels(params.dx7EgL0, params.dx7EgL1, params.dx7EgL2, params.dx7EgL3)
+            // Recompute frequency from the new ratio/detune so live edits affect a
+            // held note (ratio/detune alone don't refresh `freq`; only note-on and
+            // applyPitchBend do). Skip fixed-frequency operators.
+            if !op.isFixedFreq { op.applyPitchBend(pb) }
         }
     }
 }

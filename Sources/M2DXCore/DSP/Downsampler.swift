@@ -21,7 +21,9 @@ package final class Downsampler: @unchecked Sendable {
     private let lcTailL: UnsafeMutablePointer<Float>
     private let lcTailR: UnsafeMutablePointer<Float>
 
-    private let kMaxOversampledFrames = 2048
+    /// Max oversampled frames the internal buffers hold. The engine must chunk
+    /// its oversampled render to at most this many frames (see SynthEngine).
+    let kMaxOversampledFrames = 2048
     let oversampledL: UnsafeMutablePointer<Float>
     let oversampledR: UnsafeMutablePointer<Float>
 

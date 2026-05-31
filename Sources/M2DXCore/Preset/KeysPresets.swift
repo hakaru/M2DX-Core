@@ -83,11 +83,11 @@ public extension DX7Preset {
             feedback: 3,
             operators: [
                 .init(outputLevel: 99, detune: 6, egRate2: 64, egRate3: 42, egRate4: 76, egLevel1: 99, egLevel2: 96, egLevel3: 82, velocitySensitivity: 2, keyboardRateScaling: 2), // OP1 (carrier): fundamental piano body
-                .init(outputLevel: 36, frequencyCoarse: 2, frequencyFine: 2, detune: 7, egRate2: 70, egRate3: 44, egRate4: 78, egLevel2: 32, egLevel3: 12, velocitySensitivity: 4, keyboardRateScaling: 2, klsBreakPoint: 41, klsLeftDepth: 16, klsRightDepth: 2, klsLeftCurve: 1, klsRightCurve: 2), // OP2 (modulator → OP1): low string harmonic warmth
+                .init(outputLevel: 36, frequencyCoarse: 2, frequencyFine: 2, detune: 7, feedback: 3, egRate2: 70, egRate3: 44, egRate4: 78, egLevel2: 32, egLevel3: 12, velocitySensitivity: 4, keyboardRateScaling: 2, klsBreakPoint: 41, klsLeftDepth: 16, klsRightDepth: 2, klsLeftCurve: 1, klsRightCurve: 2), // OP2 (modulator → OP1, alg-15 feedback op): low string harmonic warmth
                 .init(outputLevel: 92, detune: 8, egRate2: 62, egRate3: 40, egRate4: 76, egLevel1: 99, egLevel2: 94, egLevel3: 80, velocitySensitivity: 2, keyboardRateScaling: 2), // OP3 (carrier): bright CP-style string body
                 .init(outputLevel: 38, frequencyCoarse: 2, detune: 8, egRate2: 68, egRate3: 42, egRate4: 78, egLevel2: 30, egLevel3: 11, velocitySensitivity: 5, keyboardRateScaling: 3, klsBreakPoint: 43, klsLeftDepth: 20, klsRightDepth: 4, klsLeftCurve: 1, klsRightCurve: 2), // OP4 (modulator → OP3): upper harmonic brightener
                 .init(outputLevel: 34, frequencyCoarse: 5, frequencyFine: 2, detune: 6, egRate2: 72, egRate3: 44, egRate4: 78, egLevel2: 28, egLevel3: 10, velocitySensitivity: 4, keyboardRateScaling: 3), // OP5 (modulator → OP4): shared hammer color stage
-                .init(outputLevel: 44, frequencyCoarse: 9, frequencyFine: 3, detune: 9, feedback: 3, egRate2: 74, egRate3: 46, egRate4: 78, egLevel2: 26, egLevel3: 9, velocitySensitivity: 7, keyboardRateScaling: 4, klsBreakPoint: 44, klsLeftDepth: 34, klsRightDepth: 8, klsLeftCurve: 1, klsRightCurve: 3), // OP6 (modulator → OP5/OP4, feedback): shared percussive hammer source
+                .init(outputLevel: 44, frequencyCoarse: 9, frequencyFine: 3, detune: 9, egRate2: 74, egRate3: 46, egRate4: 78, egLevel2: 26, egLevel3: 9, velocitySensitivity: 7, keyboardRateScaling: 4, klsBreakPoint: 44, klsLeftDepth: 34, klsRightDepth: 8, klsLeftCurve: 1, klsRightCurve: 3), // OP6 (modulator → OP5/OP4): shared percussive hammer source
             ],
             category: .keys
         ),

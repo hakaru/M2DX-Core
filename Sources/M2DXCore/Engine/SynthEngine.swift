@@ -103,6 +103,10 @@ public final class SynthEngine: @unchecked Sendable {
     private var sampleRate: Float = 44100
     private var masterVolume: Float = 0.7
     private var expression: Float = 1.0
+    /// CC7 channel volume, kept separate from `masterVolume` (which the snapshot
+    /// apply path overwrites) so a MIDI volume setting is not discarded by an
+    /// unrelated UI parameter change. Mirrors how `expression` (CC11) is handled.
+    private var ccVolume: Float = 1.0
     private var algorithm: Int = 0
     private var sustainPedalOn: Bool = false
     /// Per-slot pitch bend factor. Recomputed by doPitchBend32 using each slot's
@@ -153,6 +157,12 @@ public final class SynthEngine: @unchecked Sendable {
     /// Diagnostic counter: number of MIDI events dropped due to ring overflow.
     /// Accessed from UI thread (read) and audio thread indirectly (write via sendMIDI).
     private let _droppedMIDICount = Atomic<Int>(0)
+
+    /// Controller-reset request counter: bumped by resetControllers() (any thread),
+    /// consumed by render() so the actual reset runs on the audio thread instead of
+    /// mutating render-owned voice/controller state from the UI thread.
+    private let _ctrlResetRequest = Atomic<Int>(0)
+    private var appliedCtrlResetCount = 0
 
     /// Number of MIDI events dropped due to ring buffer overflow since engine creation.
     /// Check this periodically from the UI thread for diagnostics.
@@ -266,7 +276,10 @@ public final class SynthEngine: @unchecked Sendable {
     }
 
     public func setSampleRate(_ sr: Float) {
-        shadowSnapshot.sampleRate = sr
+        // Validate: a zero / negative / non-finite rate would propagate to the
+        // render thread and trap in Int(inc) / Int64(...) conversions. Clamp to a
+        // sane audio range, falling back to 44.1 kHz for non-finite input.
+        shadowSnapshot.sampleRate = (sr.isFinite && sr >= 1) ? min(192000, max(8000, sr)) : 44100
         bumpVersion()
     }
 
@@ -315,7 +328,9 @@ public final class SynthEngine: @unchecked Sendable {
     }
 
     public func setOperatorFeedback(_ fb: Int) {
-        withShadowOp(0) { $0.feedback = Float(fb) / 7.0 }
+        // Clamp to the DX7 0...7 range; an unclamped value yields a negative
+        // feedback shift (a left shift) and garbage output downstream.
+        withShadowOp(0) { $0.feedback = Float(max(0, min(7, fb))) / 7.0 }
         bumpVersion()
     }
 
@@ -430,7 +445,9 @@ public final class SynthEngine: @unchecked Sendable {
         shadowSnapshot.splitPoint = note
         let mode = TimbreMode(rawValue: shadowSnapshot.timbreMode) ?? .single
         if mode == .split {
-            shadowSnapshot.setConfig(at: 0, SlotConfig(noteRangeLow: 0, noteRangeHigh: note > 0 ? note - 1 : 0))
+            // splitPoint 0 has no lower zone: disable slot 0 rather than giving it
+            // an overlapping [0,0] range (which would double-trigger note 0).
+            shadowSnapshot.setConfig(at: 0, SlotConfig(noteRangeLow: 0, noteRangeHigh: note > 0 ? note - 1 : 0, enabled: note > 0))
             shadowSnapshot.setConfig(at: 1, SlotConfig(noteRangeLow: note, noteRangeHigh: 127))
         }
         bumpVersion()
@@ -458,7 +475,7 @@ public final class SynthEngine: @unchecked Sendable {
         guard opIndex >= 0, opIndex < kNumOperators else { return }
         // Convert normalized level to DX7 OL: OL = 99 + dB / 0.75
         let ol: Int
-        if level <= 0 { ol = 0 }
+        if !level.isFinite || level <= 0 { ol = 0 }   // guard NaN/Inf -> Int() trap
         else if level >= 1.0 { ol = 99 }
         else {
             let dB = 20.0 * log10f(level)
@@ -471,9 +488,11 @@ public final class SynthEngine: @unchecked Sendable {
     /// Set operator EG rates from Float (0-99 range, same as DX7 native).
     public func setOperatorEGRates(_ opIndex: Int, r1: Float, r2: Float, r3: Float, r4: Float) {
         guard opIndex >= 0, opIndex < kNumOperators else { return }
+        // Clamp before Int() — a non-finite or out-of-range Float traps the conversion.
+        func r(_ f: Float) -> Int { f.isFinite ? Int(max(0.0, min(99.0, f))) : 0 }
         withShadowOp(opIndex) {
-            $0.dx7EgR0 = Int(r1); $0.dx7EgR1 = Int(r2)
-            $0.dx7EgR2 = Int(r3); $0.dx7EgR3 = Int(r4)
+            $0.dx7EgR0 = r(r1); $0.dx7EgR1 = r(r2)
+            $0.dx7EgR2 = r(r3); $0.dx7EgR3 = r(r4)
         }
         bumpVersion()
     }
@@ -482,9 +501,11 @@ public final class SynthEngine: @unchecked Sendable {
     /// Converts to DX7 level (0-99) internally.
     public func setOperatorEGLevels(_ opIndex: Int, l1: Float, l2: Float, l3: Float, l4: Float) {
         guard opIndex >= 0, opIndex < kNumOperators else { return }
+        // Clamp before Int() — a non-finite or out-of-range Float traps the conversion.
+        func l(_ f: Float) -> Int { f.isFinite ? Int(max(0.0, min(99.0, f * 99.0))) : 0 }
         withShadowOp(opIndex) {
-            $0.dx7EgL0 = Int(l1 * 99); $0.dx7EgL1 = Int(l2 * 99)
-            $0.dx7EgL2 = Int(l3 * 99); $0.dx7EgL3 = Int(l4 * 99)
+            $0.dx7EgL0 = l(l1); $0.dx7EgL1 = l(l2)
+            $0.dx7EgL2 = l(l3); $0.dx7EgL3 = l(l4)
         }
         bumpVersion()
     }
@@ -492,9 +513,10 @@ public final class SynthEngine: @unchecked Sendable {
     /// Set per-operator feedback from Float.
     /// DX7 has global feedback; this sets on the algorithm's feedback operator.
     public func setOperatorFeedback(_ opIndex: Int, feedback: Float) {
-        // Convert float feedback gain to DX7 integer (0-7)
+        // Convert float feedback gain to DX7 integer (0-7). Guard non-finite
+        // input: log2f(NaN/Inf) -> Int(...) would trap.
         let fb: Int
-        if feedback <= 0 { fb = 0 }
+        if !feedback.isFinite || feedback <= 0 { fb = 0 }
         else { fb = max(0, min(7, Int(log2f(feedback) + 9.0 + 0.5))) }
         setOperatorFeedback(fb)
     }
@@ -510,9 +532,13 @@ public final class SynthEngine: @unchecked Sendable {
         let slotCount = mode.slotCount
         let baseSlot = shadowSnapshot.slot(at: 0)
 
-        // Copy slot 0 to any new slots
-        for i in shadowSnapshot.activeSlotCount..<slotCount {
-            shadowSnapshot.setSlot(at: i, baseSlot)
+        // Copy slot 0 into any newly-activated slots. Guard the range: when
+        // shrinking (e.g. tx816 -> single) activeSlotCount > slotCount, and an
+        // unguarded `activeSlotCount..<slotCount` traps (lowerBound > upperBound).
+        if slotCount > shadowSnapshot.activeSlotCount {
+            for i in shadowSnapshot.activeSlotCount..<slotCount {
+                shadowSnapshot.setSlot(at: i, baseSlot)
+            }
         }
         shadowSnapshot.activeSlotCount = slotCount
 
@@ -523,7 +549,8 @@ public final class SynthEngine: @unchecked Sendable {
             shadowSnapshot.setConfig(at: 0, SlotConfig())
             shadowSnapshot.setConfig(at: 1, SlotConfig())
         case .split:
-            shadowSnapshot.setConfig(at: 0, SlotConfig(noteRangeLow: 0, noteRangeHigh: splitPoint > 0 ? splitPoint - 1 : 0))
+            // splitPoint 0 has no lower zone: disable slot 0 (see setSplitPoint).
+            shadowSnapshot.setConfig(at: 0, SlotConfig(noteRangeLow: 0, noteRangeHigh: splitPoint > 0 ? splitPoint - 1 : 0, enabled: splitPoint > 0))
             shadowSnapshot.setConfig(at: 1, SlotConfig(noteRangeLow: splitPoint, noteRangeHigh: 127))
         case .tx816:
             for i in 0..<8 {
@@ -535,6 +562,13 @@ public final class SynthEngine: @unchecked Sendable {
 
     public func loadSlotParams(_ slotIdx: Int, slot: SlotSnapshot, resetControllers: Bool = true) {
         guard slotIdx >= 0, slotIdx < shadowSnapshot.activeSlotCount else { return }
+        // Sanitize caller-supplied values that the render thread consumes without
+        // its own guard: a negative algorithm would OOB kAlgorithmFlags, and a
+        // non-finite ops.0.feedback would trap Int(feedback*7+0.5).
+        var slot = slot
+        slot.algorithm = max(0, min(kNumAlgorithms - 1, slot.algorithm))
+        let fb0 = slot.ops.0.feedback
+        slot.ops.0.feedback = fb0.isFinite ? max(0, min(1, fb0)) : 0
         shadowSnapshot.setSlot(at: slotIdx, slot)
         if resetControllers { self.resetControllers() }
         bumpVersion()
@@ -625,12 +659,24 @@ public final class SynthEngine: @unchecked Sendable {
         shadowSnapshot.setSlot(at: slotIdx, slot)
         resetControllers()
         shadowSnapshot.version &+= 1
-        snapshotRing.pushLatest(shadowSnapshot)
+        // Honor an open batch: don't publish a partial snapshot mid-batch.
+        if batchDepth == 0 {
+            snapshotRing.pushLatest(shadowSnapshot)
+        }
     }
 
     /// Reset all MIDI controller state to defaults.
     /// Call when switching presets to clear stale CC values.
     public func resetControllers() {
+        // Defer to the render thread: this resets render-owned voice/controller
+        // state (voicesDX7, modWheelDepth, etc.), which must not be mutated from
+        // the UI thread concurrently with render() (data race). render() consumes
+        // the request and calls performControllerReset() on the audio thread.
+        _ctrlResetRequest.wrappingAdd(1, ordering: .relaxed)
+    }
+
+    /// Actual controller reset — render thread only.
+    private func performControllerReset() {
         modWheelDepth = 0
         footDepth = 0
         breathDepth = 0
@@ -669,6 +715,13 @@ public final class SynthEngine: @unchecked Sendable {
         }
         let snapshot = currentSnapshot
 
+        // Consume any pending controller-reset request on the render thread.
+        let ctrlGen = _ctrlResetRequest.load(ordering: .relaxed)
+        if ctrlGen != appliedCtrlResetCount {
+            appliedCtrlResetCount = ctrlGen
+            performControllerReset()
+        }
+
         // Drain MIDI before applyParams so allNotesOff is processed
         // before intermediate preset change snapshots corrupt active voices.
         drainMIDI()
@@ -685,7 +738,12 @@ public final class SynthEngine: @unchecked Sendable {
                 baseSampleRate = snapshot.sampleRate
                 sampleRate = baseSampleRate * factor
                 for i in 0..<kMaxVoices { voicesDX7[i].setSampleRate(sampleRate) }
-                downsampler.beginTransition(sampleRate: baseSampleRate)
+                // Only arm the de-zipper crossfade when entering an oversampled
+                // mode; the .off render path never consumes it, so arming it there
+                // would leave crossfadeRemaining stranded.
+                if newOSMode != .off {
+                    downsampler.beginTransition(sampleRate: baseSampleRate)
+                }
             } else if snapshot.sampleRate != baseSampleRate {
                 baseSampleRate = snapshot.sampleRate
                 let factor: Float = (currentOversamplingMode == .off) ? 1.0 : 2.0
@@ -706,6 +764,18 @@ public final class SynthEngine: @unchecked Sendable {
             case .tx816: voicesForMode = 64
             }
             effectiveMaxVoices = (currentOversamplingMode == .off) ? voicesForMode : max(8, voicesForMode / 2)
+
+            // Reap voices outside the (possibly shrunken) active range. The render
+            // loop only runs checkActive() within effectiveMaxVoices, so a voice
+            // allocated at a higher index under a larger mode would otherwise keep
+            // its `active` flag set forever (and could resurrect on a later grow).
+            if effectiveMaxVoices < kMaxVoices {
+                for i in effectiveMaxVoices..<kMaxVoices where voicesDX7[i].active {
+                    voicesDX7[i].noteOff()
+                    voicesDX7[i].active = false
+                    voicesDX7[i].sustained = false
+                }
+            }
 
             // Apply per-voice params unconditionally.
             // Preset loads use loadDX7Preset (atomic 1-push), so versionDelta is always 1.
@@ -730,7 +800,8 @@ public final class SynthEngine: @unchecked Sendable {
             // Process in chunks of up to 1024 output frames (2048 oversampled)
             // to stay within the downsampler's fixed buffer capacity.
             // Previously, frameCount > 1024 caused zero-fill dropout.
-            let kMaxChunkOutput = 1024  // = kMaxOversampledFrames / 2
+            // Derive from the downsampler's buffer capacity so the two cannot drift.
+            let kMaxChunkOutput = downsampler.kMaxOversampledFrames / 2
             var remaining = frameCount
             var outOffset = 0
 
@@ -790,9 +861,12 @@ public final class SynthEngine: @unchecked Sendable {
         }
     }
 
-    private func updateLFOForSlot(_ slotIdx: Int, _ slot: SlotSnapshot) {
+    private func updateLFOForSlot(_ slotIdx: Int, _ slot: SlotSnapshot, blockSize: Int) {
         let lfoHz = Self.lfoSpeedToHz(slot.lfoSpeed)
-        let lfoInc = lfoHz / sampleRate * Float(kBlockSize)
+        // Scale by the actual block size, not the fixed kBlockSize: the final inner
+        // block can be partial, and advancing a full step there would couple LFO
+        // rate (and the delay fade-in) to host buffer chunking.
+        let lfoInc = lfoHz / sampleRate * Float(blockSize)
 
         lfoPhase[slotIdx] += lfoInc
         if lfoPhase[slotIdx] >= 1.0 {
@@ -806,7 +880,7 @@ public final class SynthEngine: @unchecked Sendable {
 
         if slot.lfoDelay > 0 && lfoDelayFadeIn[slotIdx] < 1.0 {
             let delayTime = 0.01 * expf(Float(slot.lfoDelay) * 0.069)
-            let fadeInc = Float(kBlockSize) / (delayTime * sampleRate)
+            let fadeInc = Float(blockSize) / (delayTime * sampleRate)
             lfoDelayFadeIn[slotIdx] = min(1.0, lfoDelayFadeIn[slotIdx] + fadeInc)
             lfoCurrentValue[slotIdx] *= lfoDelayFadeIn[slotIdx]
         }
@@ -820,7 +894,7 @@ public final class SynthEngine: @unchecked Sendable {
         _ frameCount: Int,
         _ snapshot: SynthParamSnapshot
     ) {
-        let vol = masterVolume * expression
+        let vol = masterVolume * expression * ccVolume
         let maxV = effectiveMaxVoices
         let slotCount = snapshot.activeSlotCount
 
@@ -832,6 +906,7 @@ public final class SynthEngine: @unchecked Sendable {
             let slot = snapshot.slot(at: s)
             slotMods[s].pmsDepth = kPMSDepth[Int(min(slot.lfoPMS, 7))]
             slotMods[s].hasPitchMod = slot.lfoPMD > 0 || modWheelDepth > 0.001
+                || footDepth > 0.001 || breathDepth > 0.001 || aftertouchDepth > 0.001
             slotMods[s].lfoAMDNorm = Float(slot.lfoAMD) / 99.0
             slotMods[s].wheelPitchDepth = Float(slot.wheelPitch) / 99.0 * modWheelDepth
             slotMods[s].footPitchDepth = Float(slot.footPitch) / 99.0 * footDepth
@@ -856,7 +931,7 @@ public final class SynthEngine: @unchecked Sendable {
             let blockSize = min(kBlockSize, frameCount - offset)
 
             for s in 0..<slotCount {
-                updateLFOForSlot(s, snapshot.slot(at: s))
+                updateLFOForSlot(s, snapshot.slot(at: s), blockSize: blockSize)
             }
 
             // Global tuning offset (semitones), computed once per block.
@@ -874,7 +949,10 @@ public final class SynthEngine: @unchecked Sendable {
                 // Pitch EG — advance once per block, get semitone offset
                 var pitchEGSemitones: Float = 0
                 if voicesDX7[i].pitchEG.enabled {
-                    voicesDX7[i].pitchEG.process(sampleRate: snapshot.sampleRate)
+                    // Use the engine's render rate (oversampled), not the base
+                    // snapshot rate, so the pitch EG advances at the correct cadence
+                    // under oversampling (mirrors the operator EGs and the LFO).
+                    voicesDX7[i].pitchEG.process(sampleRate: sampleRate)
                     pitchEGSemitones = voicesDX7[i].pitchEG.semitones
                 }
 
@@ -890,7 +968,9 @@ public final class SynthEngine: @unchecked Sendable {
                     } else {
                         controllerPitch = sm.wheelPitchDepth + sm.footPitchDepth + sm.breathPitchDepth + sm.atPitchDepth
                     }
-                    let factor = pitchBendValueBySlot[s] * pitchBendFactorExt(lfoPitch + controllerPitch + pitchEGSemitones) * pnpbFactor * tuningFactor
+                    // Detached (per-note-managed) voices ignore channel-wide pitch bend.
+                    let chanBend = voicesDX7[i].detached ? Float(1.0) : pitchBendValueBySlot[s]
+                    let factor = chanBend * pitchBendFactorExt(lfoPitch + controllerPitch + pitchEGSemitones) * pnpbFactor * tuningFactor
                     voicesDX7[i].applyPitchBend(factor)
                 }
 
@@ -1045,6 +1125,11 @@ public final class SynthEngine: @unchecked Sendable {
                         op.updateFreqPublic()
                     }
                     op.env.rateScaling = keyboardRateScaling(note: transposedNote, scaling: opSnap.keyboardRateScaling)
+                    // rateScaling is set after env.noteOn() computed the attack inc,
+                    // so recompute the current stage's increment (matching DEXED,
+                    // which applies rate scaling before eg_note_on). Mirrors the
+                    // recalcTargetLevel() fixup above for the level.
+                    op.env.recalcCurrentInc()
                 }
             }
 
@@ -1054,7 +1139,7 @@ public final class SynthEngine: @unchecked Sendable {
                 r2: slot.pitchEGR2, r3: slot.pitchEGR3,
                 l0: slot.pitchEGL0, l1: slot.pitchEGL1,
                 l2: slot.pitchEGL2, l3: slot.pitchEGL3,
-                sampleRate: snapshot.sampleRate)
+                sampleRate: sampleRate)
 
             let bendFactor = pitchBendValueBySlot[slotIdx]
             if bendFactor != 1.0 {
@@ -1086,6 +1171,10 @@ public final class SynthEngine: @unchecked Sendable {
                 }
             }
         case .tx816:
+            // NOTE: true per-part MIDI-channel routing (SlotConfig.midiChannel) is
+            // Phase 4 and not yet implemented — MIDIEvent carries no channel, so a
+            // note currently layers across every enabled slot rather than being
+            // routed to the slot whose midiChannel matches.
             for i in 0..<snapshot.activeSlotCount {
                 if snapshot.config(at: i).enabled {
                     appendTarget(i, to: &result, count: &count)
@@ -1111,7 +1200,7 @@ public final class SynthEngine: @unchecked Sendable {
             if voicesDX7[i].active && voicesDX7[i].midiNote == note {
                 voicesDX7[i].noteOff(held: sustainPedalOn)
                 if !sustainPedalOn {
-                    voicesDX7[i].pitchEG.noteOff(sampleRate: currentSnapshot.sampleRate)
+                    voicesDX7[i].pitchEG.noteOff(sampleRate: sampleRate)
                 }
             }
         }
@@ -1122,13 +1211,21 @@ public final class SynthEngine: @unchecked Sendable {
         case 1: modWheelDepth = Float(value32) / Float(UInt32.max)
         case 2: breathDepth = Float(value32) / Float(UInt32.max)
         case 4: footDepth = Float(value32) / Float(UInt32.max)
-        case 7: masterVolume = Float(value32) / Float(UInt32.max)
+        case 7: ccVolume = Float(value32) / Float(UInt32.max)
         case 11: expression = Float(value32) / Float(UInt32.max)
         case 64:
             let on = value32 >= 0x40000000
             sustainPedalOn = on
             if !on {
-                for i in 0..<kMaxVoices { voicesDX7[i].releaseSustain() }
+                let sr = sampleRate
+                for i in 0..<kMaxVoices {
+                    // Release the pitch EG too for voices held only by the pedal —
+                    // releaseSustain() releases the amp EGs but not the pitch EG.
+                    if voicesDX7[i].sustained {
+                        voicesDX7[i].pitchEG.noteOff(sampleRate: sr)
+                    }
+                    voicesDX7[i].releaseSustain()
+                }
             }
         case 123: doAllNotesOff()
         default: break
@@ -1152,7 +1249,7 @@ public final class SynthEngine: @unchecked Sendable {
             let semitones = normalized * effectivePitchBendRange(forSlot: s)
             pitchBendValueBySlot[s] = pitchBendFactorExt(semitones)
         }
-        for i in 0..<kMaxVoices where voicesDX7[i].active {
+        for i in 0..<kMaxVoices where voicesDX7[i].active && !voicesDX7[i].detached {
             voicesDX7[i].applyPitchBend(pitchBendValueBySlot[voicesDX7[i].slotId])
         }
     }
@@ -1172,6 +1269,10 @@ public final class SynthEngine: @unchecked Sendable {
     }
 
     private func doPolyPressure(_ note: UInt8, value32: UInt32) {
+        // NOTE: perNoteAftertouch is captured per-voice but not yet routed into the
+        // synthesis (no per-voice aftertouch->pitch/amp mapping yet). Stored for a
+        // future per-note expression path; currently this handler has no audible
+        // effect. (Channel aftertouch IS wired via doChannelPressure.)
         let depth = Float(value32) / Float(UInt32.max)
         for i in 0..<kMaxVoices where voicesDX7[i].active && voicesDX7[i].midiNote == note {
             voicesDX7[i].perNoteAftertouch = depth
@@ -1202,10 +1303,15 @@ public final class SynthEngine: @unchecked Sendable {
         let reset = (flags & 0x01) != 0
         for i in 0..<kMaxVoices where voicesDX7[i].active && voicesDX7[i].midiNote == note {
             if reset {
-                voicesDX7[i].resetPerNoteState()
-                if detach { voicesDX7[i].detached = true }
-            } else if detach {
+                // Reset per-note controllers only; the pitch EG keeps running.
+                voicesDX7[i].resetPerNoteControllers()
+            }
+            if detach {
                 voicesDX7[i].detached = true
+                // Detached voices ignore channel bend; remove any already-applied
+                // channel bend NOW (apply the per-note-only factor) so the pitch is
+                // deterministic — the per-block gate may not fire again to do it.
+                voicesDX7[i].applyPitchBend(voicesDX7[i].perNotePitchBendFactor)
             }
         }
     }

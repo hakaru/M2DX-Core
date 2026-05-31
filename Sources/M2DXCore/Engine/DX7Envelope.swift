@@ -76,7 +76,11 @@ package struct DX7Envelope {
                 if level < (jumpTarget << 16) {
                     level = jumpTarget << 16
                 }
-                let step = Int32(((Int64(17 << 24) - Int64(level)) >> 24) * Int64(inc))
+                // Wrapping narrowing matches the C reference's (int32_t) cast. At
+                // standard rates the value fits in Int32 (no truncation); at very
+                // low base sample rates `inc` inflates and a plain Int32(...) would
+                // trap on the render thread instead of wrapping.
+                let step = Int32(truncatingIfNeeded: ((Int64(17 << 24) - Int64(level)) >> 24) * Int64(inc))
                 level = level &+ step
                 if level >= targetLevel {
                     level = targetLevel
@@ -140,10 +144,10 @@ package struct DX7Envelope {
         var qrate = (rate * 41) >> 6
         qrate = min(63, qrate + rateScaling)
         let rawInc = (4 + (qrate & 3)) << (8 + (qrate >> 2))
-        inc = Int32((Int64(rawInc) * srMultiplier) >> 24)
+        inc = Int32(truncatingIfNeeded: (Int64(rawInc) * srMultiplier) >> 24)
     }
 
-    private mutating func recalcCurrentInc() {
+    mutating func recalcCurrentInc() {
         guard ix >= 0, ix < 4 else { return }
         let rate: Int
         switch ix {
@@ -156,7 +160,7 @@ package struct DX7Envelope {
         var qrate = (rate * 41) >> 6
         qrate = min(63, qrate + rateScaling)
         let rawInc = (4 + (qrate & 3)) << (8 + (qrate >> 2))
-        inc = Int32((Int64(rawInc) * srMultiplier) >> 24)
+        inc = Int32(truncatingIfNeeded: (Int64(rawInc) * srMultiplier) >> 24)
     }
 
     /// Recalculate targetLevel for current stage after outlevel changes.

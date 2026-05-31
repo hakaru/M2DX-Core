@@ -49,11 +49,15 @@ package func exp2LookupQ24(_ x: Int32) -> Int32 {
     let xIdx = Int((x >> 13) & 2046)                  // 10-bit index * 2 (interleaved)
     let dy = kExp2Tab[xIdx]                            // delta (Int32)
     let y0 = kExp2Tab[xIdx + 1]                        // base value (Q30, Int32)
-    // DEXED uses int (32-bit) arithmetic; match overflow behavior exactly
+    // DEXED uses 32-bit int arithmetic; the interpolation below matches its
+    // wrapping multiply/add exactly. The shift<=0 branch additionally *saturates*
+    // (Int32(clamping:)) rather than reproducing the reference's signed-overflow
+    // wrap — a deliberate, safer deviation. That branch is unreachable for in-spec
+    // levels (x stays <= ~3<<24, i.e. shift >= 3), so it never affects DEXED parity.
     let interpol = (dy &* lowbits) >> 14               // Int32 wrapping multiply
     let y = Int(y0 &+ interpol)                        // Int32 wrapping add, then widen
     let shift = 6 - (Int(x) >> 24)                    // integer part determines octave shift
     if shift >= 31 { return 0 }
-    if shift <= 0 { return Int32(clamping: y << (-shift)) }
+    if shift <= 0 { return Int32(clamping: y << (-shift)) }  // saturating (see note above)
     return Int32(y >> shift)                           // Q30 → Q24 with octave adjustment
 }

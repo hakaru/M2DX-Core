@@ -26,9 +26,21 @@ public enum DX7SysExParser {
         return parse(data: data, bankName: bankName, category: category)
     }
 
-    public static func parse(data: Data, bankName: String, category: PresetCategory = .other) -> DX7SysExBank? {
+    public static func parse(data rawData: Data, bankName: String, category: PresetCategory = .other) -> DX7SysExBank? {
+        // A Data slice keeps its parent's index space (nonzero startIndex), but the
+        // logic below indexes and sub-slices with absolute offsets. Normalize to a
+        // zero-based buffer so a sliced bank parses instead of trapping on data[0].
+        let data = rawData.startIndex == 0 ? rawData : Data(rawData)
         guard data.count == bulkDumpSize else { return nil }
         guard data[0] == 0xF0, data[1] == 0x43, data[data.count - 1] == 0xF7 else { return nil }
+        // Identify a 32-voice bulk dump: format 0x09, byte count 0x20 0x00 (4096).
+        guard data[3] == 0x09, data[4] == 0x20, data[5] == 0x00 else { return nil }
+        // Validate the 7-bit two's-complement checksum over the 4096 voice bytes.
+        var checkSum = 0
+        for i in headerSize..<(headerSize + voicesPerBank * packedVoiceSize) {
+            checkSum = (checkSum + Int(data[i])) & 0x7F
+        }
+        guard ((128 - checkSum) & 0x7F) == Int(data[bulkDumpSize - 2] & 0x7F) else { return nil }
 
         var presets: [DX7Preset] = []
         presets.reserveCapacity(voicesPerBank)
@@ -55,12 +67,11 @@ public enum DX7SysExParser {
         }
         ops.reverse()
 
-        // DX7のフィードバックは常にOperator 6に適用されます。
-        // ops.reverse() 後、インデックス0がOperator 6に対応するため、ここで修正します。
+        // SysEx VMEM order is OP6..OP1; after reverse(), ops[5] = OP6 (always carries feedback).
         let voiceFB = Int(bytes[111] & 0x07)
-        var op6 = ops[0]
+        var op6 = ops[5]
         op6.feedback = voiceFB
-        ops[0] = op6
+        ops[5] = op6
 
         let algorithm = Int(bytes[110] & 0x1F)
         let feedback = voiceFB
@@ -97,22 +108,25 @@ public enum DX7SysExParser {
 
     private static func parsePackedOperator(_ bytes: [UInt8], offset: Int) -> DX7OperatorPreset {
         let b = bytes
+        // Clamp fields whose DX7 range is 0-99 — a malformed dump can carry raw
+        // 100-255 bytes here, and the load path only saturates to 0-255.
+        func c99(_ v: UInt8) -> Int { min(99, Int(v)) }
         return DX7OperatorPreset(
-            outputLevel: Int(b[offset + 14]),
+            outputLevel: c99(b[offset + 14]),
             frequencyCoarse: Int((b[offset + 15] >> 1) & 0x1F),
-            frequencyFine: Int(b[offset + 16]),
+            frequencyFine: c99(b[offset + 16]),
             detune: Int((b[offset + 12] >> 3) & 0x0F),
             feedback: 0,
-            egRate1: Int(b[offset + 0]), egRate2: Int(b[offset + 1]),
-            egRate3: Int(b[offset + 2]), egRate4: Int(b[offset + 3]),
-            egLevel1: Int(b[offset + 4]), egLevel2: Int(b[offset + 5]),
-            egLevel3: Int(b[offset + 6]), egLevel4: Int(b[offset + 7]),
+            egRate1: c99(b[offset + 0]), egRate2: c99(b[offset + 1]),
+            egRate3: c99(b[offset + 2]), egRate4: c99(b[offset + 3]),
+            egLevel1: c99(b[offset + 4]), egLevel2: c99(b[offset + 5]),
+            egLevel3: c99(b[offset + 6]), egLevel4: c99(b[offset + 7]),
             velocitySensitivity: Int((b[offset + 13] >> 2) & 0x07),
             ampModSensitivity: Int(b[offset + 13] & 0x03),
             keyboardRateScaling: Int(b[offset + 12] & 0x07),
-            klsBreakPoint: Int(b[offset + 8]),
-            klsLeftDepth: Int(b[offset + 9]),
-            klsRightDepth: Int(b[offset + 10]),
+            klsBreakPoint: c99(b[offset + 8]),
+            klsLeftDepth: c99(b[offset + 9]),
+            klsRightDepth: c99(b[offset + 10]),
             klsLeftCurve: Int(b[offset + 11] & 0x03),
             klsRightCurve: Int((b[offset + 11] >> 2) & 0x03),
             frequencyMode: Int(b[offset + 15] & 0x01)

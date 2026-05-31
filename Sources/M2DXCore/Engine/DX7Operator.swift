@@ -80,6 +80,10 @@ package struct DX7Operator {
 
     private mutating func updateFreq() {
         let inc = Double(frequency) / Double(sampleRate) * Double(1 << 24)
-        freq = Int32(clamping: Int(inc))
+        // Guard the Double->Int conversion: a non-finite or out-of-range `inc`
+        // (e.g. sampleRate 0 or an extreme ratio) would otherwise trap here on
+        // the render thread. Clamp into Int32 range and treat non-finite as 0.
+        guard inc.isFinite else { freq = 0; return }
+        freq = Int32(min(Double(Int32.max), max(Double(Int32.min), inc)))
     }
 }

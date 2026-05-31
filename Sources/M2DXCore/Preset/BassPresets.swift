@@ -39,11 +39,11 @@ public extension DX7Preset {
             feedback: 5,
             operators: [
                 .init(outputLevel: 98, egRate2: 78, egRate3: 68, egRate4: 72, egLevel2: 90, egLevel3: 0, velocitySensitivity: 2, keyboardRateScaling: 1), // OP1 (carrier): main fundamental snap
-                .init(outputLevel: 38, egRate2: 80, egRate3: 70, egLevel2: 28, egLevel3: 0), // OP2 (modulator→OP1): short low bark
+                .init(outputLevel: 38, feedback: 5, egRate2: 80, egRate3: 70, egLevel2: 28, egLevel3: 0), // OP2 (modulator→OP1, alg-15 feedback op): short low bark
                 .init(outputLevel: 86, frequencyCoarse: 2, egRate2: 75, egRate3: 65, egRate4: 70, egLevel2: 88, egLevel3: 0, velocitySensitivity: 2, keyboardRateScaling: 1), // OP3 (carrier): midrange slap body
                 .init(outputLevel: 52, frequencyCoarse: 3, egRate2: 82, egRate3: 72, egLevel2: 34, egLevel3: 0, klsBreakPoint: 40, klsLeftDepth: 5, klsLeftCurve: 1), // OP4 (modulator→OP3): bright thumb transient
                 .init(outputLevel: 84, egRate2: 80, egRate3: 68, egRate4: 72, egLevel2: 88, egLevel3: 0, velocitySensitivity: 2, keyboardRateScaling: 1), // OP5 (carrier): low-mid pop layer
-                .init(outputLevel: 60, frequencyCoarse: 2, feedback: 5, egRate2: 85, egRate3: 75, egLevel2: 36, egLevel3: 0, velocitySensitivity: 7, klsBreakPoint: 40, klsLeftDepth: 5, klsLeftCurve: 1), // OP6 (modulator→OP5): feedback-driven slap click
+                .init(outputLevel: 60, frequencyCoarse: 2, egRate2: 85, egRate3: 75, egLevel2: 36, egLevel3: 0, velocitySensitivity: 7, klsBreakPoint: 40, klsLeftDepth: 5, klsLeftCurve: 1), // OP6 (modulator→OP5): slap click
             ],
             category: .bass
         ),

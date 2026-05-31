@@ -126,8 +126,9 @@ package func feedbackShift(_ fb: Int) -> Int {
 // MARK: - Fixed Frequency
 
 /// Convert DX7 fixed frequency coarse + fine to Hz.
+/// DX7 selects the decade (1/10/100/1000 Hz) from the low 2 bits of coarse and
+/// treats fine as a base-10 mantissa exponent: freq = 10^((coarse & 3) + fine/100).
 @inline(__always)
 package func fixedFreqHz(coarse: UInt8, fine: UInt8) -> Float {
-    let base = powf(10.0, Float(coarse) / 10.0)
-    return base * (1.0 + Float(fine) / 100.0)
+    return powf(10.0, Float(Int(coarse) & 3) + Float(fine) / 100.0)
 }

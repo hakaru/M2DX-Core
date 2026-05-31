@@ -58,6 +58,12 @@ nonisolated(unsafe) let kPitchBendExtLUT: UnsafePointer<Float> = {
 /// Look up pitch bend factor for ±12 semitone range.
 @inline(__always)
 package func pitchBendFactorExt(_ semitones: Float) -> Float {
+    // The LUT only spans ±12 semitones. Pitch EG (±48), RPN coarse tuning (±64),
+    // and bend ranges above 12 can exceed that; fall back to a direct exp2 instead
+    // of clamping to ±1 octave. All callers are block-rate, so powf is acceptable.
+    if semitones > 12.0 || semitones < -12.0 {
+        return powf(2.0, semitones / 12.0)
+    }
     let normalized = (semitones + 12.0) / 24.0  // 0..1
     let fIndex = normalized * Float(kPitchBendExtLUTSize - 1)
     let clamped = max(0, min(Float(kPitchBendExtLUTSize - 2), fIndex))

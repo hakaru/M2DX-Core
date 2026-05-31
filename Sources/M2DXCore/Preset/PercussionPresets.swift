@@ -64,11 +64,11 @@ public extension DX7Preset {
             feedback: 3,
             operators: [
                 .init(outputLevel: 96, detune: 5, egRate2: 75, egRate3: 65, egRate4: 75, egLevel2: 88, egLevel3: 0, velocitySensitivity: 2, keyboardRateScaling: 2), // OP1 (carrier): primary tine
-                .init(outputLevel: 44, frequencyCoarse: 2, frequencyFine: 4, detune: 7, egRate2: 75, egRate3: 68, egRate4: 75, egLevel2: 28, egLevel3: 0, velocitySensitivity: 4, keyboardRateScaling: 2), // OP2 (modulator → OP1): inharmonic tine color
+                .init(outputLevel: 44, frequencyCoarse: 2, frequencyFine: 4, detune: 7, feedback: 3, egRate2: 75, egRate3: 68, egRate4: 75, egLevel2: 28, egLevel3: 0, velocitySensitivity: 4, keyboardRateScaling: 2), // OP2 (modulator → OP1, alg-15 feedback op): inharmonic tine color
                 .init(outputLevel: 86, detune: 7, egRate2: 75, egRate3: 65, egRate4: 75, egLevel2: 88, egLevel3: 0, velocitySensitivity: 2, keyboardRateScaling: 2), // OP3 (carrier): second tine, slightly detuned
                 .init(outputLevel: 40, frequencyCoarse: 3, detune: 7, egRate2: 75, egRate3: 68, egRate4: 75, egLevel2: 26, egLevel3: 0, velocitySensitivity: 4, keyboardRateScaling: 2), // OP4 (modulator → OP3): metallic attack
                 .init(outputLevel: 76, detune: 9, egRate2: 75, egRate3: 65, egRate4: 75, egLevel2: 88, egLevel3: 0, velocitySensitivity: 2, keyboardRateScaling: 2), // OP5 (carrier): third tine, most detuned
-                .init(outputLevel: 48, frequencyCoarse: 2, frequencyFine: 8, detune: 7, feedback: 3, egRate2: 75, egRate3: 68, egRate4: 75, egLevel2: 34, egLevel3: 0, velocitySensitivity: 5, keyboardRateScaling: 2), // OP6 (modulator → OP5/OP4 branch, feedback): shared metal pluck
+                .init(outputLevel: 48, frequencyCoarse: 2, frequencyFine: 8, detune: 7, egRate2: 75, egRate3: 68, egRate4: 75, egLevel2: 34, egLevel3: 0, velocitySensitivity: 5, keyboardRateScaling: 2), // OP6 (modulator → OP5/OP4 branch): shared metal pluck
             ],
             category: .percussion,
             lfoPMD: 2
