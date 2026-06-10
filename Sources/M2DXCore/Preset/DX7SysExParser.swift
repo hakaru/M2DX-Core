@@ -8,6 +8,13 @@ import Foundation
 public struct DX7SysExBank: Sendable {
     public let name: String
     public let presets: [DX7Preset]
+
+    /// Public memberwise initializer — lets apps compose banks from non-SysEx
+    /// sources (e.g. user-saved custom presets) alongside parsed .syx banks.
+    public init(name: String, presets: [DX7Preset]) {
+        self.name = name
+        self.presets = presets
+    }
 }
 
 // MARK: - Parser
