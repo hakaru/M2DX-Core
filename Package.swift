@@ -30,6 +30,18 @@ let package = Package(
             name: "DX7Ref",
             publicHeadersPath: "include"
         ),
+        // Preset quality lab — dev/tuning harness (metrics + headless renderer)
+        .target(
+            name: "PresetLabKit",
+            dependencies: ["M2DXCore"],
+            linkerSettings: [
+                .linkedFramework("Accelerate"),
+            ]
+        ),
+        .testTarget(
+            name: "PresetLabKitTests",
+            dependencies: ["PresetLabKit"]
+        ),
         .testTarget(
             name: "M2DXCoreTests",
             dependencies: ["M2DXCore", "DX7Ref"]
