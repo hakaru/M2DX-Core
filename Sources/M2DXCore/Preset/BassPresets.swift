@@ -21,9 +21,9 @@ public extension DX7Preset {
             algorithm: 0,
             feedback: 6,
             operators: [
-                .init(outputLevel: 98, egRate2: 30, egRate4: 40, egLevel2: 94, egLevel3: 78, velocitySensitivity: 3, keyboardRateScaling: 1), // OP1 (carrier): main saturated bass body
+                .init(outputLevel: 98, egRate2: 30, egRate4: 40, egLevel2: 94, egLevel3: 83, velocitySensitivity: 3, keyboardRateScaling: 1), // OP1 (carrier): main saturated bass body
                 .init(outputLevel: 82, egRate2: 62, egRate3: 48, egLevel2: 38, egLevel3: 0, velocitySensitivity: 7), // OP2 (modulator→OP1): velocity-gated growl burst, closes before sustain
-                .init(outputLevel: 88, detune: 3, egRate2: 30, egRate4: 40, egLevel2: 94, egLevel3: 78, velocitySensitivity: 3, keyboardRateScaling: 1), // OP3 (carrier): detuned secondary bass body
+                .init(outputLevel: 88, detune: 3, egRate2: 30, egRate4: 40, egLevel2: 94, egLevel3: 83, velocitySensitivity: 3, keyboardRateScaling: 1), // OP3 (carrier): detuned secondary bass body
                 .init(outputLevel: 45, frequencyCoarse: 2, egRate3: 52, egLevel2: 28, egLevel3: 0, velocitySensitivity: 5), // OP4 (modulator→OP3): octave growl, velocity-gated
                 .init(outputLevel: 42, frequencyCoarse: 3, egRate3: 52, egLevel2: 26, egLevel3: 0, velocitySensitivity: 5), // OP5 (modulator→OP4): third-harmonic transient stage
                 .init(outputLevel: 48, feedback: 6, egRate3: 52, egLevel2: 32, egLevel3: 0, velocitySensitivity: 5), // OP6 (modulator→OP5): feedback thickener, attack only
@@ -42,11 +42,11 @@ public extension DX7Preset {
             algorithm: 4,
             feedback: 5,
             operators: [
-                .init(outputLevel: 98, egRate2: 55, egRate3: 38, egRate4: 72, egLevel2: 90, egLevel3: 70, velocitySensitivity: 2, keyboardRateScaling: 1), // OP1 (carrier): fundamental snap into held body
+                .init(outputLevel: 98, egRate2: 55, egRate3: 38, egRate4: 72, egLevel2: 95, egLevel3: 82, velocitySensitivity: 2, keyboardRateScaling: 1), // OP1 (carrier): fundamental snap into held body
                 .init(outputLevel: 78, egRate2: 62, egRate3: 50, egLevel2: 38, egLevel3: 0, velocitySensitivity: 6), // OP2 (modulator→OP1): short low bark, velocity-gated
-                .init(outputLevel: 86, frequencyCoarse: 2, egRate2: 55, egRate3: 40, egRate4: 70, egLevel2: 88, egLevel3: 60, velocitySensitivity: 2, keyboardRateScaling: 1), // OP3 (carrier): octave slap punch
+                .init(outputLevel: 86, frequencyCoarse: 2, egRate2: 55, egRate3: 40, egRate4: 70, egLevel2: 93, egLevel3: 72, velocitySensitivity: 2, keyboardRateScaling: 1), // OP3 (carrier): octave slap punch
                 .init(outputLevel: 72, frequencyCoarse: 3, egRate2: 64, egRate3: 52, egLevel2: 34, egLevel3: 0, velocitySensitivity: 6), // OP4 (modulator→OP3): bright thumb transient
-                .init(outputLevel: 84, detune: 9, egRate2: 55, egRate3: 40, egRate4: 72, egLevel2: 86, egLevel3: 62, velocitySensitivity: 2, keyboardRateScaling: 1), // OP5 (carrier): detuned low-mid pop layer
+                .init(outputLevel: 84, detune: 9, egRate2: 55, egRate3: 40, egRate4: 72, egLevel2: 91, egLevel3: 74, velocitySensitivity: 2, keyboardRateScaling: 1), // OP5 (carrier): detuned low-mid pop layer
                 .init(outputLevel: 80, frequencyCoarse: 9, egRate2: 60, egRate3: 52, egLevel2: 36, egLevel3: 0, velocitySensitivity: 7), // OP6 (modulator→OP5, feedback op): slap click
             ],
             category: .bass
@@ -87,9 +87,9 @@ public extension DX7Preset {
             algorithm: 0,
             feedback: 6,
             operators: [
-                .init(outputLevel: 98, egRate2: 55, egRate3: 45, egRate4: 42, egLevel2: 92, egLevel3: 78, velocitySensitivity: 3, keyboardRateScaling: 1), // OP1 (carrier): main punch body
+                .init(outputLevel: 98, egRate2: 55, egRate3: 45, egRate4: 42, egLevel2: 92, egLevel3: 83, velocitySensitivity: 3, keyboardRateScaling: 1), // OP1 (carrier): main punch body
                 .init(outputLevel: 80, egRate2: 62, egRate3: 48, egLevel2: 38, egLevel3: 0, velocitySensitivity: 7), // OP2 (modulator→OP1): velocity-gated reedy bite burst
-                .init(outputLevel: 86, detune: 9, egRate2: 55, egRate3: 45, egRate4: 42, egLevel2: 92, egLevel3: 78, velocitySensitivity: 3, keyboardRateScaling: 1), // OP3 (carrier): detuned secondary body
+                .init(outputLevel: 86, detune: 9, egRate2: 55, egRate3: 45, egRate4: 42, egLevel2: 92, egLevel3: 83, velocitySensitivity: 3, keyboardRateScaling: 1), // OP3 (carrier): detuned secondary body
                 .init(outputLevel: 50, frequencyCoarse: 2, egRate2: 60, egRate3: 52, egLevel2: 32, egLevel3: 0, velocitySensitivity: 5), // OP4 (modulator→OP3): octave reed color, gated
                 .init(outputLevel: 46, frequencyCoarse: 3, egRate2: 58, egRate3: 52, egLevel2: 28, egLevel3: 0, velocitySensitivity: 5), // OP5 (modulator→OP4): harmonic drive stage, gated
                 .init(outputLevel: 52, frequencyCoarse: 2, feedback: 6, egRate2: 62, egRate3: 52, egLevel2: 34, egLevel3: 0, velocitySensitivity: 5), // OP6 (modulator→OP5): feedback reed edge, gated

@@ -50,11 +50,11 @@ public extension DX7Preset {
             algorithm: 4,
             feedback: 0,
             operators: [
-                .init(outputLevel: 97, detune: 7, egRate2: 80, egRate3: 40, egRate4: 44, egLevel2: 90, egLevel3: 0, velocitySensitivity: 2, keyboardRateScaling: 2), // OP1 (carrier): bright fundamental
+                .init(outputLevel: 99, detune: 7, egRate2: 80, egRate3: 40, egRate4: 44, egLevel2: 90, egLevel3: 0, velocitySensitivity: 2, keyboardRateScaling: 2), // OP1 (carrier): bright fundamental
                 .init(outputLevel: 68, detune: 7, egRate2: 64, egRate3: 44, egRate4: 48, egLevel2: 34, egLevel3: 0, velocitySensitivity: 6, keyboardRateScaling: 2), // OP2 (modulator → OP1): velocity-opened fundamental color
-                .init(outputLevel: 86, detune: 7, egRate2: 80, egRate3: 40, egRate4: 44, egLevel2: 90, egLevel3: 0, velocitySensitivity: 2, keyboardRateScaling: 2), // OP3 (carrier): mid layer
+                .init(outputLevel: 92, detune: 7, egRate2: 80, egRate3: 40, egRate4: 44, egLevel2: 90, egLevel3: 0, velocitySensitivity: 2, keyboardRateScaling: 2), // OP3 (carrier): mid layer
                 .init(outputLevel: 70, frequencyCoarse: 8, frequencyFine: 5, detune: 7, egRate2: 66, egRate3: 44, egRate4: 48, egLevel2: 26, egLevel3: 0, velocitySensitivity: 6, keyboardRateScaling: 2), // OP4 (modulator → OP3): velocity-opened 8× metallic-wood edge
-                .init(outputLevel: 54, frequencyCoarse: 12, detune: 7, egRate2: 52, egRate3: 24, egRate4: 37, egLevel2: 88, egLevel3: 0, velocitySensitivity: 2, keyboardRateScaling: 2), // OP5 (carrier): quiet 12th-partial glassy ping, rings faintly
+                .init(outputLevel: 58, frequencyCoarse: 12, detune: 7, egRate2: 52, egRate3: 24, egRate4: 37, egLevel2: 88, egLevel3: 0, velocitySensitivity: 2, keyboardRateScaling: 2), // OP5 (carrier): quiet 12th-partial glassy ping, rings faintly
                 .init(outputLevel: 30, frequencyCoarse: 4, detune: 7, egRate2: 66, egRate3: 44, egRate4: 48, egLevel2: 28, egLevel3: 0, velocitySensitivity: 5, keyboardRateScaling: 2), // OP6 (modulator → OP5): light color on the ping partial
             ],
             category: .percussion

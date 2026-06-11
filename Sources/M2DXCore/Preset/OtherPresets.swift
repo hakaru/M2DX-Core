@@ -24,9 +24,9 @@ public extension DX7Preset {
             algorithm: 0,
             feedback: 7,
             operators: [
-                .init(outputLevel: 99, detune: 7, egRate1: 99, egRate2: 70, egRate3: 40, egRate4: 50, egLevel1: 99, egLevel2: 95, egLevel3: 90, egLevel4: 0, velocitySensitivity: 2, keyboardRateScaling: 1), // OP1 (carrier): saw fundamental, 90 sustain plateau
+                .init(outputLevel: 94, detune: 7, egRate1: 99, egRate2: 70, egRate3: 40, egRate4: 50, egLevel1: 99, egLevel2: 95, egLevel3: 90, egLevel4: 0, velocitySensitivity: 2, keyboardRateScaling: 1), // OP1 (carrier): saw fundamental, 90 sustain plateau
                 .init(outputLevel: 78, detune: 7, egRate1: 99, egRate2: 60, egRate3: 40, egRate4: 52, egLevel1: 99, egLevel2: 88, egLevel3: 78, egLevel4: 0, velocitySensitivity: 6, keyboardRateScaling: 1), // OP2 (modulator → OP1): 1:1 saw edge, velocity-gated, sustains
-                .init(outputLevel: 76, detune: 9, egRate1: 99, egRate2: 70, egRate3: 40, egRate4: 50, egLevel1: 99, egLevel2: 93, egLevel3: 88, egLevel4: 0, velocitySensitivity: 2, keyboardRateScaling: 1), // OP3 (carrier): detuned secondary saw layer
+                .init(outputLevel: 71, detune: 9, egRate1: 99, egRate2: 70, egRate3: 40, egRate4: 50, egLevel1: 99, egLevel2: 93, egLevel3: 88, egLevel4: 0, velocitySensitivity: 2, keyboardRateScaling: 1), // OP3 (carrier): detuned secondary saw layer
                 .init(outputLevel: 74, frequencyCoarse: 2, detune: 7, egRate1: 99, egRate2: 60, egRate3: 42, egRate4: 52, egLevel1: 99, egLevel2: 85, egLevel3: 74, egLevel4: 0, velocitySensitivity: 6, keyboardRateScaling: 2), // OP4 (modulator → OP3): octave saw enhancement, velocity-gated
                 .init(outputLevel: 66, frequencyCoarse: 3, detune: 7, egRate1: 99, egRate2: 60, egRate3: 42, egRate4: 53, egLevel1: 99, egLevel2: 82, egLevel3: 66, egLevel4: 0, velocitySensitivity: 6, keyboardRateScaling: 2), // OP5 (modulator → OP4): third harmonic sharpening
                 .init(outputLevel: 78, detune: 9, feedback: 7, egRate1: 99, egRate2: 60, egRate3: 42, egRate4: 53, egLevel1: 99, egLevel2: 86, egLevel3: 78, egLevel4: 0, velocitySensitivity: 6, keyboardRateScaling: 2), // OP6 (modulator → OP5, preset feedback 7): saw-saturating self-FM
@@ -52,9 +52,9 @@ public extension DX7Preset {
             algorithm: 0,
             feedback: 4,
             operators: [
-                .init(outputLevel: 99, detune: 7, egRate1: 99, egRate2: 70, egRate3: 40, egRate4: 50, egLevel1: 99, egLevel2: 95, egLevel3: 90, egLevel4: 0, velocitySensitivity: 2, keyboardRateScaling: 1), // OP1 (carrier): square fundamental, 90 sustain plateau
+                .init(outputLevel: 93, detune: 7, egRate1: 99, egRate2: 70, egRate3: 40, egRate4: 50, egLevel1: 99, egLevel2: 95, egLevel3: 90, egLevel4: 0, velocitySensitivity: 2, keyboardRateScaling: 1), // OP1 (carrier): square fundamental, 90 sustain plateau
                 .init(outputLevel: 78, frequencyCoarse: 2, detune: 7, egRate1: 99, egRate2: 60, egRate3: 40, egRate4: 52, egLevel1: 99, egLevel2: 88, egLevel3: 78, egLevel4: 0, velocitySensitivity: 6, keyboardRateScaling: 1), // OP2 (modulator → OP1, 1:2): odd-harmonic shaper, velocity-gated
-                .init(outputLevel: 76, detune: 9, egRate1: 99, egRate2: 70, egRate3: 40, egRate4: 50, egLevel1: 99, egLevel2: 93, egLevel3: 88, egLevel4: 0, velocitySensitivity: 2, keyboardRateScaling: 1), // OP3 (carrier): detuned secondary square layer
+                .init(outputLevel: 70, detune: 9, egRate1: 99, egRate2: 70, egRate3: 40, egRate4: 50, egLevel1: 99, egLevel2: 93, egLevel3: 88, egLevel4: 0, velocitySensitivity: 2, keyboardRateScaling: 1), // OP3 (carrier): detuned secondary square layer
                 .init(outputLevel: 75, frequencyCoarse: 2, detune: 7, egRate1: 99, egRate2: 60, egRate3: 42, egRate4: 52, egLevel1: 99, egLevel2: 85, egLevel3: 74, egLevel4: 0, velocitySensitivity: 6, keyboardRateScaling: 2), // OP4 (modulator → OP3, 1:2): odd-harmonic boost, velocity-gated
                 .init(outputLevel: 64, frequencyCoarse: 2, detune: 7, egRate1: 99, egRate2: 60, egRate3: 42, egRate4: 53, egLevel1: 99, egLevel2: 82, egLevel3: 68, egLevel4: 0, velocitySensitivity: 6, keyboardRateScaling: 2), // OP5 (modulator → OP4, even multiple): keeps cascade on odd partials
                 .init(outputLevel: 72, frequencyCoarse: 2, detune: 9, feedback: 4, egRate1: 99, egRate2: 60, egRate3: 42, egRate4: 53, egLevel1: 99, egLevel2: 84, egLevel3: 72, egLevel4: 0, velocitySensitivity: 6, keyboardRateScaling: 2), // OP6 (modulator → OP5, preset feedback 4): fizzy top on the even-multiple grid

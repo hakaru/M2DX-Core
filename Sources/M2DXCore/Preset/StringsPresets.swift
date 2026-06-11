@@ -25,11 +25,11 @@ public extension DX7Preset {
             algorithm: 28,
             feedback: 5,
             operators: [
-                .init(outputLevel: 98, frequencyCoarse: 1, detune: 7, egRate1: 47, egRate2: 40, egRate3: 34, egRate4: 42, egLevel1: 99, egLevel2: 92, egLevel3: 90, velocitySensitivity: 1, keyboardRateScaling: 1), // OP1 (carrier): centered ensemble fundamental
-                .init(outputLevel: 94, frequencyCoarse: 1, detune: 9, egRate1: 99, egRate2: 40, egRate3: 32, egRate4: 42, egLevel1: 99, egLevel2: 91, egLevel3: 88, velocitySensitivity: 7, keyboardRateScaling: 1), // OP2 (carrier): velocity-gated instant "first chair" layer
-                .init(outputLevel: 95, frequencyCoarse: 1, detune: 5, egRate1: 47, egRate2: 40, egRate3: 33, egRate4: 42, egLevel1: 99, egLevel2: 92, egLevel3: 89, velocitySensitivity: 1, keyboardRateScaling: 1), // OP3 (carrier): negative-detuned bowed body
+                .init(outputLevel: 89, frequencyCoarse: 1, detune: 7, egRate1: 47, egRate2: 40, egRate3: 34, egRate4: 42, egLevel1: 99, egLevel2: 92, egLevel3: 90, velocitySensitivity: 1, keyboardRateScaling: 1), // OP1 (carrier): centered ensemble fundamental
+                .init(outputLevel: 85, frequencyCoarse: 1, detune: 9, egRate1: 99, egRate2: 40, egRate3: 32, egRate4: 42, egLevel1: 99, egLevel2: 91, egLevel3: 88, velocitySensitivity: 7, keyboardRateScaling: 1), // OP2 (carrier): velocity-gated instant "first chair" layer
+                .init(outputLevel: 86, frequencyCoarse: 1, detune: 5, egRate1: 47, egRate2: 40, egRate3: 33, egRate4: 42, egLevel1: 99, egLevel2: 92, egLevel3: 89, velocitySensitivity: 1, keyboardRateScaling: 1), // OP3 (carrier): negative-detuned bowed body
                 .init(outputLevel: 68, frequencyCoarse: 2, detune: 6, egRate1: 45, egRate2: 48, egRate3: 42, egRate4: 46, egLevel1: 99, egLevel2: 30, egLevel3: 2, velocitySensitivity: 5, keyboardRateScaling: 2, klsBreakPoint: 45, klsLeftDepth: 8, klsRightDepth: 10, klsLeftCurve: 1, klsRightCurve: 3), // OP4 (modulator -> OP3): bowed second-harmonic sheen, velocity-gated
-                .init(outputLevel: 92, frequencyCoarse: 1, detune: 8, egRate1: 47, egRate2: 40, egRate3: 31, egRate4: 42, egLevel1: 99, egLevel2: 90, egLevel3: 86, velocitySensitivity: 1, keyboardRateScaling: 1), // OP5 (carrier): wide outer ensemble layer
+                .init(outputLevel: 83, frequencyCoarse: 1, detune: 8, egRate1: 47, egRate2: 40, egRate3: 31, egRate4: 42, egLevel1: 99, egLevel2: 90, egLevel3: 86, velocitySensitivity: 1, keyboardRateScaling: 1), // OP5 (carrier): wide outer ensemble layer
                 .init(outputLevel: 70, frequencyCoarse: 2, detune: 8, feedback: 5, egRate1: 45, egRate2: 50, egRate3: 44, egRate4: 48, egLevel1: 99, egLevel2: 26, egLevel3: 1, velocitySensitivity: 5, keyboardRateScaling: 2, klsBreakPoint: 46, klsLeftDepth: 10, klsRightDepth: 12, klsLeftCurve: 1, klsRightCurve: 3), // OP6 (modulator -> OP5, feedback): velocity-driven bow pressure
             ],
             category: .strings,
@@ -56,11 +56,11 @@ public extension DX7Preset {
             algorithm: 4,
             feedback: 3,
             operators: [
-                .init(outputLevel: 98, frequencyCoarse: 1, detune: 7, egRate1: 47, egRate2: 33, egRate3: 24, egRate4: 38, egLevel1: 99, egLevel2: 92, egLevel3: 92, velocitySensitivity: 1, ampModSensitivity: 2, keyboardRateScaling: 1), // OP1 (carrier): centered warm pad body
+                .init(outputLevel: 88, frequencyCoarse: 1, detune: 7, egRate1: 47, egRate2: 33, egRate3: 24, egRate4: 38, egLevel1: 99, egLevel2: 92, egLevel3: 92, velocitySensitivity: 1, ampModSensitivity: 2, keyboardRateScaling: 1), // OP1 (carrier): centered warm pad body
                 .init(outputLevel: 58, frequencyCoarse: 1, detune: 6, egRate1: 45, egRate2: 42, egRate3: 34, egRate4: 42, egLevel1: 99, egLevel2: 32, egLevel3: 2, velocitySensitivity: 4, keyboardRateScaling: 1, klsBreakPoint: 43, klsLeftDepth: 6, klsRightDepth: 8, klsLeftCurve: 1, klsRightCurve: 3), // OP2 (modulator -> OP1): warm low-ratio formant
-                .init(outputLevel: 95, frequencyCoarse: 1, detune: 9, egRate1: 47, egRate2: 33, egRate3: 24, egRate4: 38, egLevel1: 99, egLevel2: 92, egLevel3: 90, velocitySensitivity: 1, ampModSensitivity: 2, keyboardRateScaling: 1), // OP3 (carrier): lightly detuned chorus layer
+                .init(outputLevel: 85, frequencyCoarse: 1, detune: 9, egRate1: 47, egRate2: 33, egRate3: 24, egRate4: 38, egLevel1: 99, egLevel2: 92, egLevel3: 90, velocitySensitivity: 1, ampModSensitivity: 2, keyboardRateScaling: 1), // OP3 (carrier): lightly detuned chorus layer
                 .init(outputLevel: 56, frequencyCoarse: 2, detune: 6, egRate1: 45, egRate2: 44, egRate3: 36, egRate4: 43, egLevel1: 99, egLevel2: 28, egLevel3: 1, velocitySensitivity: 4, keyboardRateScaling: 2, klsBreakPoint: 45, klsLeftDepth: 7, klsRightDepth: 10, klsLeftCurve: 1, klsRightCurve: 3), // OP4 (modulator -> OP3): octave warmth and vowel color
-                .init(outputLevel: 92, frequencyCoarse: 1, detune: 6, egRate1: 99, egRate2: 33, egRate3: 23, egRate4: 38, egLevel1: 99, egLevel2: 91, egLevel3: 88, velocitySensitivity: 7, ampModSensitivity: 2, keyboardRateScaling: 1), // OP5 (carrier): velocity-gated instant dynamics layer, -1 detune
+                .init(outputLevel: 82, frequencyCoarse: 1, detune: 6, egRate1: 99, egRate2: 33, egRate3: 23, egRate4: 38, egLevel1: 99, egLevel2: 91, egLevel3: 88, velocitySensitivity: 7, ampModSensitivity: 2, keyboardRateScaling: 1), // OP5 (carrier): velocity-gated instant dynamics layer, -1 detune
                 .init(outputLevel: 52, frequencyCoarse: 3, detune: 8, feedback: 3, egRate1: 99, egRate2: 46, egRate3: 38, egRate4: 44, egLevel1: 99, egLevel2: 24, egLevel3: 0, velocitySensitivity: 4, keyboardRateScaling: 2, klsBreakPoint: 47, klsLeftDepth: 8, klsRightDepth: 12, klsLeftCurve: 1, klsRightCurve: 3), // OP6 (modulator -> OP5, feedback): soft upper formant haze on the dynamics layer
             ],
             category: .strings,

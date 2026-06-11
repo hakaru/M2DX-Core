@@ -22,12 +22,12 @@ public extension DX7Preset {
             algorithm: 31,
             feedback: 0,
             operators: [
-                .init(outputLevel: 99, frequencyCoarse: 1, detune: 7, egRate1: 99, egRate2: 99, egRate3: 99, egRate4: 70, egLevel1: 99, egLevel2: 99, egLevel3: 99, egLevel4: 0), // OP1 (carrier): 8' fundamental
-                .init(outputLevel: 88, frequencyCoarse: 2, detune: 7, egRate1: 99, egRate2: 99, egRate3: 99, egRate4: 70, egLevel1: 99, egLevel2: 99, egLevel3: 99, egLevel4: 0), // OP2 (carrier): 4' octave drawbar
-                .init(outputLevel: 75, frequencyCoarse: 3, detune: 7, egRate1: 99, egRate2: 99, egRate3: 99, egRate4: 70, egLevel1: 99, egLevel2: 99, egLevel3: 99, egLevel4: 0), // OP3 (carrier): 2 2/3' quint (3rd harmonic)
-                .init(outputLevel: 70, frequencyCoarse: 4, detune: 7, egRate1: 99, egRate2: 99, egRate3: 99, egRate4: 70, egLevel1: 99, egLevel2: 99, egLevel3: 99, egLevel4: 0), // OP4 (carrier): 2' super-octave
-                .init(outputLevel: 55, frequencyCoarse: 6, detune: 7, egRate1: 99, egRate2: 99, egRate3: 99, egRate4: 70, egLevel1: 99, egLevel2: 99, egLevel3: 99, egLevel4: 0), // OP5 (carrier): 1 3/5' tierce (6th harmonic)
-                .init(outputLevel: 50, frequencyCoarse: 8, detune: 7, egRate1: 99, egRate2: 99, egRate3: 99, egRate4: 70, egLevel1: 99, egLevel2: 99, egLevel3: 99, egLevel4: 0), // OP6 (carrier): 1' larigot
+                .init(outputLevel: 85, frequencyCoarse: 1, detune: 7, egRate1: 99, egRate2: 99, egRate3: 99, egRate4: 70, egLevel1: 99, egLevel2: 99, egLevel3: 99, egLevel4: 0), // OP1 (carrier): 8' fundamental
+                .init(outputLevel: 74, frequencyCoarse: 2, detune: 7, egRate1: 99, egRate2: 99, egRate3: 99, egRate4: 70, egLevel1: 99, egLevel2: 99, egLevel3: 99, egLevel4: 0), // OP2 (carrier): 4' octave drawbar
+                .init(outputLevel: 61, frequencyCoarse: 3, detune: 7, egRate1: 99, egRate2: 99, egRate3: 99, egRate4: 70, egLevel1: 99, egLevel2: 99, egLevel3: 99, egLevel4: 0), // OP3 (carrier): 2 2/3' quint (3rd harmonic)
+                .init(outputLevel: 56, frequencyCoarse: 4, detune: 7, egRate1: 99, egRate2: 99, egRate3: 99, egRate4: 70, egLevel1: 99, egLevel2: 99, egLevel3: 99, egLevel4: 0), // OP4 (carrier): 2' super-octave
+                .init(outputLevel: 41, frequencyCoarse: 6, detune: 7, egRate1: 99, egRate2: 99, egRate3: 99, egRate4: 70, egLevel1: 99, egLevel2: 99, egLevel3: 99, egLevel4: 0), // OP5 (carrier): 1 3/5' tierce (6th harmonic)
+                .init(outputLevel: 36, frequencyCoarse: 8, detune: 7, egRate1: 99, egRate2: 99, egRate3: 99, egRate4: 70, egLevel1: 99, egLevel2: 99, egLevel3: 99, egLevel4: 0), // OP6 (carrier): 1' larigot
             ],
             category: .organ
         ),
@@ -44,9 +44,9 @@ public extension DX7Preset {
             algorithm: 0,
             feedback: 5,
             operators: [
-                .init(outputLevel: 98, frequencyCoarse: 1, detune: 7, egRate1: 99, egRate2: 99, egRate3: 99, egRate4: 75, egLevel1: 99, egLevel2: 95, egLevel3: 93, egLevel4: 0), // OP1 (carrier): fundamental
+                .init(outputLevel: 92, frequencyCoarse: 1, detune: 7, egRate1: 99, egRate2: 99, egRate3: 99, egRate4: 75, egLevel1: 99, egLevel2: 95, egLevel3: 93, egLevel4: 0), // OP1 (carrier): fundamental
                 .init(outputLevel: 35, frequencyCoarse: 1, detune: 7, egRate1: 99, egRate2: 90, egRate3: 80, egRate4: 75, egLevel1: 99, egLevel2: 25, egLevel3: 18, egLevel4: 0), // OP2 (modulator → OP1): subtle harmonic color
-                .init(outputLevel: 78, frequencyCoarse: 2, detune: 5, egRate1: 99, egRate2: 99, egRate3: 99, egRate4: 75, egLevel1: 99, egLevel2: 95, egLevel3: 93, egLevel4: 0), // OP3 (carrier): 4' octave drawbar
+                .init(outputLevel: 72, frequencyCoarse: 2, detune: 5, egRate1: 99, egRate2: 99, egRate3: 99, egRate4: 75, egLevel1: 99, egLevel2: 95, egLevel3: 93, egLevel4: 0), // OP3 (carrier): 4' octave drawbar
                 .init(outputLevel: 22, frequencyCoarse: 1, detune: 7, egRate1: 99, egRate2: 90, egRate3: 80, egRate4: 75, egLevel1: 99, egLevel2: 18, egLevel3: 15, egLevel4: 0), // OP4 (modulator → OP3): static depth
                 .init(outputLevel: 18, frequencyCoarse: 2, detune: 9, egRate1: 99, egRate2: 90, egRate3: 80, egRate4: 75, egLevel1: 99, egLevel2: 14, egLevel3: 12, egLevel4: 0), // OP5 (modulator → OP4): mid-stack stability
                 .init(outputLevel: 50, frequencyCoarse: 1, detune: 7, feedback: 5, egRate1: 99, egRate2: 80, egRate3: 70, egRate4: 75, egLevel1: 99, egLevel2: 35, egLevel3: 0, egLevel4: 0), // OP6 (modulator → OP5, feedback): tonewheel leakage / key click burst
@@ -68,12 +68,12 @@ public extension DX7Preset {
             algorithm: 31,
             feedback: 0,
             operators: [
-                .init(outputLevel: 99, frequencyCoarse: 1, detune: 7, egRate1: 65, egRate2: 99, egRate3: 99, egRate4: 55, egLevel1: 99, egLevel2: 99, egLevel3: 99, egLevel4: 0), // OP1 (carrier): principal 8' pipe fundamental
-                .init(outputLevel: 92, frequencyCoarse: 2, detune: 7, egRate1: 65, egRate2: 99, egRate3: 99, egRate4: 55, egLevel1: 99, egLevel2: 99, egLevel3: 99, egLevel4: 0), // OP2 (carrier): octave 4'
-                .init(outputLevel: 80, frequencyCoarse: 4, detune: 7, egRate1: 65, egRate2: 99, egRate3: 99, egRate4: 55, egLevel1: 99, egLevel2: 99, egLevel3: 99, egLevel4: 0), // OP3 (carrier): super-octave 2'
-                .init(outputLevel: 65, frequencyCoarse: 6, detune: 7, egRate1: 65, egRate2: 99, egRate3: 99, egRate4: 55, egLevel1: 99, egLevel2: 99, egLevel3: 99, egLevel4: 0), // OP4 (carrier): twelfth (1 1/3')
-                .init(outputLevel: 50, frequencyCoarse: 8, detune: 7, egRate1: 65, egRate2: 99, egRate3: 99, egRate4: 55, egLevel1: 99, egLevel2: 99, egLevel3: 99, egLevel4: 0), // OP5 (carrier): fifteenth (1')
-                .init(outputLevel: 38, frequencyCoarse: 12, detune: 7, egRate1: 65, egRate2: 99, egRate3: 99, egRate4: 55, egLevel1: 99, egLevel2: 99, egLevel3: 99, egLevel4: 0), // OP6 (carrier): high mixture stop
+                .init(outputLevel: 84, frequencyCoarse: 1, detune: 7, egRate1: 65, egRate2: 99, egRate3: 99, egRate4: 55, egLevel1: 99, egLevel2: 99, egLevel3: 99, egLevel4: 0), // OP1 (carrier): principal 8' pipe fundamental
+                .init(outputLevel: 77, frequencyCoarse: 2, detune: 7, egRate1: 65, egRate2: 99, egRate3: 99, egRate4: 55, egLevel1: 99, egLevel2: 99, egLevel3: 99, egLevel4: 0), // OP2 (carrier): octave 4'
+                .init(outputLevel: 65, frequencyCoarse: 4, detune: 7, egRate1: 65, egRate2: 99, egRate3: 99, egRate4: 55, egLevel1: 99, egLevel2: 99, egLevel3: 99, egLevel4: 0), // OP3 (carrier): super-octave 2'
+                .init(outputLevel: 50, frequencyCoarse: 6, detune: 7, egRate1: 65, egRate2: 99, egRate3: 99, egRate4: 55, egLevel1: 99, egLevel2: 99, egLevel3: 99, egLevel4: 0), // OP4 (carrier): twelfth (1 1/3')
+                .init(outputLevel: 35, frequencyCoarse: 8, detune: 7, egRate1: 65, egRate2: 99, egRate3: 99, egRate4: 55, egLevel1: 99, egLevel2: 99, egLevel3: 99, egLevel4: 0), // OP5 (carrier): fifteenth (1')
+                .init(outputLevel: 23, frequencyCoarse: 12, detune: 7, egRate1: 65, egRate2: 99, egRate3: 99, egRate4: 55, egLevel1: 99, egLevel2: 99, egLevel3: 99, egLevel4: 0), // OP6 (carrier): high mixture stop
             ],
             category: .organ,
             transpose: -12
