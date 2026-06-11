@@ -198,7 +198,8 @@ public enum Archetype: String, CaseIterable, Sendable {
 /// Metric bundle for one preset (computed from the v90 render, with velocity
 /// deltas derived from the v40/v127 attack windows). All dB values are dBFS;
 /// the decay ladder entries are 100 ms-window RMS values centered at the
-/// labeled time.
+/// labeled time, except rmsAt1_5 which uses the trailing window [1.40, 1.50] s
+/// (1.5 s is the noteOff instant for sustained archetypes).
 public struct PresetMetrics: Codable, Sendable {
     public var attackMs: Float
     public var velocityBrightnessDelta: Float   // centroidAttack(v127)/centroidAttack(v40)
@@ -208,7 +209,7 @@ public struct PresetMetrics: Codable, Sendable {
     public var peakDBFS: Float
     public var releaseTailMs: Float
 
-    // Decay ladder (100 ms windows centered at the labeled time, dBFS)
+    // Decay ladder (100 ms windows, dBFS; centered, except rmsAt1_5: trailing [1.40, 1.50] s)
     public var rmsAt0_2: Float
     public var rmsAt0_3: Float
     public var rmsAt0_5: Float

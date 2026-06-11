@@ -64,3 +64,22 @@ struct ArchetypeTests {
         #expect(Archetype.forPresetName("NOT A PRESET") == nil)
     }
 }
+
+@Suite("PresetReport RMS ladder windows")
+struct RMSLadderWindowTests {
+    @Test("rmsAt1_5 window does not straddle the 1.5 s noteOff instant")
+    func trailingWindowAt1_5() {
+        let sr: Float = 48000
+        // Constant 0.5 amplitude up to exactly sample 72000 (= 1.5 s @ 48 kHz,
+        // the sustained-archetype noteOff instant), then instant silence.
+        var x = [Float](repeating: 0.5, count: 72_000)
+        x.append(contentsOf: [Float](repeating: 0, count: 24_000)) // out to 2.0 s
+        let ladder = PresetReport.rmsLadder(samples: x, sampleRate: sr)
+        // RMS of the pre-noteOff region is 0.5 → −6.02 dBFS. A window that
+        // straddles noteOff mixes in post-1.5 s silence and reads low
+        // (centered 1.45–1.55 s: sqrt(0.125) → ≈ −9.03 dBFS).
+        let expected: Float = -6.0206
+        #expect(abs(ladder.at1_5 - expected) < 0.2,
+                "rmsAt1_5 = \(ladder.at1_5) dBFS, expected \(expected) ± 0.2")
+    }
+}

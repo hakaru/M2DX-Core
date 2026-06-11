@@ -67,6 +67,7 @@ public struct PresetReport: Codable, Sendable {
         let c127 = Metrics.spectralCentroidHz(a127, sampleRate: sr)
 
         let releaseTail = Metrics.releaseTailMs(x, noteOffSample: r90.noteOffSample, sampleRate: sr)
+        let ladder = rmsLadder(samples: x, sampleRate: sr)
 
         let metrics = PresetMetrics(
             attackMs: Metrics.attackMs(x, sampleRate: sr),
@@ -76,13 +77,13 @@ public struct PresetReport: Codable, Sendable {
             rmsSustainDBFS: Metrics.rmsDBFS(sustainWin),
             peakDBFS: Metrics.peakDBFS(x),
             releaseTailMs: releaseTail,
-            rmsAt0_2: rmsAt(x, center: 0.2, sr: sr),
-            rmsAt0_3: rmsAt(x, center: 0.3, sr: sr),
-            rmsAt0_5: rmsAt(x, center: 0.5, sr: sr),
-            rmsAt1_0: rmsAt(x, center: 1.0, sr: sr),
-            rmsAt1_2: rmsAt(x, center: 1.2, sr: sr),
-            rmsAt1_5: rmsAt(x, center: 1.5, sr: sr),
-            rmsAt2_5: rmsAt(x, center: 2.5, sr: sr),
+            rmsAt0_2: ladder.at0_2,
+            rmsAt0_3: ladder.at0_3,
+            rmsAt0_5: ladder.at0_5,
+            rmsAt1_0: ladder.at1_0,
+            rmsAt1_2: ladder.at1_2,
+            rmsAt1_5: ladder.at1_5,
+            rmsAt2_5: ladder.at2_5,
             lowBandFraction: lowBandFraction(sustainWin, sampleRate: sr),
             centroidAttackHz: Metrics.spectralCentroidHz(attackWin, sampleRate: sr),
             centroidSustainHz: Metrics.spectralCentroidHz(sustainWin, sampleRate: sr),
@@ -162,6 +163,23 @@ public struct PresetReport: Codable, Sendable {
     /// 100 ms-window RMS centered at `center` seconds (dBFS).
     private static func rmsAt(_ x: [Float], center: Double, sr: Float) -> Float {
         Metrics.rmsDBFS(window(x, from: center - 0.05, to: center + 0.05, sr: sr))
+    }
+
+    /// 100 ms-window RMS ladder (dBFS) at the spec timestamps. All windows are
+    /// centered except at1_5, which is the trailing window [1.40, 1.50] s —
+    /// 1.5s is the noteOff instant; a centered window would measure release
+    /// (review finding on 4a4a1fb).
+    static func rmsLadder(samples x: [Float], sampleRate sr: Float)
+        -> (at0_2: Float, at0_3: Float, at0_5: Float, at1_0: Float,
+            at1_2: Float, at1_5: Float, at2_5: Float)
+    {
+        (at0_2: rmsAt(x, center: 0.2, sr: sr),
+         at0_3: rmsAt(x, center: 0.3, sr: sr),
+         at0_5: rmsAt(x, center: 0.5, sr: sr),
+         at1_0: rmsAt(x, center: 1.0, sr: sr),
+         at1_2: rmsAt(x, center: 1.2, sr: sr),
+         at1_5: Metrics.rmsDBFS(window(x, from: 1.40, to: 1.50, sr: sr)),
+         at2_5: rmsAt(x, center: 2.5, sr: sr))
     }
 
     /// Share of spectral energy below `cutoffHz` in the given window (0…1).
