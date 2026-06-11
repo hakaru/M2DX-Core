@@ -42,6 +42,12 @@ let package = Package(
             name: "PresetLabKitTests",
             dependencies: ["PresetLabKit"]
         ),
+        // Preset quality lab CLI — renders presets, evaluates archetype
+        // targets, writes metrics.json / metrics.md / audition WAVs.
+        .executableTarget(
+            name: "preset-lab",
+            dependencies: ["PresetLabKit", "M2DXCore"]
+        ),
         .testTarget(
             name: "M2DXCoreTests",
             dependencies: ["M2DXCore", "DX7Ref"]
