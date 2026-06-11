@@ -233,16 +233,16 @@ public extension DX7Preset {
         /// Algorithm 7 combines OP2->OP1 for the struck fundamental with an inharmonic OP6->OP5->OP3 and OP4->OP3 bell branch.
         /// OP4 uses a 3.50 ratio and OP6 uses a high 7.x ratio so the overtones avoid simple octave locking while still reading as a keyed instrument.
         /// Feedback on OP6 roughens the bell onset, and a small pitch LFO adds shimmer after the attack without becoming vibrato-heavy.
-        /// v3 plateau lift: bell carriers are raised to 88-93 level-2 and 74-82 level-3 plateaus for a longer audible core, while all four modulators are constrained to 42-48 output with 22-32 level-2 shimmer and no sustained modulation shelf.
+        /// v4 velocity opening: the direct modulators OP2/OP4 run hot (62-68) at velocity sensitivity 6-7 so soft notes collapse toward plain carriers and hard strikes open the inharmonic bell bark; carriers keep the v3 88-93 level-2 / 74-82 level-3 plateaus for the long audible core.
         DX7Preset(
             name: "TINE BELL",
             algorithm: 6,
             feedback: 3,
             operators: [
                 .init(outputLevel: 96, detune: 7, egRate2: 39, egRate3: 22, egRate4: 25, egLevel2: 93, egLevel3: 82, velocitySensitivity: 2, keyboardRateScaling: 1), // OP1 (carrier): electric-piano fundamental
-                .init(outputLevel: 42, frequencyCoarse: 2, frequencyFine: 9, detune: 6, egRate2: 52, egRate3: 31, egRate4: 30, egLevel2: 32, egLevel3: 1, velocitySensitivity: 3, keyboardRateScaling: 2, klsBreakPoint: 43, klsLeftDepth: 0, klsRightDepth: 9, klsLeftCurve: 0, klsRightCurve: 3), // OP2 (modulator -> OP1): soft tine color
+                .init(outputLevel: 68, frequencyCoarse: 2, frequencyFine: 9, detune: 6, egRate2: 52, egRate3: 31, egRate4: 30, egLevel2: 32, egLevel3: 1, velocitySensitivity: 7, keyboardRateScaling: 2, klsBreakPoint: 43, klsLeftDepth: 0, klsRightDepth: 9, klsLeftCurve: 0, klsRightCurve: 3), // OP2 (modulator -> OP1): velocity-opened tine color
                 .init(outputLevel: 86, frequencyFine: 14, detune: 8, egRate2: 34, egRate3: 18, egRate4: 21, egLevel2: 88, egLevel3: 74, velocitySensitivity: 2, keyboardRateScaling: 1), // OP3 (carrier): sustained bell partial body
-                .init(outputLevel: 48, frequencyCoarse: 3, frequencyFine: 50, detune: 9, egRate2: 47, egRate3: 27, egRate4: 28, egLevel2: 28, egLevel3: 0, velocitySensitivity: 4, keyboardRateScaling: 2, klsBreakPoint: 46, klsLeftDepth: 0, klsRightDepth: 12, klsLeftCurve: 0, klsRightCurve: 3), // OP4 (modulator -> OP3): 3.50-ratio bell sideband
+                .init(outputLevel: 62, frequencyCoarse: 3, frequencyFine: 50, detune: 9, egRate2: 47, egRate3: 27, egRate4: 28, egLevel2: 28, egLevel3: 0, velocitySensitivity: 6, keyboardRateScaling: 2, klsBreakPoint: 46, klsLeftDepth: 0, klsRightDepth: 12, klsLeftCurve: 0, klsRightCurve: 3), // OP4 (modulator -> OP3): velocity-opened 3.50-ratio bell sideband
                 .init(outputLevel: 46, frequencyCoarse: 2, frequencyFine: 68, detune: 6, egRate2: 43, egRate3: 25, egRate4: 27, egLevel2: 26, egLevel3: 0, velocitySensitivity: 3, keyboardRateScaling: 2), // OP5 (modulator -> OP3): slow-decay inharmonic index
                 .init(outputLevel: 48, frequencyCoarse: 7, frequencyFine: 12, detune: 8, feedback: 3, egRate2: 55, egRate3: 34, egRate4: 33, egLevel2: 22, egLevel3: 0, velocitySensitivity: 4, keyboardRateScaling: 3, klsBreakPoint: 48, klsLeftDepth: 0, klsRightDepth: 16, klsLeftCurve: 0, klsRightCurve: 3), // OP6 (modulator -> OP5, feedback): high bell shimmer
             ],
@@ -253,7 +253,7 @@ public extension DX7Preset {
         /// Pure crystalline bell with no electric-piano fundamental and no pitch-modulation movement.
         /// Algorithm index 4 keeps three parallel pairs so OP1, OP3, and OP5 can speak as independent bell partials rather than one stacked piano tone.
         /// Carrier ratios 1, 4, and 9 form the main partial set, while the modulators use 3, 4, and 7 with fine offsets for inharmonic shimmer.
-        /// Slow carrier decay rates keep the ring long, and near-zero modulator sustain lets the glassy sidebands disappear into a clean tail.
+        /// Slow carrier decay on OP1/OP3 keeps the ring long, while the 9th-partial OP5 decays faster so the glassy top fades into a warmer tail; modulators run hot (70-74) at velocity sensitivity 6-7 with fast EG decay, putting the shimmer in the strike and the velocity contrast in the modulation index.
         /// LFO pitch depth and pitch sensitivity are disabled so the bell stays still and transparent.
         DX7Preset(
             name: "GLASS BELL",
@@ -261,11 +261,11 @@ public extension DX7Preset {
             feedback: 2,
             operators: [
                 .init(outputLevel: 96, frequencyCoarse: 1, detune: 7, egRate2: 36, egRate3: 20, egRate4: 18, egLevel2: 92, egLevel3: 75, velocitySensitivity: 2, keyboardRateScaling: 1), // OP1 (carrier): low glass fundamental partial
-                .init(outputLevel: 42, frequencyCoarse: 3, frequencyFine: 5, detune: 6, egRate2: 50, egRate3: 32, egRate4: 28, egLevel2: 30, egLevel3: 2, velocitySensitivity: 3, keyboardRateScaling: 2, klsBreakPoint: 44, klsLeftDepth: 0, klsRightDepth: 8, klsLeftCurve: 0, klsRightCurve: 3), // OP2 (modulator -> OP1): low inharmonic glass index
+                .init(outputLevel: 72, frequencyCoarse: 3, frequencyFine: 5, detune: 6, egRate2: 50, egRate3: 32, egRate4: 28, egLevel2: 30, egLevel3: 2, velocitySensitivity: 7, keyboardRateScaling: 2, klsBreakPoint: 44, klsLeftDepth: 0, klsRightDepth: 8, klsLeftCurve: 0, klsRightCurve: 3), // OP2 (modulator -> OP1): velocity-opened low glass index
                 .init(outputLevel: 87, frequencyCoarse: 4, detune: 8, egRate2: 40, egRate3: 22, egRate4: 17, egLevel2: 90, egLevel3: 68, velocitySensitivity: 2, keyboardRateScaling: 1), // OP3 (carrier): fourth-ratio crystalline partial
-                .init(outputLevel: 46, frequencyCoarse: 4, frequencyFine: 10, detune: 8, egRate2: 53, egRate3: 34, egRate4: 29, egLevel2: 26, egLevel3: 1, velocitySensitivity: 3, keyboardRateScaling: 2, klsBreakPoint: 46, klsLeftDepth: 0, klsRightDepth: 10, klsLeftCurve: 0, klsRightCurve: 3), // OP4 (modulator -> OP3): fine-offset shimmer
-                .init(outputLevel: 73, frequencyCoarse: 9, detune: 9, egRate2: 44, egRate3: 24, egRate4: 16, egLevel2: 88, egLevel3: 60, velocitySensitivity: 1, keyboardRateScaling: 2), // OP5 (carrier): high bell partial
-                .init(outputLevel: 50, frequencyCoarse: 7, frequencyFine: 15, detune: 9, feedback: 2, egRate2: 56, egRate3: 36, egRate4: 30, egLevel2: 20, egLevel3: 0, velocitySensitivity: 4, keyboardRateScaling: 3, klsBreakPoint: 48, klsLeftDepth: 0, klsRightDepth: 14, klsLeftCurve: 0, klsRightCurve: 3), // OP6 (modulator -> OP5, feedback): high inharmonic sparkle
+                .init(outputLevel: 70, frequencyCoarse: 4, frequencyFine: 10, detune: 8, egRate2: 53, egRate3: 34, egRate4: 29, egLevel2: 26, egLevel3: 1, velocitySensitivity: 6, keyboardRateScaling: 2, klsBreakPoint: 46, klsLeftDepth: 0, klsRightDepth: 10, klsLeftCurve: 0, klsRightCurve: 3), // OP4 (modulator -> OP3): velocity-opened fine-offset shimmer
+                .init(outputLevel: 73, frequencyCoarse: 9, detune: 9, egRate2: 60, egRate3: 32, egRate4: 16, egLevel2: 58, egLevel3: 20, velocitySensitivity: 3, keyboardRateScaling: 2), // OP5 (carrier): high bell partial, fades well before the body
+                .init(outputLevel: 80, frequencyCoarse: 7, frequencyFine: 15, detune: 9, feedback: 2, egRate2: 78, egRate3: 40, egRate4: 30, egLevel2: 8, egLevel3: 0, velocitySensitivity: 7, keyboardRateScaling: 3, klsBreakPoint: 48, klsLeftDepth: 0, klsRightDepth: 14, klsLeftCurve: 0, klsRightCurve: 3), // OP6 (modulator -> OP5, feedback): fast-decay strike sparkle burst
             ],
             category: .keys,
             lfoPMD: 0,
@@ -295,7 +295,7 @@ public extension DX7Preset {
 
         /// Modern bright shimmering bell with a fast icy front and a controlled sustaining core.
         /// Algorithm index 6 stacks OP6->OP5->OP3 beside OP4->OP3, while OP2->OP1 provides a clearer lower anchor.
-        /// High-coarse modulators on OP6 and OP4 create inharmonic content that reads as cold and synthetic rather than acoustic.
+        /// High-coarse modulators on OP6 and OP4 create inharmonic content that reads as cold and synthetic rather than acoustic; the direct modulators OP2/OP4 run hot (68-75) at velocity sensitivity 6-7 so soft notes thin out to near-pure partials and hard strikes open the full icy edge.
         /// Carrier rate-2 values are fast for an immediate attack, with level-3 plateaus kept in the 60-72 range for a glassy hold.
         /// Strong sine LFO pitch modulation adds shimmer after the transient without using amplitude tremolo.
         DX7Preset(
@@ -304,10 +304,10 @@ public extension DX7Preset {
             feedback: 3,
             operators: [
                 .init(outputLevel: 97, frequencyCoarse: 1, detune: 7, egRate2: 68, egRate3: 30, egRate4: 32, egLevel2: 92, egLevel3: 72, velocitySensitivity: 2, keyboardRateScaling: 1), // OP1 (carrier): clear icy fundamental
-                .init(outputLevel: 42, frequencyCoarse: 2, frequencyFine: 8, detune: 6, egRate2: 80, egRate3: 48, egRate4: 45, egLevel2: 30, egLevel3: 1, velocitySensitivity: 3, keyboardRateScaling: 2, klsBreakPoint: 44, klsLeftDepth: 0, klsRightDepth: 8, klsLeftCurve: 0, klsRightCurve: 3), // OP2 (modulator -> OP1): bright lower attack
+                .init(outputLevel: 75, frequencyCoarse: 2, frequencyFine: 8, detune: 6, egRate2: 58, egRate3: 46, egRate4: 45, egLevel2: 42, egLevel3: 1, velocitySensitivity: 7, keyboardRateScaling: 2, klsBreakPoint: 44, klsLeftDepth: 0, klsRightDepth: 8, klsLeftCurve: 0, klsRightCurve: 3), // OP2 (modulator -> OP1): velocity-opened bright lower attack
                 .init(outputLevel: 88, frequencyCoarse: 2, frequencyFine: 2, detune: 8, egRate2: 72, egRate3: 27, egRate4: 31, egLevel2: 90, egLevel3: 63, velocitySensitivity: 2, keyboardRateScaling: 1), // OP3 (carrier): shimmering upper body
-                .init(outputLevel: 50, frequencyCoarse: 7, frequencyFine: 6, detune: 9, egRate2: 84, egRate3: 54, egRate4: 48, egLevel2: 26, egLevel3: 1, velocitySensitivity: 4, keyboardRateScaling: 3, klsBreakPoint: 47, klsLeftDepth: 0, klsRightDepth: 14, klsLeftCurve: 0, klsRightCurve: 3), // OP4 (modulator -> OP3): high inharmonic ice edge
-                .init(outputLevel: 46, frequencyCoarse: 3, frequencyFine: 3, detune: 7, egRate2: 76, egRate3: 44, egRate4: 42, egLevel2: 24, egLevel3: 1, velocitySensitivity: 3, keyboardRateScaling: 2), // OP5 (modulator -> OP3): intermediate shimmer index
+                .init(outputLevel: 68, frequencyCoarse: 7, frequencyFine: 6, detune: 9, egRate2: 62, egRate3: 50, egRate4: 48, egLevel2: 38, egLevel3: 1, velocitySensitivity: 6, keyboardRateScaling: 3, klsBreakPoint: 47, klsLeftDepth: 0, klsRightDepth: 14, klsLeftCurve: 0, klsRightCurve: 3), // OP4 (modulator -> OP3): velocity-opened high inharmonic ice edge
+                .init(outputLevel: 46, frequencyCoarse: 3, frequencyFine: 3, detune: 7, egRate2: 60, egRate3: 44, egRate4: 42, egLevel2: 34, egLevel3: 1, velocitySensitivity: 3, keyboardRateScaling: 2), // OP5 (modulator -> OP3): intermediate shimmer index
                 .init(outputLevel: 52, frequencyCoarse: 13, frequencyFine: 0, detune: 9, feedback: 3, egRate2: 88, egRate3: 60, egRate4: 50, egLevel2: 20, egLevel3: 0, velocitySensitivity: 5, keyboardRateScaling: 4, klsBreakPoint: 49, klsLeftDepth: 0, klsRightDepth: 18, klsLeftCurve: 0, klsRightCurve: 3), // OP6 (modulator -> OP5, feedback): very high icy sparkle
             ],
             category: .keys,
@@ -320,25 +320,26 @@ public extension DX7Preset {
         /// Vibraphone-style keyed bell with rounded mallet attack and strong tremolo.
         /// Algorithm index 4 keeps three parallel 4:1 modulator-to-1:1 carrier pairs for a clean struck-bar tone.
         /// OP1 carries the main bar, OP3 adds a slightly softer secondary bar, and OP5 supplies a quieter tertiary layer for width.
-        /// The modulators decay quickly enough to make the mallet speak without leaving a harsh FM sustain.
-        /// Sine LFO amplitude modulation is intentionally strong, with carrier amp-mod sensitivity raised so the tremolo pulses like a vibraphone motor.
-        /// v4 release: egRate4 raised to 55/60 (carrier/modulator) for a medium vibraphone decay — faster than glass bells, slower than piano.
+        /// Modulators run hot (68-72) at velocity sensitivity 6-7 with the burst held through the strike window, so soft notes stay near-pure bars and hard mallet hits open the bell-bar overtones.
+        /// Sine LFO amplitude modulation is kept light (AMD 24, sensitivity 2) so the motor pulse colors the ring without swallowing the strike transient.
+        /// OP5 is a quiet 12th-partial carrier with a slower release than the bars: it is the metallic sheen of the strike and keeps a trace of shimmer in the ring-down, like the high modes of a real aluminum bar.
+        /// v5 ring: carrier/modulator release slowed to 42/46 (36 on the shimmer partial) so the bar rings naturally for about a second after the mallet leaves.
         DX7Preset(
             name: "VIBES",
             algorithm: 4,
             feedback: 1,
             operators: [
-                .init(outputLevel: 97, frequencyCoarse: 1, detune: 7, egRate2: 48, egRate3: 31, egRate4: 55, egLevel2: 92, egLevel3: 80, velocitySensitivity: 2, ampModSensitivity: 3, keyboardRateScaling: 1), // OP1 (carrier): primary vibraphone bar
-                .init(outputLevel: 46, frequencyCoarse: 4, frequencyFine: 0, detune: 6, egRate2: 67, egRate3: 43, egRate4: 60, egLevel2: 28, egLevel3: 1, velocitySensitivity: 3, keyboardRateScaling: 2, klsBreakPoint: 44, klsLeftDepth: 0, klsRightDepth: 8, klsLeftCurve: 0, klsRightCurve: 3), // OP2 (modulator -> OP1): rounded mallet index
-                .init(outputLevel: 88, frequencyCoarse: 1, detune: 8, egRate2: 51, egRate3: 29, egRate4: 55, egLevel2: 90, egLevel3: 76, velocitySensitivity: 2, ampModSensitivity: 3, keyboardRateScaling: 1), // OP3 (carrier): secondary resonant bar
-                .init(outputLevel: 48, frequencyCoarse: 4, frequencyFine: 2, detune: 8, egRate2: 70, egRate3: 46, egRate4: 60, egLevel2: 24, egLevel3: 1, velocitySensitivity: 3, keyboardRateScaling: 2, klsBreakPoint: 46, klsLeftDepth: 0, klsRightDepth: 10, klsLeftCurve: 0, klsRightCurve: 3), // OP4 (modulator -> OP3): bell bar overtone
-                .init(outputLevel: 76, frequencyCoarse: 1, detune: 9, egRate2: 54, egRate3: 27, egRate4: 55, egLevel2: 88, egLevel3: 72, velocitySensitivity: 1, ampModSensitivity: 3, keyboardRateScaling: 1), // OP5 (carrier): quiet tertiary bar layer
-                .init(outputLevel: 42, frequencyCoarse: 4, frequencyFine: 4, detune: 9, feedback: 1, egRate2: 73, egRate3: 49, egRate4: 60, egLevel2: 20, egLevel3: 0, velocitySensitivity: 3, keyboardRateScaling: 2, klsBreakPoint: 48, klsLeftDepth: 0, klsRightDepth: 12, klsLeftCurve: 0, klsRightCurve: 3), // OP6 (modulator -> OP5, feedback): upper mallet brightness
+                .init(outputLevel: 97, frequencyCoarse: 1, detune: 7, egRate2: 48, egRate3: 31, egRate4: 42, egLevel2: 92, egLevel3: 80, velocitySensitivity: 2, ampModSensitivity: 2, keyboardRateScaling: 1), // OP1 (carrier): primary vibraphone bar
+                .init(outputLevel: 72, frequencyCoarse: 4, frequencyFine: 0, detune: 6, egRate2: 60, egRate3: 43, egRate4: 46, egLevel2: 40, egLevel3: 1, velocitySensitivity: 7, keyboardRateScaling: 2, klsBreakPoint: 44, klsLeftDepth: 0, klsRightDepth: 8, klsLeftCurve: 0, klsRightCurve: 3), // OP2 (modulator -> OP1): velocity-opened rounded mallet index
+                .init(outputLevel: 88, frequencyCoarse: 1, detune: 8, egRate2: 51, egRate3: 29, egRate4: 42, egLevel2: 90, egLevel3: 76, velocitySensitivity: 2, ampModSensitivity: 2, keyboardRateScaling: 1), // OP3 (carrier): secondary resonant bar
+                .init(outputLevel: 68, frequencyCoarse: 4, frequencyFine: 2, detune: 8, egRate2: 62, egRate3: 46, egRate4: 46, egLevel2: 36, egLevel3: 1, velocitySensitivity: 6, keyboardRateScaling: 2, klsBreakPoint: 46, klsLeftDepth: 0, klsRightDepth: 10, klsLeftCurve: 0, klsRightCurve: 3), // OP4 (modulator -> OP3): velocity-opened bell bar overtone
+                .init(outputLevel: 52, frequencyCoarse: 12, detune: 9, egRate2: 50, egRate3: 22, egRate4: 36, egLevel2: 88, egLevel3: 72, velocitySensitivity: 1, ampModSensitivity: 2, keyboardRateScaling: 1), // OP5 (carrier): quiet 12th-partial metallic shimmer that rings through the tail
+                .init(outputLevel: 36, frequencyCoarse: 4, frequencyFine: 4, detune: 9, feedback: 1, egRate2: 64, egRate3: 49, egRate4: 46, egLevel2: 20, egLevel3: 0, velocitySensitivity: 5, keyboardRateScaling: 2, klsBreakPoint: 48, klsLeftDepth: 0, klsRightDepth: 12, klsLeftCurve: 0, klsRightCurve: 3), // OP6 (modulator -> OP5, feedback): light color on the shimmer partial
             ],
             category: .keys,
             lfoSpeed: 38,
             lfoPMD: 0,
-            lfoAMD: 65,
+            lfoAMD: 24,
             lfoWaveform: 4
         ),
 
