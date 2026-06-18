@@ -41,7 +41,7 @@ swift test
 swift test --verbose
 ```
 
-All 107 tests should pass. Performance benchmarks may vary depending on your hardware (x86_64 vs ARM).
+All tests should pass (`swift test` currently reports 148 across 24 suites). Performance benchmarks may vary depending on your hardware (x86_64 vs ARM).
 
 ### Test Suite
 
@@ -76,7 +76,7 @@ M2DX-Core provides two synthesis modes:
 
 ### Design Philosophy
 
-**"Bit-Accurate Soul, Modern Body"**
+**"DEXED-Faithful Soul, Modern Body"**
 
 - **Soul**: The DX7's sonic character — log-domain arithmetic, envelope curves, feedback averaging, 32 algorithm routings — is reproduced with Dexed/msfa-faithful Int32 fixed-point arithmetic.
 - **Body**: Memory management, thread model, and API design are optimized for Apple platforms with modern Swift paradigms.
@@ -157,7 +157,7 @@ See [TODO.md](TODO.md) for the complete roadmap.
 - [x] DX7 presets, algorithms, and SysEx parser
 - [x] Full synthesis engine (envelope, operator, voice, polyphony)
 - [x] Accelerate-based DSP (downsampler, voice mixer)
-- [x] 107 tests across 8 test suites (including voice-level DEXED comparison)
+- [x] Full test suite passing (including operator/voice-level DEXED-reference comparison)
 - [x] GitHub Actions CI pipeline
 - [x] Bit-exact waveform verification against DEXED reference implementation
 
