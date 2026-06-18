@@ -15,7 +15,7 @@ M2DX-Core is a 6-operator / 32-algorithm FM synthesis library written in Swift. 
 - **MIDI 2.0 Native** — 16-bit velocity, 32-bit CC, per-note controllers (MPE-compatible)
 - **Apple Accelerate** — Hardware-accelerated DSP using vDSP (SIMD optimization)
 - **Lock-Free Architecture** — Parameter changes delivered via atomic SPSC ring buffer
-- **Bit-Accurate DX7 Mode** — Int32 fixed-point arithmetic reproduces the original OPS chip
+- **DEXED-Exact DX7 Mode** — Int32 fixed-point arithmetic, verified bit-exact against the DEXED reference engine (not a cycle-accurate emulation of the original OPS/EGS silicon)
 - **Clean Float32 Mode** — Modern floating-point engine for extensibility
 
 ## Platform Requirements
@@ -71,7 +71,7 @@ M2DX-Core provides two synthesis modes:
 
 | Mode | Arithmetic | Precision | Use Case |
 |------|-----------|-----------|----------|
-| **DX7** | Int32 fixed-point (Q24/Q30) | Bit-accurate to OPS chip | Authentic reproduction |
+| **DX7** | Int32 fixed-point (Q24/Q30) | Bit-exact to DEXED reference | Authentic DX7-compatible reproduction |
 | **Clean** | Float32 | ~24-bit mantissa | Extensibility, custom waveforms |
 
 ### Design Philosophy
