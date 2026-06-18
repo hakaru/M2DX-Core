@@ -31,7 +31,7 @@ The Swift production target (`M2DXCore`) is independently implemented from the D
 
 ### "Bit-Accurate Soul, Modern Body"
 
-- **Soul**: The DX7's sonic character — log-domain arithmetic, envelope curves, feedback averaging, 32 algorithm routings — is reproduced at bit-level accuracy using Int32 fixed-point arithmetic.
+- **Soul**: The DX7's sonic character — log-domain arithmetic, envelope curves, feedback averaging, 32 algorithm routings — is reproduced with Dexed/msfa-faithful Int32 fixed-point arithmetic.
 - **Body**: Memory management, thread model, and API design are optimized for Apple platforms (iOS/macOS) with modern Swift paradigms.
 
 ---
@@ -50,7 +50,7 @@ Two engine modes:
 
 | Mode | Arithmetic | Precision | Use Case |
 |------|-----------|-----------|----------|
-| **DX7** | Int32 fixed-point (Q24/Q30) | Bit-accurate to OPS chip | Authentic reproduction |
+| **DX7** | Int32 fixed-point (Q24/Q30) | Int32 kernel parity with Dexed/msfa reference | Authentic DX7-compatible reproduction |
 | **Clean** | Float32 | ~24-bit mantissa | Extensibility, custom waveforms |
 
 ### B. Real-time Safety

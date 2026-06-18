@@ -78,7 +78,7 @@ M2DX-Core provides two synthesis modes:
 
 **"Bit-Accurate Soul, Modern Body"**
 
-- **Soul**: The DX7's sonic character — log-domain arithmetic, envelope curves, feedback averaging, 32 algorithm routings — is reproduced at bit-level accuracy.
+- **Soul**: The DX7's sonic character — log-domain arithmetic, envelope curves, feedback averaging, 32 algorithm routings — is reproduced with Dexed/msfa-faithful Int32 fixed-point arithmetic.
 - **Body**: Memory management, thread model, and API design are optimized for Apple platforms with modern Swift paradigms.
 
 ## Technical Highlights
@@ -91,7 +91,7 @@ The production `M2DXCore` Swift target implements all synthesis logic and tables
 - **Velocity, KLS, EG Rate Tables**: Derived from FM synthesis definitions and publicly documented hardware behavior
 - **32 Algorithm Routing**: Encoded from the operator connection topology described in DX7 service literature
 
-The separate `DX7Ref` C target (test-only, not linked into production) ports reference functions from the Apache-2.0 `msfa` code; the Swift implementation is verified bit-for-bit against this reference. See [NOTICE](NOTICE) for full attribution and modification log.
+The separate `DX7Ref` C target (test-only, not linked into production) ports reference functions from the Apache-2.0 `msfa` / Dexed code. The Swift **Int32 FM kernel** is verified against this reference sample-for-sample on the canonical Apple-libm setup for the cases the tests cover (operators, envelopes, scaling, several algorithms). The Float output stage is tolerance-checked (not bit-portable across platforms), and M2DX's production note-frequency path uses linear-Hz computation verified within ~0.5% of Dexed's log-domain LUT, not bit-identical. See [NOTICE](NOTICE) for full attribution and modification log.
 
 ### Real-time Safety
 
