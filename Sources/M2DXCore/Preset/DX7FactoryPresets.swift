@@ -1,11 +1,11 @@
 // DX7FactoryPresets.swift
 // M2DX-Core — Factory preset library (hand-designed, original).
 //
-// Production presets are now defined directly in Swift across per-category
-// files (KeysPresets.swift, BassPresets.swift, ...). No Yamaha factory ROM
-// SysEx is bundled or referenced. The legacy SysEx loaders below remain as
-// deprecated convenience helpers for users who want to load their own .syx
-// banks at runtime.
+// Production presets are defined directly in Swift across per-category files
+// (KeysPresets.swift, BassPresets.swift, ...). No third-party SysEx (Yamaha
+// factory ROM, VRC, or any other vendor cartridge) is bundled with or shipped
+// by this package. Users can load their own .syx banks at runtime via
+// DX7SysExParser (see UserBankManager).
 
 import Foundation
 
@@ -50,7 +50,7 @@ public enum DX7FactoryPresets {
         return result
     }()
 
-    @available(*, deprecated, message: "Yamaha factory ROM SysEx is no longer bundled. Use customPresets, or load your own .syx via DX7SysExParser.")
+    @available(*, deprecated, message: "No factory ROM SysEx is bundled. Use customPresets, or load your own .syx at runtime via DX7SysExParser.")
     public static let factoryROMs: [DX7Preset] = []
 
     /// Synthetic banks grouped by `PresetCategory`, derived from `customPresets`.
@@ -67,32 +67,4 @@ public enum DX7FactoryPresets {
                                 presets: presetsInCategory)
         }
     }()
-
-    private static func loadBanks(files: [String], subdirectory: String) -> [DX7Preset] {
-        var presets: [DX7Preset] = []
-        let bundle = Bundle.module
-        for file in files {
-            guard let url = bundle.url(forResource: file, withExtension: "syx", subdirectory: subdirectory) else {
-                continue
-            }
-            if let bank = DX7SysExParser.parse(url: url, bankName: file) {
-                presets.append(contentsOf: bank.presets)
-            }
-        }
-        return presets
-    }
-
-    private static func loadBankObjects(files: [String], subdirectory: String) -> [DX7SysExBank] {
-        var banks: [DX7SysExBank] = []
-        let bundle = Bundle.module
-        for file in files {
-            guard let url = bundle.url(forResource: file, withExtension: "syx", subdirectory: subdirectory) else {
-                continue
-            }
-            if let bank = DX7SysExParser.parse(url: url, bankName: file) {
-                banks.append(bank)
-            }
-        }
-        return banks
-    }
 }

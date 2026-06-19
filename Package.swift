@@ -18,9 +18,6 @@ let package = Package(
     targets: [
         .target(
             name: "M2DXCore",
-            resources: [
-                .copy("Preset/Resources/SysEx"),
-            ],
             linkerSettings: [
                 .linkedFramework("Accelerate"),
             ]
