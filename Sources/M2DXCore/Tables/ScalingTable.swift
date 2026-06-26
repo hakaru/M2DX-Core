@@ -132,3 +132,14 @@ package func feedbackShift(_ fb: Int) -> Int {
 package func fixedFreqHz(coarse: UInt8, fine: UInt8) -> Float {
     return powf(10.0, Float(Int(coarse) & 3) + Float(fine) / 100.0)
 }
+
+// MARK: - Unison Detune
+
+/// Symmetric unison detune factor for voice `index` of `count`, spread to ±`detuneCents`.
+/// Voice 0 → -detuneCents, voice count-1 → +detuneCents; count==1 → 1.0 (no detune).
+@inline(__always)
+package func unisonDetuneFactor(index i: Int, count n: Int, detuneCents d: Float) -> Float {
+    guard n > 1 else { return 1.0 }
+    let cents = (2.0 * Float(i) / Float(n - 1) - 1.0) * d
+    return exp2(cents / 1200.0)
+}
