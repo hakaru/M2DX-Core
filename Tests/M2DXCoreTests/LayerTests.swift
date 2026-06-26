@@ -118,4 +118,32 @@ struct LayerTests {
         }
         #expect(anyDiff, "re-partition must preserve slot 1's distinct patch")
     }
+
+    @Test("setSlotLevel scales a slot's rendered output")
+    func slotLevelScalesOutput() {
+        func peak(gain: Float) -> Float {
+            let e = makeEngine()
+            // Load a clearly audible factory patch into slot 0 so `full` is
+            // comfortably non-zero, then balance the layer to a single part so
+            // layer auto-gain = 1/sqrt(1) = 1 and doesn't perturb the ratio.
+            let fatBass = DX7FactoryPresets.all.first { $0.name == "FAT BASS" }!
+            e.loadDX7Preset(fatBass, slotIdx: 0)
+            e.setLayerPartition(parts: 1, unison: 1)
+            e.setSlotLevel(0, gain: gain)
+            let n = 256
+            let l = UnsafeMutablePointer<Float>.allocate(capacity: n)
+            let r = UnsafeMutablePointer<Float>.allocate(capacity: n)
+            defer { l.deallocate(); r.deallocate() }
+            e.render(into: l, bufferR: r, frameCount: n)   // apply
+            e.sendMIDI(MIDIEvent(kind: .noteOn, data1: 60, data2: UInt32(0x7F00)))
+            var pk: Float = 0
+            for _ in 0..<8 {
+                e.render(into: l, bufferR: r, frameCount: n)
+                for i in 0..<n { pk = max(pk, abs(l[i])) }
+            }
+            return pk
+        }
+        let full = peak(gain: 1.0), half = peak(gain: 0.5)
+        #expect(half < full * 0.6 && half > full * 0.4, "gain 0.5 → ~half peak (\(half) vs \(full))")
+    }
 }

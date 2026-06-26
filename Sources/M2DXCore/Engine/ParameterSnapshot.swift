@@ -29,16 +29,20 @@ public struct SlotConfig: Sendable {
     public var noteRangeHigh: UInt8
     public var midiChannel: UInt8
     public var enabled: Bool
+    /// Per-slot output level applied in render (layer balancing). 1.0 = unity.
+    public var gain: Float = 1.0
 
     public init(voiceStart: Int = 0, voiceCount: Int = 16,
                 noteRangeLow: UInt8 = 0, noteRangeHigh: UInt8 = 127,
-                midiChannel: UInt8 = 0, enabled: Bool = true) {
+                midiChannel: UInt8 = 0, enabled: Bool = true,
+                gain: Float = 1.0) {
         self.voiceStart = voiceStart
         self.voiceCount = voiceCount
         self.noteRangeLow = noteRangeLow
         self.noteRangeHigh = noteRangeHigh
         self.midiChannel = midiChannel
         self.enabled = enabled
+        self.gain = gain
     }
 }
 

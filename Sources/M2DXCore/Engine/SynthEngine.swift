@@ -490,6 +490,15 @@ public final class SynthEngine: @unchecked Sendable {
         bumpVersion()
     }
 
+    /// Per-slot output level (layer balancing). Clamped to 0...4 (≈ +12 dB).
+    public func setSlotLevel(_ slotIdx: Int, gain: Float) {
+        guard slotIdx >= 0, slotIdx < kMaxSlots else { return }
+        var c = shadowSnapshot.config(at: slotIdx)
+        c.gain = max(0, min(4, gain))
+        shadowSnapshot.setConfig(at: slotIdx, c)
+        bumpVersion()
+    }
+
     // MARK: - Render Overload Monitoring
 
     /// Render overload count for adaptive buffer monitoring.
@@ -988,7 +997,16 @@ public final class SynthEngine: @unchecked Sendable {
         // louder), so attenuate by 1/√N to keep a unison note ≈ a single note's
         // loudness and avoid clipping on dense chords.
         let unisonGain = 1.0 / sqrtf(Float(max(1, snapshot.unisonCount)))
-        let vol = masterVolume * expression * ccVolume * unisonGain
+        // Layer auto-gain: stacking P enabled slots sums ~√P louder, so attenuate
+        // by 1/√P (mirrors the unison law) to preserve headroom. Only in .layer
+        // mode — other modes are byte-for-byte unchanged (layerGain stays 1.0).
+        var layerGain: Float = 1.0
+        if currentTimbreMode == .layer {
+            var enabled = 0
+            for i in 0..<snapshot.activeSlotCount where snapshot.config(at: i).enabled { enabled += 1 }
+            layerGain = 1.0 / sqrtf(Float(max(1, enabled)))
+        }
+        let vol = masterVolume * expression * ccVolume * unisonGain * layerGain
         let maxV = effectiveMaxVoices
         let slotCount = snapshot.activeSlotCount
 
@@ -1100,10 +1118,11 @@ public final class SynthEngine: @unchecked Sendable {
 
                 let pL = panGainL[i]
                 let pR = panGainR[i]
+                let slotGain = snapshot.config(at: voicesDX7[i].slotId).gain
                 // DEXED normalizes Q24 output as: >> 4, >> 9, / 32768 = / 2^28.
                 // Previous /2^25 was 8× too hot, clipping on multi-carrier algorithms.
-                let scale = vol * pL / 268435456.0
-                let scaleR = vol * pR / 268435456.0
+                let scale = vol * pL / 268435456.0 * slotGain
+                let scaleR = vol * pR / 268435456.0 * slotGain
                 for s in 0..<blockSize {
                     let sample = Float(blockBuf[s])
                     outBufL[s] += sample * scale
