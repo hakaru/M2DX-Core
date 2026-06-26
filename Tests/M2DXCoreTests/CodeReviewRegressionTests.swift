@@ -325,37 +325,76 @@ struct CodeReviewRegressionTests {
 
     // R3: hasPitchMod only checked lfoPMD/modWheel, so breath/foot/aftertouch
     // pitch modulation used alone was silently dropped.
-    @Test("Aftertouch pitch modulation is applied without mod wheel or LFO")
+    //
+    // The correct DX7 model: controller pitch assignments scale the LFO vibrato
+    // DEPTH (added to lfoPMD) rather than adding a static DC pitch offset.
+    // With lfoPMD=0 and aftertouchPitch=99 the LFO now oscillates with depth
+    // proportional to aftertouch pressure; the test verifies vibrato is present
+    // (frequency dips below the unmodulated base) over a 1-second render window.
+    @Test("Aftertouch pitch modulation drives LFO vibrato, not a static offset")
     func aftertouchPitchAppliedAlone() {
-        let n = 256
-        func renderWindow(aftertouchPitch: UInt8) -> [Float] {
-            let L = UnsafeMutablePointer<Float>.allocate(capacity: n)
-            let R = UnsafeMutablePointer<Float>.allocate(capacity: n)
-            defer { L.deallocate(); R.deallocate() }
-            L.initialize(repeating: 0, count: n); R.initialize(repeating: 0, count: n)
-            let e = SynthEngine()
-            e.setSampleRate(44100)
-            e.setAlgorithm(31)
-            for op in 0..<6 {
-                e.setOperatorDX7OutputLevel(op, level: 99)
-                e.setOperatorDX7EGRates(op, r1: 99, r2: 99, r3: 99, r4: 99) // instant, flat
-                e.setOperatorDX7EGLevels(op, l1: 99, l2: 99, l3: 99, l4: 0)
-                e.setOperatorRatio(op, ratio: 1.0)
+        let blockSize = 256
+        let sr: Float = 44100
+        let e = SynthEngine()
+        e.setSampleRate(sr)
+        e.setAlgorithm(0)       // Alg1: OP1 (opIdx 5) is the output carrier
+
+        // OP1 (opIdx 5) carrier — audible
+        e.setOperatorDX7OutputLevel(5, level: 99)
+        e.setOperatorDX7EGRates(5, r1: 99, r2: 99, r3: 99, r4: 99)
+        e.setOperatorDX7EGLevels(5, l1: 99, l2: 99, l3: 99, l4: 0)
+        e.setOperatorRatio(5, ratio: 1.0)
+        // All others silent
+        for op in 0..<5 { e.setOperatorDX7OutputLevel(op, level: 0) }
+
+        // Fast LFO, lfoPMD=0 (only aftertouch drives pitch depth), high PMS
+        e.setLFOSpeed(50)       // ~14 Hz — many cycles in 1 s
+        e.setLFOSync(0)         // free-running so phase is not reset on note-on
+        e.setLFOPMD(0)
+        e.setLFOAMD(0)
+        e.setLFOPMS(7)
+        e.setLFOWaveform(0)     // triangle −1…+1
+        e.setAftertouchPitch(99)
+
+        let bufL = UnsafeMutablePointer<Float>.allocate(capacity: blockSize)
+        let bufR = UnsafeMutablePointer<Float>.allocate(capacity: blockSize)
+        defer { bufL.deallocate(); bufR.deallocate() }
+
+        // Warm-up: let snapshot propagate and LFO spin up before note-on
+        for _ in 0..<10 { e.render(into: bufL, bufferR: bufR, frameCount: blockSize) }
+
+        // Establish base frequency with no aftertouch pressure
+        e.sendMIDI(MIDIEvent(kind: .noteOn, data1: 60, data2: UInt32(0x7F00)))
+        e.render(into: bufL, bufferR: bufR, frameCount: blockSize)
+
+        #expect(e.activeVoiceCount == 1)
+        let baseFreq = e.activeVoiceOperatorFreqs(5).first ?? 0
+
+        // Apply max channel pressure (aftertouch) and render ~1 second
+        e.sendMIDI(MIDIEvent(kind: .channelPressure, data1: 0, data2: UInt32.max))
+
+        var minFreq: Float = .greatestFiniteMagnitude
+        var maxFreq: Float = 0
+        let renderBlocks = 187  // ≈ 1.0 s at 44100 Hz / 256 frames
+        for _ in 0..<renderBlocks {
+            e.render(into: bufL, bufferR: bufR, frameCount: blockSize)
+            if let f = e.activeVoiceOperatorFreqs(5).first {
+                minFreq = Swift.min(minFreq, f)
+                maxFreq = Swift.max(maxFreq, f)
             }
-            e.setAftertouchPitch(aftertouchPitch)
-            e.setLFOPMD(0); e.setLFOAMD(0)   // no LFO; no mod wheel touched
-            e.render(into: L, bufferR: R, frameCount: n)
-            e.sendMIDI(MIDIEvent(kind: .noteOn, data1: 60, data2: UInt32(110) << 9))
-            e.render(into: L, bufferR: R, frameCount: n)              // reach sustain
-            e.sendMIDI(MIDIEvent(kind: .channelPressure, data1: 0, data2: UInt32.max))
-            e.render(into: L, bufferR: R, frameCount: n)              // measured window
-            return Array(UnsafeBufferPointer(start: L, count: n))
         }
-        let baseline = renderWindow(aftertouchPitch: 0)    // mapping 0 -> no pitch effect
-        let withAT = renderWindow(aftertouchPitch: 99)     // mapping 99 + pressure -> pitch up
-        var diff: Float = 0
-        for i in 0..<n { diff += abs(baseline[i] - withAT[i]) }
-        #expect(diff > 1.0, "aftertouch->pitch must alter the output even without wheel/LFO (diff=\(diff))")
+
+        // Aftertouch-pitch must produce vibrato: freq oscillates BELOW base (negative
+        // half of triangle LFO) — the pitch-mod block must be entered (hasPitchMod)
+        // and the effect must be bipolar, not a static upward shift.
+        #expect(
+            minFreq < baseFreq * 0.999,
+            "aftertouch->pitch must produce vibrato (pitch dips below base \(baseFreq) Hz); got min=\(minFreq)"
+        )
+        #expect(
+            maxFreq > baseFreq * 1.001,
+            "aftertouch->pitch must raise pitch above base \(baseFreq) Hz; got max=\(maxFreq)"
+        )
     }
 
     // R2: resetControllers() must not mutate render-owned voice/controller state

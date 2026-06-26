@@ -992,16 +992,14 @@ public final class SynthEngine: @unchecked Sendable {
                 let tuningFactor = totalTuningOffset != 0 ? pitchBendFactorExt(totalTuningOffset) : 1.0
                 if sm.hasPitchMod || pnpbFactor != 1.0 || tuningFactor != 1.0 || pitchEGSemitones != 0 {
                     let slot = snapshot.slot(at: s)
-                    let lfoPitch = lfoCurrentValue[s] * Float(slot.lfoPMD) / 99.0 * sm.pmsDepth
-                    let controllerPitch: Float
-                    if voicesDX7[i].detached {
-                        controllerPitch = 0
-                    } else {
-                        controllerPitch = sm.wheelPitchDepth + sm.footPitchDepth + sm.breathPitchDepth + sm.atPitchDepth
-                    }
+                    // Mod wheel / foot / breath / aftertouch assigned to pitch scale the
+                    // LFO vibrato DEPTH — they add vibrato, not a static pitch bend.
+                    let controllerPitchMod = voicesDX7[i].detached ? 0
+                        : (sm.wheelPitchDepth + sm.footPitchDepth + sm.breathPitchDepth + sm.atPitchDepth)
+                    let lfoPitch = lfoCurrentValue[s] * (Float(slot.lfoPMD) / 99.0 + controllerPitchMod) * sm.pmsDepth
                     // Detached (per-note-managed) voices ignore channel-wide pitch bend.
                     let chanBend = voicesDX7[i].detached ? Float(1.0) : pitchBendValueBySlot[s]
-                    let factor = chanBend * pitchBendFactorExt(lfoPitch + controllerPitch + pitchEGSemitones) * pnpbFactor * tuningFactor
+                    let factor = chanBend * pitchBendFactorExt(lfoPitch + pitchEGSemitones) * pnpbFactor * tuningFactor
                     voicesDX7[i].applyPitchBend(factor)
                 }
 
