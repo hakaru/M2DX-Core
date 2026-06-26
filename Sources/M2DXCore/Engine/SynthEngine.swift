@@ -596,6 +596,49 @@ public final class SynthEngine: @unchecked Sendable {
         bumpVersion()
     }
 
+    /// Configure a "P parts × U unison" layer in one call: enable the first
+    /// `parts` slots (full keyboard range), set the global unison count + detune,
+    /// and switch to `.layer` mode. A single setter so callers never have to
+    /// coordinate a separate `setUnison` / `setTimbreMode` sequence.
+    ///
+    /// Publishes via the same `bumpVersion()` path as `setTimbreMode`; the render
+    /// thread observes `.layer` by reading `shadowSnapshot.timbreMode` off the
+    /// snapshot ring (it sets its own `currentTimbreMode` internally), so writing
+    /// the shadow field and bumping the version is sufficient.
+    public func setLayerPartition(parts: Int, unison: Int, detuneCents: Float = 0) {
+        let p = max(1, min(kMaxSlots, parts))
+
+        // Seed newly-activated slots with slot 0's patch, exactly like
+        // setTimbreMode does. We raise activeSlotCount to kMaxSlots below, so
+        // without this seed every slot above the previous activeSlotCount would
+        // be enabled+routed but carry a default/uninitialized SlotSnapshot and
+        // render the wrong sound. Read the OLD activeSlotCount first; the
+        // `kMaxSlots > prev` guard means re-partitioning while already at
+        // activeSlotCount = kMaxSlots does NOT re-clobber loaded slot patches.
+        let prev = shadowSnapshot.activeSlotCount
+        if kMaxSlots > prev {
+            let baseSlot = shadowSnapshot.slot(at: 0)
+            for i in prev..<kMaxSlots { shadowSnapshot.setSlot(at: i, baseSlot) }
+        }
+
+        for i in 0..<kMaxSlots {
+            var c = shadowSnapshot.config(at: i)
+            c.enabled = (i < p)
+            c.noteRangeLow = 0
+            c.noteRangeHigh = 127
+            // Mirror setTimbreMode's .layer/.tx816 cases for forward consistency
+            // with future per-channel routing. No functional effect today: layer's
+            // determineTargetSlots fans out regardless of midiChannel.
+            c.midiChannel = UInt8(i)
+            shadowSnapshot.setConfig(at: i, c)
+        }
+        shadowSnapshot.unisonCount = max(1, min(8, unison))
+        shadowSnapshot.unisonDetune = max(0, min(50, detuneCents))
+        shadowSnapshot.timbreMode = TimbreMode.layer.rawValue
+        shadowSnapshot.activeSlotCount = kMaxSlots
+        bumpVersion()
+    }
+
     public func loadSlotParams(_ slotIdx: Int, slot: SlotSnapshot, resetControllers: Bool = true) {
         guard slotIdx >= 0, slotIdx < shadowSnapshot.activeSlotCount else { return }
         // Sanitize caller-supplied values that the render thread consumes without
