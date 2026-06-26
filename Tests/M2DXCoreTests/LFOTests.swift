@@ -8,10 +8,10 @@ import Darwin
 @Suite("LFO")
 struct LFOTests {
 
-    @Test("LFO speed maps to the DX7 frequency range (0.0625 Hz … ~47 Hz)")
+    @Test("LFO speed maps to a usable vibrato range (~5 Hz at default 35, ~47 Hz at 99)")
     func lfoSpeedRange() {
-        #expect(abs(SynthEngine.lfoSpeedToHz(0) - 0.0625) < 0.0005, "speed 0 → 0.0625 Hz")
-        #expect(abs(SynthEngine.lfoSpeedToHz(99) - 47.0) < 0.5, "speed 99 → ~47 Hz")
+        #expect(abs(SynthEngine.lfoSpeedToHz(35) - 5.0) < 0.5, "default speed 35 → ~5 Hz (usable vibrato)")
+        #expect(abs(SynthEngine.lfoSpeedToHz(99) - 47.0) < 1.0, "speed 99 → ~47 Hz")
     }
 
     @Test("LFO speed→Hz is monotonically increasing")
