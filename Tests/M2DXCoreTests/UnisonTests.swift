@@ -30,4 +30,34 @@ struct UnisonTests {
     func zeroDetuneUnity() {
         for i in 0..<8 { #expect(unisonDetuneFactor(index: i, count: 8, detuneCents: 0) == 1.0) }
     }
+
+    @Test("setUnison stacks N voices on a single note-on")
+    func unisonStacksVoices() {
+        let engine = SynthEngine()
+        engine.setSampleRate(48000)
+        let fc = 64
+        let bufL = UnsafeMutablePointer<Float>.allocate(capacity: fc)
+        let bufR = UnsafeMutablePointer<Float>.allocate(capacity: fc)
+        defer { bufL.deallocate(); bufR.deallocate() }
+
+        engine.setUnison(count: 4, detuneCents: 50)
+        engine.sendMIDI(MIDIEvent(kind: .noteOn, data1: 60, data2: UInt32(0x7F00)))
+        engine.render(into: bufL, bufferR: bufR, frameCount: fc)
+        #expect(engine.activeVoiceCount == 4, "UNISON 4 should allocate 4 voices for one note")
+    }
+
+    @Test("UNISON 1 (off) allocates a single voice — unchanged behavior")
+    func unisonOffSingleVoice() {
+        let engine = SynthEngine()
+        engine.setSampleRate(48000)
+        let fc = 64
+        let bufL = UnsafeMutablePointer<Float>.allocate(capacity: fc)
+        let bufR = UnsafeMutablePointer<Float>.allocate(capacity: fc)
+        defer { bufL.deallocate(); bufR.deallocate() }
+
+        engine.setUnison(count: 1, detuneCents: 50)
+        engine.sendMIDI(MIDIEvent(kind: .noteOn, data1: 60, data2: UInt32(0x7F00)))
+        engine.render(into: bufL, bufferR: bufR, frameCount: fc)
+        #expect(engine.activeVoiceCount == 1, "UNISON 1 should allocate exactly one voice")
+    }
 }

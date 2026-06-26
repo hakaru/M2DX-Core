@@ -130,6 +130,8 @@ public struct SynthParamSnapshot: Sendable {
     public var version: UInt64 = 0
     public var oversamplingMode: UInt8 = 0
     public var masterTuning: Int16 = 0
+    public var unisonCount: Int = 1
+    public var unisonDetune: Float = 0
 
     public init() {
         slots = (SlotSnapshot(), SlotSnapshot(), SlotSnapshot(), SlotSnapshot(),

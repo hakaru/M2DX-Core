@@ -293,6 +293,19 @@ public final class SynthEngine: @unchecked Sendable {
         bumpVersion()
     }
 
+    public func setUnison(count: Int, detuneCents: Float) {
+        shadowSnapshot.unisonCount = max(1, min(8, count))
+        shadowSnapshot.unisonDetune = max(0, min(50, detuneCents))
+        bumpVersion()
+    }
+
+    /// Introspection for tests: number of currently-active voices.
+    internal var activeVoiceCount: Int {
+        var c = 0
+        for i in 0..<kMaxVoices where voicesDX7[i].active { c += 1 }
+        return c
+    }
+
     public func setOperatorDX7OutputLevel(_ opIndex: Int, level: Int) {
         guard opIndex >= 0, opIndex < kNumOperators else { return }
         withShadowOp(opIndex) { $0.dx7OutputLevel = level }
@@ -1054,96 +1067,103 @@ public final class SynthEngine: @unchecked Sendable {
                 lfoPhase[slotIdx] = 0; lfoDelayFadeIn[slotIdx] = 0
             }
 
-            let transposedNote = UInt8(clamping: Int(note) + Int(slot.transpose))
-            let maxV = effectiveMaxVoices
+            let unisonCount = max(1, snapshot.unisonCount)
+            let unisonDetune = snapshot.unisonDetune
 
-            var target = 0
-            var foundFree = false
-            for i in 0..<maxV {
-                voicesDX7[i].checkActive()
-                if !voicesDX7[i].active { target = i; foundFree = true; break }
-            }
-            if !foundFree {
+            for u in 0..<unisonCount {
+                let detuneFactor = unisonDetuneFactor(index: u, count: unisonCount, detuneCents: unisonDetune)
+
+                let transposedNote = UInt8(clamping: Int(note) + Int(slot.transpose))
+                let maxV = effectiveMaxVoices
+
+                var target = 0
+                var foundFree = false
                 for i in 0..<maxV {
-                    if voicesDX7[i].midiNote == note && voicesDX7[i].slotId == slotIdx {
-                        target = i; foundFree = true; break
+                    voicesDX7[i].checkActive()
+                    if !voicesDX7[i].active { target = i; foundFree = true; break }
+                }
+                if !foundFree && unisonCount == 1 {
+                    for i in 0..<maxV {
+                        if voicesDX7[i].midiNote == note && voicesDX7[i].slotId == slotIdx {
+                            target = i; foundFree = true; break
+                        }
                     }
                 }
-            }
-            if !foundFree {
-                target = dx7VoiceStealIdx % maxV
-                dx7VoiceStealIdx += 1
-            }
-
-            voicesDX7[target].algorithm = slot.algorithm
-            voicesDX7[target].slotId = slotIdx
-            voicesDX7[target].feedbackShiftValue = feedbackShift(Int(slot.ops.0.feedback * 7.0 + 0.5))
-
-            voicesDX7[target].applyParams(slot.ops.0, opIndex: 0)
-            voicesDX7[target].applyParams(slot.ops.1, opIndex: 1)
-            voicesDX7[target].applyParams(slot.ops.2, opIndex: 2)
-            voicesDX7[target].applyParams(slot.ops.3, opIndex: 3)
-            voicesDX7[target].applyParams(slot.ops.4, opIndex: 4)
-            voicesDX7[target].applyParams(slot.ops.5, opIndex: 5)
-
-            voicesDX7[target].noteOn(transposedNote, velocity16: velocity16, midiNote: note)
-
-            // Master tuning is applied per-block in renderFramesDX7 alongside RPN
-            // fine/coarse tuning, so it takes effect immediately on held notes
-            // rather than only at note-on. (kTuningLUT in FrequencyTable.swift is now
-            // unused; left in place pending a separate cleanup.)
-
-            // Per-operator velocity/KLS/AMS/rateScaling
-            for opIdx in 0..<6 {
-                let opSnap: OperatorSnapshot
-                switch opIdx {
-                case 0: opSnap = slot.ops.0
-                case 1: opSnap = slot.ops.1
-                case 2: opSnap = slot.ops.2
-                case 3: opSnap = slot.ops.3
-                case 4: opSnap = slot.ops.4
-                case 5: opSnap = slot.ops.5
-                default: continue
+                if !foundFree {
+                    target = dx7VoiceStealIdx % maxV
+                    dx7VoiceStealIdx += 1
                 }
 
-                voicesDX7[target].withOp(opIdx) { op in
-                    op.velocityOffset = scaleVelocity(velocity16, sens: Int(opSnap.velocitySensitivity))
-                    op.klsOffset = scaleKeyboardLevel(
-                        transposedNote, breakPoint: opSnap.klsBreakPoint,
-                        leftDepth: opSnap.klsLeftDepth, rightDepth: opSnap.klsRightDepth,
-                        leftCurve: opSnap.klsLeftCurve, rightCurve: opSnap.klsRightCurve
-                    )
-                    op.amsDepth = kAMSDepthQ24[Int(min(opSnap.ampModSensitivity, 3))]
-                    let scaledOL = scaleOutputLevel(op.outputLevel)
-                    op.env.outlevel = max(0, (min(127, scaledOL + op.klsOffset) << 5) + op.velocityOffset)
-                    op.env.recalcTargetLevel()
-                    op.isFixedFreq = opSnap.fixedFrequency != 0
-                    if op.isFixedFreq {
-                        let fixedHz = fixedFreqHz(coarse: opSnap.fixedFreqCoarse, fine: opSnap.fixedFreqFine)
-                        op.baseFrequency = fixedHz / (op.ratio * op.detune)
-                        op.frequency = fixedHz
-                        op.updateFreqPublic()
+                voicesDX7[target].algorithm = slot.algorithm
+                voicesDX7[target].slotId = slotIdx
+                voicesDX7[target].feedbackShiftValue = feedbackShift(Int(slot.ops.0.feedback * 7.0 + 0.5))
+
+                voicesDX7[target].applyParams(slot.ops.0, opIndex: 0)
+                voicesDX7[target].applyParams(slot.ops.1, opIndex: 1)
+                voicesDX7[target].applyParams(slot.ops.2, opIndex: 2)
+                voicesDX7[target].applyParams(slot.ops.3, opIndex: 3)
+                voicesDX7[target].applyParams(slot.ops.4, opIndex: 4)
+                voicesDX7[target].applyParams(slot.ops.5, opIndex: 5)
+
+                voicesDX7[target].noteOn(transposedNote, velocity16: velocity16, midiNote: note, detuneFactor: detuneFactor)
+
+                // Master tuning is applied per-block in renderFramesDX7 alongside RPN
+                // fine/coarse tuning, so it takes effect immediately on held notes
+                // rather than only at note-on. (kTuningLUT in FrequencyTable.swift is now
+                // unused; left in place pending a separate cleanup.)
+
+                // Per-operator velocity/KLS/AMS/rateScaling
+                for opIdx in 0..<6 {
+                    let opSnap: OperatorSnapshot
+                    switch opIdx {
+                    case 0: opSnap = slot.ops.0
+                    case 1: opSnap = slot.ops.1
+                    case 2: opSnap = slot.ops.2
+                    case 3: opSnap = slot.ops.3
+                    case 4: opSnap = slot.ops.4
+                    case 5: opSnap = slot.ops.5
+                    default: continue
                     }
-                    op.env.rateScaling = keyboardRateScaling(note: transposedNote, scaling: opSnap.keyboardRateScaling)
-                    // rateScaling is set after env.noteOn() computed the attack inc,
-                    // so recompute the current stage's increment (matching DEXED,
-                    // which applies rate scaling before eg_note_on). Mirrors the
-                    // recalcTargetLevel() fixup above for the level.
-                    op.env.recalcCurrentInc()
+
+                    voicesDX7[target].withOp(opIdx) { op in
+                        op.velocityOffset = scaleVelocity(velocity16, sens: Int(opSnap.velocitySensitivity))
+                        op.klsOffset = scaleKeyboardLevel(
+                            transposedNote, breakPoint: opSnap.klsBreakPoint,
+                            leftDepth: opSnap.klsLeftDepth, rightDepth: opSnap.klsRightDepth,
+                            leftCurve: opSnap.klsLeftCurve, rightCurve: opSnap.klsRightCurve
+                        )
+                        op.amsDepth = kAMSDepthQ24[Int(min(opSnap.ampModSensitivity, 3))]
+                        let scaledOL = scaleOutputLevel(op.outputLevel)
+                        op.env.outlevel = max(0, (min(127, scaledOL + op.klsOffset) << 5) + op.velocityOffset)
+                        op.env.recalcTargetLevel()
+                        op.isFixedFreq = opSnap.fixedFrequency != 0
+                        if op.isFixedFreq {
+                            let fixedHz = fixedFreqHz(coarse: opSnap.fixedFreqCoarse, fine: opSnap.fixedFreqFine)
+                            op.baseFrequency = fixedHz / (op.ratio * op.detune)
+                            op.frequency = fixedHz
+                            op.updateFreqPublic()
+                        }
+                        op.env.rateScaling = keyboardRateScaling(note: transposedNote, scaling: opSnap.keyboardRateScaling)
+                        // rateScaling is set after env.noteOn() computed the attack inc,
+                        // so recompute the current stage's increment (matching DEXED,
+                        // which applies rate scaling before eg_note_on). Mirrors the
+                        // recalcTargetLevel() fixup above for the level.
+                        op.env.recalcCurrentInc()
+                    }
                 }
-            }
 
-            // Pitch EG
-            voicesDX7[target].pitchEG.noteOn(
-                r0: slot.pitchEGR0, r1: slot.pitchEGR1,
-                r2: slot.pitchEGR2, r3: slot.pitchEGR3,
-                l0: slot.pitchEGL0, l1: slot.pitchEGL1,
-                l2: slot.pitchEGL2, l3: slot.pitchEGL3,
-                sampleRate: sampleRate)
+                // Pitch EG
+                voicesDX7[target].pitchEG.noteOn(
+                    r0: slot.pitchEGR0, r1: slot.pitchEGR1,
+                    r2: slot.pitchEGR2, r3: slot.pitchEGR3,
+                    l0: slot.pitchEGL0, l1: slot.pitchEGL1,
+                    l2: slot.pitchEGL2, l3: slot.pitchEGL3,
+                    sampleRate: sampleRate)
 
-            let bendFactor = pitchBendValueBySlot[slotIdx]
-            if bendFactor != 1.0 {
-                voicesDX7[target].applyPitchBend(bendFactor)
+                let bendFactor = pitchBendValueBySlot[slotIdx]
+                if bendFactor != 1.0 {
+                    voicesDX7[target].applyPitchBend(bendFactor)
+                }
             }
         }
     }

@@ -189,14 +189,14 @@ package struct DX7Voice {
         ops.3.setSampleRate(sr); ops.4.setSampleRate(sr); ops.5.setSampleRate(sr)
     }
 
-    mutating func noteOn(_ n: UInt8, velocity16: UInt16, midiNote originalNote: UInt8? = nil) {
+    mutating func noteOn(_ n: UInt8, velocity16: UInt16, midiNote originalNote: UInt8? = nil, detuneFactor: Float = 1.0) {
         note = n
         midiNote = originalNote ?? n
         active = true
         releasing = false
         sustained = false   // a stolen/reused voice must not inherit pedal-hold
         resetPerNoteState()
-        let freq: Float = kMIDIFreqLUT[Int(n & 0x7F)]
+        let freq: Float = kMIDIFreqLUT[Int(n & 0x7F)] * detuneFactor
         ops.0.noteOn(baseFreq: freq); ops.1.noteOn(baseFreq: freq); ops.2.noteOn(baseFreq: freq)
         ops.3.noteOn(baseFreq: freq); ops.4.noteOn(baseFreq: freq); ops.5.noteOn(baseFreq: freq)
     }
