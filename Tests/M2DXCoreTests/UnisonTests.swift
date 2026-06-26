@@ -84,6 +84,39 @@ struct UnisonTests {
         #expect(engine.activeVoiceCount == 20, "10 notes × unison 2 = 20 voices (budget scaled past the 16 base)")
     }
 
+    @Test("Fixed-frequency operators are detuned per unison voice")
+    func fixedFreqOperatorsDetune() {
+        let engine = SynthEngine()
+        engine.setSampleRate(48000)
+        let fc = 64
+        let bufL = UnsafeMutablePointer<Float>.allocate(capacity: fc)
+        let bufR = UnsafeMutablePointer<Float>.allocate(capacity: fc)
+        defer { bufL.deallocate(); bufR.deallocate() }
+
+        // OP1 = fixed-frequency carrier (frequencyMode 1, coarse 3); OP2..6 silent.
+        // In loadDX7Preset: operators[0] (OP1) maps to slot.ops.5 (opIdx 5).
+        let fixedOp = DX7OperatorPreset(outputLevel: 99, frequencyCoarse: 3, frequencyFine: 0, frequencyMode: 1)
+        let silent = DX7OperatorPreset(outputLevel: 0)
+        let preset = DX7Preset(name: "FixedTest", algorithm: 0, feedback: 0,
+                               operators: [fixedOp, silent, silent, silent, silent, silent],
+                               category: .other)
+        engine.loadDX7Preset(preset)
+        engine.setUnison(count: 2, detuneCents: 50)
+        engine.render(into: bufL, bufferR: bufR, frameCount: fc)   // warm-up: apply preset + unison budget
+
+        engine.sendMIDI(MIDIEvent(kind: .noteOn, data1: 60, data2: UInt32(0x7F00)))
+        engine.render(into: bufL, bufferR: bufR, frameCount: fc)
+
+        // OP1 (operators[0]) maps to opIdx 5 in the voice tuple
+        let freqs = engine.activeVoiceOperatorFreqs(5).sorted()
+        #expect(freqs.count == 2, "unison 2 → 2 active voices")
+        if freqs.count == 2 {
+            let ratio = freqs[1] / freqs[0]
+            let expected = exp2(Float(100) / 1200)   // +50¢ vs -50¢ = 100¢ apart
+            #expect(abs(ratio - expected) < 0.002, "fixed-freq ops detuned: ratio \(ratio) ≈ \(expected)")
+        }
+    }
+
     @Test("Unison voice budget caps at 64 (a 16-note × unison-8 peak does not reach 128)")
     func unisonBudgetCappedAt64() {
         let engine = SynthEngine()

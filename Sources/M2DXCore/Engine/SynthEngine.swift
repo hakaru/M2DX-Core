@@ -306,6 +306,15 @@ public final class SynthEngine: @unchecked Sendable {
         return c
     }
 
+    /// Test introspection: operator `opIndex` frequencies of all active voices.
+    internal func activeVoiceOperatorFreqs(_ opIndex: Int) -> [Float] {
+        var r: [Float] = []
+        for i in 0..<kMaxVoices where voicesDX7[i].active {
+            r.append(voicesDX7[i].operatorFrequency(opIndex))
+        }
+        return r
+    }
+
     public func setOperatorDX7OutputLevel(_ opIndex: Int, level: Int) {
         guard opIndex >= 0, opIndex < kNumOperators else { return }
         withShadowOp(opIndex) { $0.dx7OutputLevel = level }
@@ -1147,7 +1156,7 @@ public final class SynthEngine: @unchecked Sendable {
                         op.env.recalcTargetLevel()
                         op.isFixedFreq = opSnap.fixedFrequency != 0
                         if op.isFixedFreq {
-                            let fixedHz = fixedFreqHz(coarse: opSnap.fixedFreqCoarse, fine: opSnap.fixedFreqFine)
+                            let fixedHz = fixedFreqHz(coarse: opSnap.fixedFreqCoarse, fine: opSnap.fixedFreqFine) * detuneFactor
                             op.baseFrequency = fixedHz / (op.ratio * op.detune)
                             op.frequency = fixedHz
                             op.updateFreqPublic()

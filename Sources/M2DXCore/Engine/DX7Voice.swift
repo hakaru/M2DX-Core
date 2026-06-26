@@ -219,6 +219,19 @@ package struct DX7Voice {
         ops.3.applyPitchBend(factor); ops.4.applyPitchBend(factor); ops.5.applyPitchBend(factor)
     }
 
+    /// Test introspection: current frequency of operator `i` (0…5).
+    func operatorFrequency(_ i: Int) -> Float {
+        switch i {
+        case 0: return ops.0.frequency
+        case 1: return ops.1.frequency
+        case 2: return ops.2.frequency
+        case 3: return ops.3.frequency
+        case 4: return ops.4.frequency
+        case 5: return ops.5.frequency
+        default: return 0
+        }
+    }
+
     /// Update EG and compute gain for all 6 operators (once per block)
     @inline(__always)
     mutating func updateGains() {
