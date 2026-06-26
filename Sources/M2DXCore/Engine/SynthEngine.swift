@@ -499,6 +499,15 @@ public final class SynthEngine: @unchecked Sendable {
         bumpVersion()
     }
 
+    /// Per-slot stereo pan (layer stereo width). Clamped to -1...1 (L…R).
+    public func setSlotPan(_ slotIdx: Int, pan: Float) {
+        guard slotIdx >= 0, slotIdx < kMaxSlots else { return }
+        var c = shadowSnapshot.config(at: slotIdx)
+        c.pan = max(-1, min(1, pan))
+        shadowSnapshot.setConfig(at: slotIdx, c)
+        bumpVersion()
+    }
+
     // MARK: - Render Overload Monitoring
 
     /// Render overload count for adaptive buffer monitoring.
@@ -1031,8 +1040,18 @@ public final class SynthEngine: @unchecked Sendable {
             slotMods[s].controllerAmpMod = 1.0 - (wAmp + fAmp + bAmp + aAmp) * 0.5
         }
 
-        let c: Float = 0.70710678
-        for i in 0..<maxV { panGainL[i] = c; panGainR[i] = c }
+        for i in 0..<maxV {
+            let pan = snapshot.config(at: voicesDX7[i].slotId).pan
+            if pan == 0 {
+                panGainL[i] = 0.70710678
+                panGainR[i] = 0.70710678
+            } else {
+                let p = max(-1, min(1, pan))
+                let theta = (p + 1.0) * 0.25 * Float.pi   // 0 → π/2
+                panGainL[i] = cosf(theta)
+                panGainR[i] = sinf(theta)
+            }
+        }
 
         let blockBuf = dx7BlockBuf
         let bus1 = dx7Bus1

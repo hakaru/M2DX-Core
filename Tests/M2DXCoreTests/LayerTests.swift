@@ -146,4 +146,28 @@ struct LayerTests {
         let full = peak(gain: 1.0), half = peak(gain: 0.5)
         #expect(half < full * 0.6 && half > full * 0.4, "gain 0.5 → ~half peak (\(half) vs \(full))")
     }
+
+    @Test("setSlotPan hard-left routes a slot to L only")
+    func slotPanLeft() {
+        let e = makeEngine()
+        // Load an audible patch into slot 0 so the left channel is comfortably
+        // non-zero (slot 0's default INIT patch can be near-silent).
+        let fatBass = DX7FactoryPresets.all.first { $0.name == "FAT BASS" }!
+        e.loadDX7Preset(fatBass, slotIdx: 0)
+        e.setLayerPartition(parts: 1, unison: 1)
+        e.setSlotPan(0, pan: -1.0)
+        let n = 256
+        let l = UnsafeMutablePointer<Float>.allocate(capacity: n)
+        let r = UnsafeMutablePointer<Float>.allocate(capacity: n)
+        defer { l.deallocate(); r.deallocate() }
+        e.render(into: l, bufferR: r, frameCount: n)
+        e.sendMIDI(MIDIEvent(kind: .noteOn, data1: 60, data2: UInt32(0x7F00)))
+        var pkL: Float = 0, pkR: Float = 0
+        for _ in 0..<8 {
+            e.render(into: l, bufferR: r, frameCount: n)
+            for i in 0..<n { pkL = max(pkL, abs(l[i])); pkR = max(pkR, abs(r[i])) }
+        }
+        #expect(pkL > 0.001, "left has signal")
+        #expect(pkR < pkL * 0.05, "right is silent at hard-left (\(pkR) vs \(pkL))")
+    }
 }
