@@ -60,4 +60,27 @@ struct UnisonTests {
         engine.render(into: bufL, bufferR: bufR, frameCount: fc)
         #expect(engine.activeVoiceCount == 1, "UNISON 1 should allocate exactly one voice")
     }
+
+    @Test("Unison scales the voice budget (base × unison) so polyphony isn't reduced")
+    func unisonScalesPolyphony() {
+        let engine = SynthEngine()
+        engine.setSampleRate(48000)
+        let fc = 64
+        let bufL = UnsafeMutablePointer<Float>.allocate(capacity: fc)
+        let bufR = UnsafeMutablePointer<Float>.allocate(capacity: fc)
+        defer { bufL.deallocate(); bufR.deallocate() }
+
+        engine.setUnison(count: 2, detuneCents: 20)
+        // Warm-up render applies the unison snapshot (effectiveMaxVoices is recomputed
+        // after drainMIDI, so the budget change takes effect on the next block — this
+        // mirrors the app, where unison is set at startup before any notes).
+        engine.render(into: bufL, bufferR: bufR, frameCount: fc)
+        // 10 distinct notes × unison 2 = 20 voices. Without budget scaling the
+        // single-mode 16-voice cap would steal down to 16.
+        for n: UInt8 in 60..<70 {
+            engine.sendMIDI(MIDIEvent(kind: .noteOn, data1: n, data2: UInt32(0x7F00)))
+        }
+        engine.render(into: bufL, bufferR: bufR, frameCount: fc)
+        #expect(engine.activeVoiceCount == 20, "10 notes × unison 2 = 20 voices (budget scaled past the 16 base)")
+    }
 }

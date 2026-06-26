@@ -776,7 +776,10 @@ public final class SynthEngine: @unchecked Sendable {
             case .dual, .split: voicesForMode = 32
             case .tx816: voicesForMode = 64
             }
-            effectiveMaxVoices = (currentOversamplingMode == .off) ? voicesForMode : max(8, voicesForMode / 2)
+            let baseVoices = (currentOversamplingMode == .off) ? voicesForMode : max(8, voicesForMode / 2)
+            // Scale the voice budget by unison so polyphony stays ~`voicesForMode`
+            // notes (e.g. single 16 × unison 8 = 128). Capped at the kMaxVoices buffer.
+            effectiveMaxVoices = min(kMaxVoices, baseVoices * max(1, snapshot.unisonCount))
 
             // Reap voices outside the (possibly shrunken) active range. The render
             // loop only runs checkActive() within effectiveMaxVoices, so a voice
