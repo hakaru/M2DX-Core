@@ -306,6 +306,13 @@ public final class SynthEngine: @unchecked Sendable {
         return c
     }
 
+    /// Test introspection: slotId of each active voice.
+    internal func activeVoiceSlotIds() -> [Int] {
+        var r: [Int] = []
+        for i in 0..<kMaxVoices where voicesDX7[i].active { r.append(voicesDX7[i].slotId) }
+        return r
+    }
+
     /// Test introspection: operator `opIndex` frequencies of all active voices.
     internal func activeVoiceOperatorFreqs(_ opIndex: Int) -> [Float] {
         var r: [Float] = []
@@ -578,6 +585,13 @@ public final class SynthEngine: @unchecked Sendable {
             for i in 0..<8 {
                 shadowSnapshot.setConfig(at: i, SlotConfig(midiChannel: UInt8(i)))
             }
+        case .layer:
+            // Layer mode stacks every enabled slot on every note (TX816-style),
+            // so it shares tx816's 8-slot init; per-slot routing differences are
+            // handled in determineTargetSlots and the voice budget.
+            for i in 0..<8 {
+                shadowSnapshot.setConfig(at: i, SlotConfig(midiChannel: UInt8(i)))
+            }
         }
         bumpVersion()
     }
@@ -784,6 +798,7 @@ public final class SynthEngine: @unchecked Sendable {
             case .single: voicesForMode = 16
             case .dual, .split: voicesForMode = 32
             case .tx816: voicesForMode = 64
+            case .layer: voicesForMode = kMaxVoices   // 128
             }
             let baseVoices = (currentOversamplingMode == .off) ? voicesForMode : max(8, voicesForMode / 2)
             // Scale the voice budget by unison (single 16 × unison 8 = 128).
@@ -1220,6 +1235,12 @@ public final class SynthEngine: @unchecked Sendable {
                 if snapshot.config(at: i).enabled {
                     appendTarget(i, to: &result, count: &count)
                 }
+            }
+        case .layer:
+            // Layer mode routes every played note to all enabled slots (stacking
+            // patches across the 128-voice pool). Same fan-out as tx816 today.
+            for i in 0..<snapshot.activeSlotCount where snapshot.config(at: i).enabled {
+                appendTarget(i, to: &result, count: &count)
             }
         }
     }

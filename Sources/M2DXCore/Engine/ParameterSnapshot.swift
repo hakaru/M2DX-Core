@@ -9,12 +9,14 @@ public enum TimbreMode: UInt8, Sendable, CaseIterable {
     case dual = 1
     case split = 2
     case tx816 = 3
+    case layer = 4
 
     public var slotCount: Int {
         switch self {
         case .single: return 1
         case .dual, .split: return 2
         case .tx816: return 8
+        case .layer: return 8
         }
     }
 }
