@@ -786,11 +786,12 @@ public final class SynthEngine: @unchecked Sendable {
             case .tx816: voicesForMode = 64
             }
             let baseVoices = (currentOversamplingMode == .off) ? voicesForMode : max(8, voicesForMode / 2)
-            // Scale the voice budget by unison (e.g. single 16 × unison 2 = 32,
-            // × unison 4 = 64). Capped at 64 simultaneous voices: 128 is not
-            // real-time-safe (a 16-note × unison-8 peak runs ~5× over the audio
-            // deadline → underrun/silence on device).
-            effectiveMaxVoices = min(64, baseVoices * max(1, snapshot.unisonCount))
+            // Scale the voice budget by unison (single 16 × unison 8 = 128).
+            // Capped at the kMaxVoices buffer (128). In an optimized (Release)
+            // build 128 voices render at ~5% of the audio deadline, so this is
+            // RT-safe — the earlier 64 cap was based on a misleading Debug-build
+            // measurement (Debug is ~200× slower than Release for the DSP loop).
+            effectiveMaxVoices = min(kMaxVoices, baseVoices * max(1, snapshot.unisonCount))
 
             // Reap voices outside the (possibly shrunken) active range. The render
             // loop only runs checkActive() within effectiveMaxVoices, so a voice
