@@ -777,9 +777,11 @@ public final class SynthEngine: @unchecked Sendable {
             case .tx816: voicesForMode = 64
             }
             let baseVoices = (currentOversamplingMode == .off) ? voicesForMode : max(8, voicesForMode / 2)
-            // Scale the voice budget by unison so polyphony stays ~`voicesForMode`
-            // notes (e.g. single 16 × unison 8 = 128). Capped at the kMaxVoices buffer.
-            effectiveMaxVoices = min(kMaxVoices, baseVoices * max(1, snapshot.unisonCount))
+            // Scale the voice budget by unison (e.g. single 16 × unison 2 = 32,
+            // × unison 4 = 64). Capped at 64 simultaneous voices: 128 is not
+            // real-time-safe (a 16-note × unison-8 peak runs ~5× over the audio
+            // deadline → underrun/silence on device).
+            effectiveMaxVoices = min(64, baseVoices * max(1, snapshot.unisonCount))
 
             // Reap voices outside the (possibly shrunken) active range. The render
             // loop only runs checkActive() within effectiveMaxVoices, so a voice
@@ -910,7 +912,11 @@ public final class SynthEngine: @unchecked Sendable {
         _ frameCount: Int,
         _ snapshot: SynthParamSnapshot
     ) {
-        let vol = masterVolume * expression * ccVolume
+        // Unison loudness compensation: N detuned copies sum incoherently (~√N
+        // louder), so attenuate by 1/√N to keep a unison note ≈ a single note's
+        // loudness and avoid clipping on dense chords.
+        let unisonGain = 1.0 / sqrtf(Float(max(1, snapshot.unisonCount)))
+        let vol = masterVolume * expression * ccVolume * unisonGain
         let maxV = effectiveMaxVoices
         let slotCount = snapshot.activeSlotCount
 

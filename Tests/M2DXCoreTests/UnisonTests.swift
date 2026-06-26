@@ -83,4 +83,22 @@ struct UnisonTests {
         engine.render(into: bufL, bufferR: bufR, frameCount: fc)
         #expect(engine.activeVoiceCount == 20, "10 notes × unison 2 = 20 voices (budget scaled past the 16 base)")
     }
+
+    @Test("Unison voice budget caps at 64 (a 16-note × unison-8 peak does not reach 128)")
+    func unisonBudgetCappedAt64() {
+        let engine = SynthEngine()
+        engine.setSampleRate(48000)
+        let fc = 64
+        let bufL = UnsafeMutablePointer<Float>.allocate(capacity: fc)
+        let bufR = UnsafeMutablePointer<Float>.allocate(capacity: fc)
+        defer { bufL.deallocate(); bufR.deallocate() }
+
+        engine.setUnison(count: 8, detuneCents: 20)
+        engine.render(into: bufL, bufferR: bufR, frameCount: fc)   // warm-up applies the budget
+        // 16 notes × unison 8 = 128 requested, but the budget caps at 64.
+        let notes: [UInt8] = [52, 55, 57, 60, 62, 64, 67, 69, 71, 72, 74, 76, 79, 81, 83, 84]
+        for n in notes { engine.sendMIDI(MIDIEvent(kind: .noteOn, data1: n, data2: UInt32(0x7F00))) }
+        engine.render(into: bufL, bufferR: bufR, frameCount: fc)
+        #expect(engine.activeVoiceCount == 64, "Unison voice budget must cap at 64, not 128")
+    }
 }
