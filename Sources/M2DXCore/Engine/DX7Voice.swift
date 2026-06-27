@@ -150,6 +150,7 @@ package struct DX7Voice {
     var slotId: Int = 0
     var lfoAmpMod: Int32 = 0
     var feedbackShiftValue: Int = 16
+    var engineMode: FMEngine = .modern
 
     // MIDI 2.0 Per-Note state
     var perNotePitchBendFactor: Float = 1.0
@@ -241,7 +242,7 @@ package struct DX7Voice {
         ops.4.updateGain(lfoAmpMod: lfaMod); ops.5.updateGain(lfoAmpMod: lfaMod)
     }
 
-    /// Render one block using flag-based algorithm dispatch.
+    /// Render one block, dispatching to the selected FM engine.
     @inline(__always)
     mutating func renderBlock(
         output: UnsafeMutablePointer<Int32>,
@@ -250,7 +251,20 @@ package struct DX7Voice {
         blockSize: Int
     ) {
         guard active else { return }
+        switch engineMode {
+        case .modern: renderBlockModern(output: output, bus1: bus1, bus2: bus2, blockSize: blockSize)
+        case .markI:  renderBlockMarkI(output: output, bus1: bus1, bus2: bus2, blockSize: blockSize)
+        }
+    }
 
+    /// Render one block using flag-based algorithm dispatch (Modern engine).
+    @inline(__always)
+    mutating func renderBlockModern(
+        output: UnsafeMutablePointer<Int32>,
+        bus1: UnsafeMutablePointer<Int32>,
+        bus2: UnsafeMutablePointer<Int32>,
+        blockSize: Int
+    ) {
         let alg = kAlgorithmFlags[max(0, min(algorithm, 31))]  // lower clamp = defense-in-depth
         var hasContents = (true, false, false)  // output, bus1, bus2
 
@@ -396,6 +410,203 @@ package struct DX7Voice {
             case 5: ops.5.phase = newPhase
             default: break
             }
+        }
+    }
+
+    /// Render one block using the Mark I (OPS-chip) FM path.
+    /// Adapted verbatim from `renderBlockModern`; the only substitutions are:
+    ///   * gain → log-attenuation (`markIAtten`, larger = quieter)
+    ///   * silence guard inverted (smaller attenuation = audible)
+    ///   * kernels → `*MkI` variants
+    ///   * fused Alg 4 / Alg 6 feedback chains via `computeFb2MkI` / `computeFb3MkI`
+    @inline(__always)
+    mutating func renderBlockMarkI(
+        output: UnsafeMutablePointer<Int32>,
+        bus1: UnsafeMutablePointer<Int32>,
+        bus2: UnsafeMutablePointer<Int32>,
+        blockSize: Int
+    ) {
+        let algIndex = max(0, min(algorithm, 31))
+        let alg = kAlgorithmFlags[algIndex]  // lower clamp = defense-in-depth
+        var hasContents = (true, false, false)  // output, bus1, bus2
+
+        // Mark I deepens feedback by 2 shifts for the 3/6/32 algorithms.
+        let fbShiftMkI = (algIndex == 3 || algIndex == 5 || algIndex == 31)
+            ? min(feedbackShiftValue + 2, 16)
+            : feedbackShiftValue
+
+        var opIdx = 0
+        while opIdx < 6 {
+            let flags: UInt8
+            switch opIdx {
+            case 0: flags = alg.0
+            case 1: flags = alg.1
+            case 2: flags = alg.2
+            case 3: flags = alg.3
+            case 4: flags = alg.4
+            case 5: flags = alg.5
+            default: flags = 0
+            }
+
+            let add = (flags & 0x04) != 0
+            let inbus = Int((flags >> 4) & 3)
+            let outbus = Int(flags & 3)
+            let isFbOp = (flags & 0xC0) == 0xC0
+
+            let outptr: UnsafeMutablePointer<Int32>
+            switch outbus {
+            case 1: outptr = bus1
+            case 2: outptr = bus2
+            default: outptr = output
+            }
+
+            // Gain setup (Mark I): atten2 = this block's attenuation, atten1 = previous
+            // block's (carried on the operator for the ramp). Larger = quieter.
+            let atten1: UInt16
+            let atten2: UInt16
+            switch opIdx {
+            case 0: atten2 = markIAtten(ops.0.levelIn); atten1 = ops.0.markIGainOut; ops.0.markIGainOut = atten2
+            case 1: atten2 = markIAtten(ops.1.levelIn); atten1 = ops.1.markIGainOut; ops.1.markIGainOut = atten2
+            case 2: atten2 = markIAtten(ops.2.levelIn); atten1 = ops.2.markIGainOut; ops.2.markIGainOut = atten2
+            case 3: atten2 = markIAtten(ops.3.levelIn); atten1 = ops.3.markIGainOut; ops.3.markIGainOut = atten2
+            case 4: atten2 = markIAtten(ops.4.levelIn); atten1 = ops.4.markIGainOut; ops.4.markIGainOut = atten2
+            case 5: atten2 = markIAtten(ops.5.levelIn); atten1 = ops.5.markIGainOut; ops.5.markIGainOut = atten2
+            default: atten1 = UInt16(kMarkIEnvMax); atten2 = UInt16(kMarkIEnvMax)
+            }
+
+            // Silence guard (inverted sense): audible when attenuation is BELOW threshold.
+            guard atten1 < kMarkILevelThresh || atten2 < kMarkILevelThresh else {
+                if !add {
+                    switch outbus {
+                    case 1: hasContents.1 = false
+                    case 2: hasContents.2 = false
+                    default: break
+                    }
+                }
+                switch opIdx {
+                case 0: ops.0.phase = ops.0.phase &+ (ops.0.freq &* Int32(blockSize))
+                case 1: ops.1.phase = ops.1.phase &+ (ops.1.freq &* Int32(blockSize))
+                case 2: ops.2.phase = ops.2.phase &+ (ops.2.freq &* Int32(blockSize))
+                case 3: ops.3.phase = ops.3.phase &+ (ops.3.freq &* Int32(blockSize))
+                case 4: ops.4.phase = ops.4.phase &+ (ops.4.freq &* Int32(blockSize))
+                case 5: ops.5.phase = ops.5.phase &+ (ops.5.freq &* Int32(blockSize))
+                default: break
+                }
+                opIdx += 1
+                continue
+            }
+
+            let shouldAdd: Bool
+            switch outbus {
+            case 1: shouldAdd = add && hasContents.1
+            case 2: shouldAdd = add && hasContents.2
+            default: shouldAdd = add
+            }
+
+            let opPhase: Int32
+            let opFreq: Int32
+            switch opIdx {
+            case 0: opPhase = ops.0.phase; opFreq = ops.0.freq
+            case 1: opPhase = ops.1.phase; opFreq = ops.1.freq
+            case 2: opPhase = ops.2.phase; opFreq = ops.2.freq
+            case 3: opPhase = ops.3.phase; opFreq = ops.3.freq
+            case 4: opPhase = ops.4.phase; opFreq = ops.4.freq
+            case 5: opPhase = ops.5.phase; opFreq = ops.5.freq
+            default: opPhase = 0; opFreq = 0
+            }
+
+            // Fused multi-op feedback chains: Alg 4 (index 3, 3-op) and Alg 6
+            // (index 5, 2-op). Triggered when the feedback op (opIdx 0) is reached
+            // with feedback enabled. The downstream ops are consumed (phase advanced
+            // + index skipped) so they are not re-processed below.
+            if isFbOp && feedbackShiftValue < 16 && opIdx == 0 && (algIndex == 3 || algIndex == 5) {
+                var fbBuf = ops.0.fbBuf
+                if algIndex == 5 {
+                    // Alg 6: op0 (OP6, fb) → op1 (OP5). Operator order [0]=OP6, [1]=OP5.
+                    var p = MarkIChainParams(
+                        phase:   (ops.0.phase, ops.1.phase, 0),
+                        freq:    (ops.0.freq,  ops.1.freq,  0),
+                        levelIn: (ops.0.levelIn, ops.1.levelIn, 0)
+                    )
+                    computeFb2MkI(output, &p, atten01: atten1, atten02: atten2,
+                                  fbBuf: &fbBuf, fbShift: fbShiftMkI)
+                    ops.0.fbBuf = fbBuf
+                    ops.0.phase = p.phase.0
+                    ops.1.phase = p.phase.1
+                    ops.0.markIGainOut = markIAtten(ops.1.levelIn)  // op1's ramp anchor
+                    opIdx = 2  // consumed op0 + op1
+                } else {
+                    // Alg 4: op0 (OP6, fb) → op1 (OP5) → op2 (OP4).
+                    var p = MarkIChainParams(
+                        phase:   (ops.0.phase, ops.1.phase, ops.2.phase),
+                        freq:    (ops.0.freq,  ops.1.freq,  ops.2.freq),
+                        levelIn: (ops.0.levelIn, ops.1.levelIn, ops.2.levelIn)
+                    )
+                    computeFb3MkI(output, &p, atten01: atten1, atten02: atten2,
+                                  fbBuf: &fbBuf, fbShift: fbShiftMkI)
+                    ops.0.fbBuf = fbBuf
+                    ops.0.phase = p.phase.0
+                    ops.1.phase = p.phase.1
+                    ops.2.phase = p.phase.2
+                    opIdx = 3  // consumed op0 + op1 + op2
+                }
+                hasContents.0 = true
+                continue
+            }
+
+            if inbus == 0 || (inbus == 1 && !hasContents.1) || (inbus == 2 && !hasContents.2) {
+                if isFbOp && feedbackShiftValue < 16 {
+                    var fbBuf: (Int32, Int32)
+                    switch opIdx {
+                    case 0: fbBuf = ops.0.fbBuf
+                    case 1: fbBuf = ops.1.fbBuf
+                    case 2: fbBuf = ops.2.fbBuf
+                    case 3: fbBuf = ops.3.fbBuf
+                    case 4: fbBuf = ops.4.fbBuf
+                    case 5: fbBuf = ops.5.fbBuf
+                    default: fbBuf = (0, 0)
+                    }
+                    computeFbMkI(outptr, phase0: opPhase, freq: opFreq,
+                                 atten1: atten1, atten2: atten2,
+                                 fbBuf: &fbBuf, fbShift: fbShiftMkI, add: shouldAdd, n: blockSize)
+                    switch opIdx {
+                    case 0: ops.0.fbBuf = fbBuf
+                    case 1: ops.1.fbBuf = fbBuf
+                    case 2: ops.2.fbBuf = fbBuf
+                    case 3: ops.3.fbBuf = fbBuf
+                    case 4: ops.4.fbBuf = fbBuf
+                    case 5: ops.5.fbBuf = fbBuf
+                    default: break
+                    }
+                } else {
+                    computePureMkI(outptr, phase0: opPhase, freq: opFreq,
+                                   atten1: atten1, atten2: atten2, add: shouldAdd, n: blockSize)
+                }
+            } else {
+                let inptr: UnsafePointer<Int32>
+                if inbus == 1 { inptr = UnsafePointer(bus1) }
+                else { inptr = UnsafePointer(bus2) }
+                computeModMkI(outptr, inptr, phase0: opPhase, freq: opFreq,
+                              atten1: atten1, atten2: atten2, add: shouldAdd, n: blockSize)
+            }
+
+            switch outbus {
+            case 1: hasContents.1 = true
+            case 2: hasContents.2 = true
+            default: break
+            }
+
+            let newPhase = opPhase &+ (opFreq &* Int32(blockSize))
+            switch opIdx {
+            case 0: ops.0.phase = newPhase
+            case 1: ops.1.phase = newPhase
+            case 2: ops.2.phase = newPhase
+            case 3: ops.3.phase = newPhase
+            case 4: ops.4.phase = newPhase
+            case 5: ops.5.phase = newPhase
+            default: break
+            }
+            opIdx += 1
         }
     }
 

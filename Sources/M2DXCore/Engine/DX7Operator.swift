@@ -17,6 +17,7 @@ package struct DX7Operator {
     var phase: Int32 = 0          // Q24 phase accumulator
     var freq: Int32 = 0           // Q24 per-sample phase increment
     var gainOut: Int32 = 0        // Previous block's gain (for interpolation)
+    var markIGainOut: UInt16 = UInt16(kMarkIEnvMax)  // Previous block's Mark I attenuation (for ramp)
     var levelIn: Int32 = 0        // EG level input to Exp2 (Q24)
     var fbBuf: (Int32, Int32) = (0, 0)  // Feedback delay line
     var fbShift: Int = 16         // Feedback shift (16=disabled, 1=max)
