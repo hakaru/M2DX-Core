@@ -97,6 +97,7 @@ public final class SynthEngine: @unchecked Sendable {
 
     private let downsampler = Downsampler()
     private var currentOversamplingMode: OversamplingMode = .off
+    private var currentFMEngine: FMEngine = .modern
 
     private var baseSampleRate: Float = 44100
     private var appliedVersion: UInt64 = 0
@@ -312,6 +313,9 @@ public final class SynthEngine: @unchecked Sendable {
         for i in 0..<kMaxVoices where voicesDX7[i].active { c += 1 }
         return c
     }
+
+    /// Public test accessor: number of currently-active voices (used by FMEngineSwitchTests).
+    public var debugActiveVoiceCount: Int { (0..<kMaxVoices).reduce(0) { $0 + (voicesDX7[$1].active ? 1 : 0) } }
 
     /// Test introspection: slotId of each active voice.
     internal func activeVoiceSlotIds() -> [Int] {
@@ -866,6 +870,18 @@ public final class SynthEngine: @unchecked Sendable {
                 for i in 0..<kMaxVoices { voicesDX7[i].setSampleRate(sampleRate) }
             }
 
+            let newFMEngine = FMEngine(rawValue: snapshot.fmEngine) ?? .modern
+            if newFMEngine != currentFMEngine {
+                currentFMEngine = newFMEngine
+                // Modern↔MarkI use incompatible gain scales; kill all voices immediately
+                // rather than letting them release through the old engine's path.
+                doAllNotesOff()
+                for i in 0..<kMaxVoices {
+                    voicesDX7[i].active = false
+                    voicesDX7[i].engineMode = newFMEngine
+                }
+            }
+
             algorithm = snapshot.algorithm
             masterVolume = snapshot.masterVolume
 
@@ -1230,6 +1246,7 @@ public final class SynthEngine: @unchecked Sendable {
                 }
 
                 voicesDX7[target].algorithm = slot.algorithm
+                voicesDX7[target].engineMode = currentFMEngine
                 voicesDX7[target].slotId = slotIdx
                 voicesDX7[target].feedbackShiftValue = feedbackShift(Int(slot.ops.0.feedback * 7.0 + 0.5))
 
