@@ -1,0 +1,32 @@
+// DX7MarkI.swift
+// M2DX-Core — Mark I OPS-chip FM path. Clean-room; see DX7MarkI_PROVENANCE.md.
+import Darwin
+
+let kMarkIEnvMax: Int32 = 1 << 14            // ENV_MAX
+private let kSinLogMask: UInt32 = 1023
+private let kNegBit: UInt16 = 0x8000
+
+/// Log-sine with quadrant folding. phi: top 10 bits of the Q24 phase.
+@inline(__always)
+private func markISinLog(_ phi: UInt32) -> UInt16 {
+    let index = UInt16(phi & kSinLogMask)
+    switch phi & (1024 * 3) {
+    case 0:               return kSinLogLUT[Int(index)]
+    case 1024:            return kSinLogLUT[Int(index ^ UInt16(kSinLogMask))]
+    case 1024 * 2:        return kSinLogLUT[Int(index)] | kNegBit
+    default:              return kSinLogLUT[Int(index ^ UInt16(kSinLogMask))] | kNegBit
+    }
+}
+
+/// OPS operator: log-add the attenuation, then exponentiate by shift. Returns Q24-ish.
+@inline(__always)
+func mkiSin(_ phase: Int32, _ atten: UInt16) -> Int32 {
+    let phi = UInt32(bitPattern: phase) >> 12        // top bits, unsigned (no signed shift)
+    var expVal = markISinLog(phi) &+ atten
+    let signed = (expVal & kNegBit) != 0
+    expVal &= ~kNegBit
+    let mantissa = Int32(4096) &+ Int32(kSinExpLUT[Int((expVal & 0x3FF) ^ 0x3FF)])
+    let shift = Int(expVal >> 10)
+    let result = shift >= 31 ? 0 : (mantissa >> shift)   // clamp: Swift traps on >=bitwidth
+    return signed ? ((-result - 1) << 13) : (result << 13)
+}
