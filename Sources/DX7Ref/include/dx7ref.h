@@ -7,6 +7,11 @@
 
 #include <stdint.h>
 
+// SwiftPM treats this file as the DX7Ref module's umbrella header (its name
+// matches the module name case-insensitively). Sibling public headers must be
+// reachable from here to be exported, so pull in the Mark I reference too.
+#include "dx7refmki.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
