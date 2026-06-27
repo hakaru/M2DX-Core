@@ -18,6 +18,7 @@ let package = Package(
     targets: [
         .target(
             name: "M2DXCore",
+            exclude: ["Engine/DX7MarkI_PROVENANCE.md"],
             linkerSettings: [
                 .linkedFramework("Accelerate"),
             ]

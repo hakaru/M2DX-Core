@@ -5,7 +5,7 @@ import Darwin
 
 /// Log-sine first-quadrant table, 1024 entries. Index folding + a sign bit
 /// produce the other quadrants in `mkiSin`. Read-only after init.
-nonisolated(unsafe) let kSinLogLUT: [UInt16] = {
+let kSinLogLUT: [UInt16] = {
     var t = [UInt16](repeating: 0, count: 1024)
     for i in 0..<1024 {
         let x = Darwin.sin(((0.5 + Double(i)) / 1024.0) * Double.pi / 2.0)
@@ -15,7 +15,7 @@ nonisolated(unsafe) let kSinLogLUT: [UInt16] = {
 }()
 
 /// Exponential table, 1024 entries. Read-only after init.
-nonisolated(unsafe) let kSinExpLUT: [UInt16] = {
+let kSinExpLUT: [UInt16] = {
     var t = [UInt16](repeating: 0, count: 1024)
     for i in 0..<1024 {
         t[i] = UInt16(((Darwin.pow(2.0, Double(i) / 1024.0) - 1.0) * 4096.0).rounded())
