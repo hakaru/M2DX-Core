@@ -30,3 +30,16 @@ func mkiSin(_ phase: Int32, _ atten: UInt16) -> Int32 {
     let result = shift >= 31 ? 0 : (mantissa >> shift)   // clamp: Swift traps on >=bitwidth
     return signed ? ((-result - 1) << 13) : (result << 13)
 }
+
+/// EG level (Q24, the same value Modern feeds to exp2) → Mark I log attenuation.
+/// Larger return value = MORE attenuation = quieter (opposite sense to Modern gain).
+@inline(__always)
+func markIAtten(_ levelIn: Int32) -> UInt16 {
+    let raw = Int32(kMarkIEnvMax) &- (levelIn >> 14)
+    let clamped = max(0, min(kMarkIEnvMax, raw))
+    return clamped == 0 ? UInt16(kMarkIEnvMax - 1) : UInt16(clamped)
+}
+
+/// Mark I silence threshold (attenuation ABOVE this = inaudible). Opposite sense
+/// to Modern's kGainThreshold. Do not alias the Modern constant.
+let kMarkILevelThresh: UInt16 = UInt16(kMarkIEnvMax - 100)
