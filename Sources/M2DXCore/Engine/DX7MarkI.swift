@@ -93,3 +93,53 @@ func computeFbMkI(_ output: UnsafeMutablePointer<Int32>, phase0: Int32, freq: In
     }
     fbBuf = (y0, y)
 }
+
+// MARK: - Fused multi-operator feedback chains (Alg 6: 2-op, Alg 4: 3-op)
+
+/// Heap-free params for the fused feedback chain (op0 + 1 or 2 followers).
+struct MarkIChainParams {
+    var phase: (Int32, Int32, Int32)
+    var freq: (Int32, Int32, Int32)
+    var levelIn: (Int32, Int32, Int32)
+}
+
+@inline(__always)
+func computeFb2MkI(_ output: UnsafeMutablePointer<Int32>, _ p: inout MarkIChainParams,
+                   atten01: UInt16, atten02: UInt16, fbBuf: inout (Int32, Int32), fbShift: Int) {
+    let dA0 = attenRamp(atten01, atten02, kBlockSize); var a0 = Int32(atten01)
+    let a1Target = markIAtten(p.levelIn.1)
+    var ph0 = p.phase.0; var ph1 = p.phase.1
+    var y0 = fbBuf.0; var y = fbBuf.1
+    for i in 0..<kBlockSize {
+        let scaledFb = (y0 &+ y) >> (fbShift + 1)
+        a0 &+= dA0
+        y0 = y
+        y = mkiSin(ph0 &+ scaledFb, UInt16(truncatingIfNeeded: max(0, a0)))
+        ph0 &+= p.freq.0
+        y = mkiSin(ph1 &+ y, a1Target)
+        ph1 &+= p.freq.1
+        output[i] = y
+    }
+    p.phase.0 = ph0; p.phase.1 = ph1
+    fbBuf = (y0, y)
+}
+
+@inline(__always)
+func computeFb3MkI(_ output: UnsafeMutablePointer<Int32>, _ p: inout MarkIChainParams,
+                   atten01: UInt16, atten02: UInt16, fbBuf: inout (Int32, Int32), fbShift: Int) {
+    let dA0 = attenRamp(atten01, atten02, kBlockSize); var a0 = Int32(atten01)
+    let a1 = markIAtten(p.levelIn.1); let a2 = markIAtten(p.levelIn.2)
+    var ph0 = p.phase.0; var ph1 = p.phase.1; var ph2 = p.phase.2
+    var y0 = fbBuf.0; var y = fbBuf.1
+    for i in 0..<kBlockSize {
+        let scaledFb = (y0 &+ y) >> (fbShift + 1)
+        a0 &+= dA0
+        y0 = y
+        y = mkiSin(ph0 &+ scaledFb, UInt16(truncatingIfNeeded: max(0, a0))); ph0 &+= p.freq.0
+        y = mkiSin(ph1 &+ y, a1); ph1 &+= p.freq.1
+        y = mkiSin(ph2 &+ y, a2); ph2 &+= p.freq.2
+        output[i] = y
+    }
+    p.phase.0 = ph0; p.phase.1 = ph1; p.phase.2 = ph2
+    fbBuf = (y0, y)
+}
