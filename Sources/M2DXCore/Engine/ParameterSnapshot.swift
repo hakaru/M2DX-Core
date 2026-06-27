@@ -138,6 +138,7 @@ public struct SynthParamSnapshot: Sendable {
     public var sampleRate: Float = 44100
     public var version: UInt64 = 0
     public var oversamplingMode: UInt8 = 0
+    public var fmEngine: UInt8 = 0
     public var masterTuning: Int16 = 0
     public var unisonCount: Int = 1
     public var unisonDetune: Float = 0

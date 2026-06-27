@@ -12,6 +12,13 @@ public enum OversamplingMode: UInt8, Sendable, CaseIterable {
     case lowCPU = 2
 }
 
+// MARK: - FM Engine
+
+public enum FMEngine: UInt8, Sendable, CaseIterable {
+    case modern = 0
+    case markI  = 1
+}
+
 // MARK: - MIDI Event
 
 /// MIDI event for lock-free queue transfer
@@ -467,6 +474,17 @@ public final class SynthEngine: @unchecked Sendable {
         shadowSnapshot.oversamplingMode = mode.rawValue
         bumpVersion()
     }
+
+    // MARK: - FM Engine
+
+    public func setFMEngine(_ engine: FMEngine) {
+        if engine == .markI { markIPrewarm() }   // materialize tables off the audio thread
+        shadowSnapshot.fmEngine = engine.rawValue
+        bumpVersion()
+    }
+
+    /// Test-only read of the shadow snapshot's engine selection.
+    public var debugShadowFMEngine: UInt8 { shadowSnapshot.fmEngine }
 
     // MARK: - Split Point / Slot Control
 
