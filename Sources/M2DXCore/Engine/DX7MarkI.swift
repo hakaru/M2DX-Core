@@ -43,3 +43,53 @@ func markIAtten(_ levelIn: Int32) -> UInt16 {
 /// Mark I silence threshold (attenuation ABOVE this = inaudible). Opposite sense
 /// to Modern's kGainThreshold. Do not alias the Modern constant.
 let kMarkILevelThresh: UInt16 = UInt16(kMarkIEnvMax - 100)
+
+// MARK: - Single-input FM kernels (mod / pure / fb)
+
+@inline(__always)
+private func attenRamp(_ a1: UInt16, _ a2: UInt16, _ n: Int) -> Int32 {
+    // Interpolate attenuation across the block, mirroring the Modern dgain shift.
+    let d = Int32(a2) - Int32(a1)
+    return (n == kBlockSize) ? ((d + Int32(n >> 1)) >> kLgBlockSize) : (d / Int32(n))
+}
+
+@inline(__always)
+func computeModMkI(_ output: UnsafeMutablePointer<Int32>, _ input: UnsafePointer<Int32>,
+                   phase0: Int32, freq: Int32, atten1: UInt16, atten2: UInt16, add: Bool, n: Int) {
+    let dA = attenRamp(atten1, atten2, n); var aAcc = Int32(atten1); var phase = phase0
+    for i in 0..<n {
+        aAcc &+= dA
+        let y = mkiSin(phase &+ input[i], UInt16(truncatingIfNeeded: max(0, aAcc)))
+        output[i] = add ? (output[i] &+ y) : y
+        phase &+= freq
+    }
+}
+
+@inline(__always)
+func computePureMkI(_ output: UnsafeMutablePointer<Int32>,
+                    phase0: Int32, freq: Int32, atten1: UInt16, atten2: UInt16, add: Bool, n: Int) {
+    let dA = attenRamp(atten1, atten2, n); var aAcc = Int32(atten1); var phase = phase0
+    for i in 0..<n {
+        aAcc &+= dA
+        let y = mkiSin(phase, UInt16(truncatingIfNeeded: max(0, aAcc)))
+        output[i] = add ? (output[i] &+ y) : y
+        phase &+= freq
+    }
+}
+
+@inline(__always)
+func computeFbMkI(_ output: UnsafeMutablePointer<Int32>, phase0: Int32, freq: Int32,
+                  atten1: UInt16, atten2: UInt16, fbBuf: inout (Int32, Int32),
+                  fbShift: Int, add: Bool, n: Int) {
+    let dA = attenRamp(atten1, atten2, n); var aAcc = Int32(atten1); var phase = phase0
+    var y0 = fbBuf.0; var y = fbBuf.1
+    for i in 0..<n {
+        aAcc &+= dA
+        let scaledFb = (y0 &+ y) >> (fbShift + 1)
+        y0 = y
+        y = mkiSin(phase &+ scaledFb, UInt16(truncatingIfNeeded: max(0, aAcc)))
+        output[i] = add ? (output[i] &+ y) : y
+        phase &+= freq
+    }
+    fbBuf = (y0, y)
+}
