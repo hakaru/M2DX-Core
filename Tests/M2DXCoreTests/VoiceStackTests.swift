@@ -139,4 +139,40 @@ import Testing
         high.render(into: l, bufferR: r, frameCount: fc)
         #expect(high.debugActiveVoiceCount == 16)  // single base 16 × 16 = 256 budget; one note × 16 = 16
     }
+
+    @Test("N× stack does not blow up output peak (1/N gain compensation)")
+    func gainCompensated() {
+        // Load INIT VOICE (DX7FactoryPresets.initVoice via loadDX7Preset — same API as
+        // PresetLoadTests.initVoiceViaAtomic). Fast attack (rates 99/99/99/99) ensures
+        // audible output within the first 8 render blocks.
+        func loadAudiblePreset(_ e: SynthEngine) {
+            e.sendMIDI(MIDIEvent(kind: .controlChange, data1: 123, data2: 0))  // allNotesOff
+            e.loadDX7Preset(DX7FactoryPresets.initVoice)
+        }
+
+        let fc = 64
+        let l = UnsafeMutablePointer<Float>.allocate(capacity: fc)
+        let r = UnsafeMutablePointer<Float>.allocate(capacity: fc)
+        defer { l.deallocate(); r.deallocate() }
+
+        let single = makeEngine()
+        loadAudiblePreset(single)
+        single.render(into: l, bufferR: r, frameCount: fc)   // apply preset snapshot
+        single.sendMIDI(MIDIEvent(kind: .noteOn, data1: 60, data2: UInt32(0x7F00)))
+        var peak1: Float = 0
+        for _ in 0..<8 { single.render(into: l, bufferR: r, frameCount: fc); for s in 0..<fc { peak1 = max(peak1, abs(l[s])) } }
+        #expect(peak1 > 0)   // sanity: single voice is audible (if this fails, preset setup is wrong)
+
+        let stacked = makeEngine()
+        loadAudiblePreset(stacked)
+        stacked.setVoiceStackMultiplier(4)
+        stacked.render(into: l, bufferR: r, frameCount: fc)  // apply preset + multiplier snapshot
+        stacked.sendMIDI(MIDIEvent(kind: .noteOn, data1: 60, data2: UInt32(0x7F00)))
+        var peak4: Float = 0
+        for _ in 0..<8 { stacked.render(into: l, bufferR: r, frameCount: fc); for s in 0..<fc { peak4 = max(peak4, abs(l[s])) } }
+
+        // Without 1/N compensation peak4 ≈ 4×peak1 (phase-locked copies sum coherently).
+        // With 1/N comp, peak4 should be ≈ peak1 (within 1.5× tolerance).
+        #expect(peak4 < peak1 * 1.5)
+    }
 }

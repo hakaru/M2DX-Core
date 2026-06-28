@@ -1121,7 +1121,8 @@ public final class SynthEngine: @unchecked Sendable {
             for i in 0..<snapshot.activeSlotCount where snapshot.config(at: i).enabled { enabled += 1 }
             layerGain = 1.0 / sqrtf(Float(max(1, enabled)))
         }
-        let vol = masterVolume * expression * ccVolume * unisonGain * layerGain
+        let voiceStackGain = 1.0 / Float(max(1, snapshot.voiceStackMultiplier))   // #89: phase-locked copies sum to N×; 1/N holds unity. (If empirically over-attenuated — copies not perfectly phase-locked — switch to 1/√N.)
+        let vol = masterVolume * expression * ccVolume * unisonGain * layerGain * voiceStackGain
         let maxV = effectiveMaxVoices
         let slotCount = snapshot.activeSlotCount
 
