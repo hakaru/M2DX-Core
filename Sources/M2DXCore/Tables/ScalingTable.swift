@@ -1,6 +1,6 @@
 // ScalingTable.swift
 // M2DX-Core — Velocity, KLS, OutputLevel, AMS, and EG rate scaling tables
-// Self-generated from DX7 published specifications. No external code referenced.
+// Tables/algorithms derived from MSFA/Dexed (Apache-2.0); see NOTICE.
 
 import Darwin
 

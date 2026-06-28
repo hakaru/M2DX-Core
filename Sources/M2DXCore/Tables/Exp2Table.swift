@@ -1,6 +1,6 @@
 // Exp2Table.swift
 // M2DX-Core — Q30 exp2 lookup table (1024 entries, delta+value interleaved)
-// Self-generated from mathematical definition. No external code referenced.
+// exp2 values self-generated (2^x); Q30 interpolation matches DEXED parity (Apache-2.0); see NOTICE.
 
 import Darwin
 
