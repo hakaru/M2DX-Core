@@ -157,6 +157,11 @@ public final class SynthEngine: @unchecked Sendable {
     private var effectiveMaxVoices: Int = 16
     private var dx7VoiceStealIdx: Int = 0
 
+    /// #79 portamento: MIDI note of the most recent note-on, the glide START
+    /// reference for the next note. Updated on EVERY note-on (even when off) so
+    /// enabling mid-phrase glides from the right note. nil until the first note.
+    private var previousNoteForGlide: UInt8?
+
     // Pan gains
     private var panGainL: UnsafeMutablePointer<Float> = .allocate(capacity: kMaxVoices)
     private var panGainR: UnsafeMutablePointer<Float> = .allocate(capacity: kMaxVoices)
@@ -316,6 +321,31 @@ public final class SynthEngine: @unchecked Sendable {
         shadowSnapshot.unisonDetune = max(0, min(50, detuneCents))
         shadowSnapshot.unisonDetuneMode = detuneMode
         bumpVersion()
+    }
+
+    /// #79 portamento on/off + glide Time (0…1). Time maps to a constant glide
+    /// rate (cents/sec) via `portamentoRate(fromTime:)`. Off (default) leaves the
+    /// render path bit-identical.
+    public func setPortamento(enabled: Bool, time: Float) {
+        shadowSnapshot.portamentoEnabled = enabled ? 1 : 0
+        shadowSnapshot.portamentoRateCentsPerSec = Self.portamentoRate(fromTime: max(0, min(1, time)))
+        bumpVersion()
+    }
+
+    /// Glide Time (0…1) → constant rate in cents/second. Exponential so the
+    /// control feels even: Time 0 ≈ near-instant (24000 c/s — a 2-octave leap in
+    /// 0.1 s), Time 1 ≈ slow (60 c/s — a semitone in ~1.7 s). Lives in the engine
+    /// so standalone and AUv3 agree. RT-safe (called from the UI thread only).
+    public static func portamentoRate(fromTime time: Float) -> Float {
+        let t = max(0, min(1, time))
+        let fast: Float = 24000, slow: Float = 60
+        return fast * powf(slow / fast, t)
+    }
+
+    /// Test accessor: a voice's current glide offset in cents (0 = arrived).
+    public func debugGlideOffsetCents(voice i: Int) -> Float {
+        guard i >= 0, i < kMaxVoices else { return 0 }
+        return voicesDX7[i].glideOffsetCents
     }
 
     /// Introspection for tests: number of currently-active voices.
@@ -1159,10 +1189,29 @@ public final class SynthEngine: @unchecked Sendable {
                     pitchEGSemitones = voicesDX7[i].pitchEG.semitones
                 }
 
+                // #79 portamento: advance the glide toward target at constant rate,
+                // then fold the remaining offset into the pitch factor below. When
+                // off / not gliding, wasGliding=false and glideFactor=1.0, so the
+                // condition and the factor are bit-identical to the non-glide path
+                // (×1.0f is exact). `wasGliding` keeps the SETTLING block (offset
+                // hitting 0) inside the factor branch so the final pitch is applied.
+                let wasGliding = voicesDX7[i].glideOffsetCents != 0
+                var glideFactor: Float = 1.0
+                if wasGliding {
+                    if snapshot.portamentoEnabled != 0 {
+                        let step = snapshot.portamentoRateCentsPerSec * (Float(blockSize) / sampleRate)
+                        let off = voicesDX7[i].glideOffsetCents
+                        voicesDX7[i].glideOffsetCents = (abs(off) <= step) ? 0 : off - (off > 0 ? step : -step)
+                    } else {
+                        voicesDX7[i].glideOffsetCents = 0   // portamento turned off mid-glide → snap to target
+                    }
+                    glideFactor = exp2f(voicesDX7[i].glideOffsetCents / 1200.0)
+                }
+
                 // Compute combined pitch factor including per-note pitch bend and global tuning
                 let pnpbFactor = voicesDX7[i].perNotePitchBendFactor
                 let tuningFactor = totalTuningOffset != 0 ? pitchBendFactorExt(totalTuningOffset) : 1.0
-                if sm.hasPitchMod || pnpbFactor != 1.0 || tuningFactor != 1.0 || pitchEGSemitones != 0 {
+                if sm.hasPitchMod || pnpbFactor != 1.0 || tuningFactor != 1.0 || pitchEGSemitones != 0 || wasGliding {
                     let slot = snapshot.slot(at: s)
                     // Mod wheel / foot / breath / aftertouch assigned to pitch scale the
                     // LFO vibrato DEPTH — they add vibrato, not a static pitch bend.
@@ -1171,7 +1220,7 @@ public final class SynthEngine: @unchecked Sendable {
                     let lfoPitch = lfoCurrentValue[s] * (Float(slot.lfoPMD) / 99.0 + controllerPitchMod) * sm.pmsDepth
                     // Detached (per-note-managed) voices ignore channel-wide pitch bend.
                     let chanBend = voicesDX7[i].detached ? Float(1.0) : pitchBendValueBySlot[s]
-                    let factor = chanBend * pitchBendFactorExt(lfoPitch + pitchEGSemitones) * pnpbFactor * tuningFactor
+                    let factor = chanBend * pitchBendFactorExt(lfoPitch + pitchEGSemitones) * pnpbFactor * tuningFactor * glideFactor
                     voicesDX7[i].applyPitchBend(factor)
                 }
 
@@ -1232,6 +1281,9 @@ public final class SynthEngine: @unchecked Sendable {
 
     private func doNoteOn(_ note: UInt8, velocity16: UInt16) {
         let snapshot = currentSnapshot
+        // #79: capture the previous note BEFORE this note-on overwrites it, so
+        // every voice seeded below glides from the last-played note.
+        let glidePrev = previousNoteForGlide
 
         // Fixed-size slot target buffer — no heap allocation
         var targetSlots: (Int, Int, Int, Int, Int, Int, Int, Int) = (0, 0, 0, 0, 0, 0, 0, 0)
@@ -1303,6 +1355,13 @@ public final class SynthEngine: @unchecked Sendable {
                 voicesDX7[target].applyParams(slot.ops.5, opIndex: 5)
 
                 voicesDX7[target].noteOn(transposedNote, velocity16: velocity16, midiNote: note, detuneFactor: detuneFactor)
+                // #79 portamento (Poly/Always): start at the previous note's pitch
+                // and glide to target. Slot transpose cancels (prev and note share
+                // it). Set explicitly every note-on so a reused voice never keeps a
+                // stale offset; 0 when off or on the first note (no glide).
+                voicesDX7[target].glideOffsetCents = (snapshot.portamentoEnabled != 0)
+                    ? Float(Int(glidePrev ?? note) - Int(note)) * 100.0
+                    : 0
 
                 // Master tuning is applied per-block in renderFramesDX7 alongside RPN
                 // fine/coarse tuning, so it takes effect immediately on held notes
@@ -1363,6 +1422,7 @@ public final class SynthEngine: @unchecked Sendable {
                 }
             }
         }
+        previousNoteForGlide = note   // #79: remember the last-played note for the next glide
     }
 
     /// Determine target slots without heap allocation. Results written to fixed-size tuple.

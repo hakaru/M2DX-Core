@@ -159,6 +159,10 @@ package struct DX7Voice {
     /// #76: per-voice pan [-1, 1] captured at note-on when the slot's panRandom
     /// is on. Read by the render mix only in random mode; -1 = L, +1 = R.
     var pan: Float = 0.0
+    /// #79 portamento: this voice's current pitch deviation (cents) from its
+    /// target note. Seeded at note-on (prev − target), decays to 0 on the render
+    /// path at the portamento rate. 0 = arrived (no glide; default = no effect).
+    var glideOffsetCents: Float = 0.0
     var detached: Bool = false
 
     // Pitch EG

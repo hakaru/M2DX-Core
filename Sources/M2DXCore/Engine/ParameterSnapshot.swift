@@ -149,6 +149,14 @@ public struct SynthParamSnapshot: Sendable {
     /// 1 = random (deterministic per slot+voice — recall-reproducible). #83.
     public var unisonDetuneMode: UInt8 = 0
 
+    /// #79 portamento (poly glide). 0 = off (default — OFF render path is
+    /// bit-identical). When on, each note-on starts at the previous note's pitch
+    /// and glides to target at `portamentoRateCentsPerSec` (constant rate).
+    public var portamentoEnabled: UInt8 = 0
+    /// Glide speed in cents/second (only used while enabled). Derived from the
+    /// UI Time via `SynthEngine.portamentoRate(fromTime:)`.
+    public var portamentoRateCentsPerSec: Float = 1200
+
     public init() {
         slots = (SlotSnapshot(), SlotSnapshot(), SlotSnapshot(), SlotSnapshot(),
                  SlotSnapshot(), SlotSnapshot(), SlotSnapshot(), SlotSnapshot())
