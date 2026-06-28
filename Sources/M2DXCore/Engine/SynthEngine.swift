@@ -311,9 +311,10 @@ public final class SynthEngine: @unchecked Sendable {
         bumpVersion()
     }
 
-    public func setUnison(count: Int, detuneCents: Float) {
+    public func setUnison(count: Int, detuneCents: Float, detuneMode: UInt8 = 0) {
         shadowSnapshot.unisonCount = max(1, min(8, count))
         shadowSnapshot.unisonDetune = max(0, min(50, detuneCents))
+        shadowSnapshot.unisonDetuneMode = detuneMode
         bumpVersion()
     }
 
@@ -668,7 +669,7 @@ public final class SynthEngine: @unchecked Sendable {
     /// thread observes `.layer` by reading `shadowSnapshot.timbreMode` off the
     /// snapshot ring (it sets its own `currentTimbreMode` internally), so writing
     /// the shadow field and bumping the version is sufficient.
-    public func setLayerPartition(parts: Int, unison: Int, detuneCents: Float = 0) {
+    public func setLayerPartition(parts: Int, unison: Int, detuneCents: Float = 0, detuneMode: UInt8 = 0) {
         let p = max(1, min(kMaxSlots, parts))
 
         // Seed newly-activated slots with slot 0's patch, exactly like
@@ -697,6 +698,7 @@ public final class SynthEngine: @unchecked Sendable {
         }
         shadowSnapshot.unisonCount = max(1, min(8, unison))
         shadowSnapshot.unisonDetune = max(0, min(50, detuneCents))
+        shadowSnapshot.unisonDetuneMode = detuneMode
         shadowSnapshot.timbreMode = TimbreMode.layer.rawValue
         shadowSnapshot.activeSlotCount = kMaxSlots
         bumpVersion()
@@ -1245,7 +1247,10 @@ public final class SynthEngine: @unchecked Sendable {
             let unisonDetune = snapshot.unisonDetune
 
             for u in 0..<unisonCount {
-                let detuneFactor = unisonDetuneFactor(index: u, count: unisonCount, detuneCents: unisonDetune)
+                // #83: even spread (default, bit-identical) or deterministic random.
+                let detuneFactor = snapshot.unisonDetuneMode == 0
+                    ? unisonDetuneFactor(index: u, count: unisonCount, detuneCents: unisonDetune)
+                    : unisonDetuneFactorRandom(slotIndex: slotIdx, voiceIndex: u, detuneCents: unisonDetune)
 
                 let transposedNote = UInt8(clamping: Int(note) + Int(slot.transpose))
                 let maxV = effectiveMaxVoices

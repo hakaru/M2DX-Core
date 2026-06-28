@@ -143,3 +143,21 @@ package func unisonDetuneFactor(index i: Int, count n: Int, detuneCents d: Float
     let cents = (2.0 * Float(i) / Float(n - 1) - 1.0) * d
     return exp2(cents / 1200.0)
 }
+
+/// Random (#83) detune factor for unison `voiceIndex` of slot `slotIndex`, spread
+/// within ±`detuneCents`. Deterministic — seeded ONLY by (slot, voice) via one
+/// SplitMix64 step — so a held note's spread is stable and a recalled stack
+/// reproduces bit-for-bit. RT-safe (no heap / lock / `Float.random`).
+@inline(__always)
+package func unisonDetuneFactorRandom(slotIndex: Int, voiceIndex: Int, detuneCents d: Float) -> Float {
+    guard d != 0 else { return 1.0 }
+    var z = UInt64(0xA0761D6478BD642F)
+        ^ (UInt64(bitPattern: Int64(slotIndex)) &* 0x9E3779B97F4A7C15)
+        ^ (UInt64(bitPattern: Int64(voiceIndex)) &* 0xD1B54A32D192ED03)
+    z = z &+ 0x9E3779B97F4A7C15                          // SplitMix64 step
+    z = (z ^ (z >> 30)) &* 0xBF58476D1CE4E5B9
+    z = (z ^ (z >> 27)) &* 0x94D049BB133111EB
+    z = z ^ (z >> 31)
+    let signed = Float(Int32(bitPattern: UInt32(truncatingIfNeeded: z))) / Float(0x80000000)  // [-1,1)
+    return exp2((signed * d) / 1200.0)
+}
