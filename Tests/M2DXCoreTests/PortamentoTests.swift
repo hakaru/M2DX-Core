@@ -55,6 +55,22 @@ struct PortamentoTests {
         #expect(abs(off - (-1200)) < 5)           // ≈ -1200, minus one tiny slow step
     }
 
+    @Test("a note that triggers no voice (coverage gap) does not anchor the next glide")
+    func silentNoteDoesNotAnchorGlide() {
+        let s = engine(on: true, time: 1)         // slow → minimal per-block advance
+        s.setTimbreMode(.split, splitPoint: 60)   // slot 0 = [0,59], slot 1 = [60,127]
+        s.setSlotEnabled(1, enabled: false)       // notes 60…127 now uncovered
+        renderBlock(s, frames: 64)                // consume the split snapshot
+        noteOn(s, 48)                             // audible (slot 0) → glide anchor = 48
+        renderBlock(s, frames: 64)
+        noteOn(s, 100)                            // in the gap → triggers NO voice
+        renderBlock(s, frames: 64)
+        noteOn(s, 50)                             // audible → must glide from 48, not 100
+        renderBlock(s, frames: 64)
+        let off = s.debugGlideOffsetCents(voice: 1)
+        #expect(abs(off - (-200)) < 10)           // (48-50)*100 = -200, NOT (100-50)*100 = +5000
+    }
+
     @Test("the first note (no previous) does not glide")
     func firstNoteNoGlide() {
         let s = engine(on: true, time: 0.5)

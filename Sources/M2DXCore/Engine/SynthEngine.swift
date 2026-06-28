@@ -1284,6 +1284,7 @@ public final class SynthEngine: @unchecked Sendable {
         // #79: capture the previous note BEFORE this note-on overwrites it, so
         // every voice seeded below glides from the last-played note.
         let glidePrev = previousNoteForGlide
+        var anyVoiceTriggered = false   // only an AUDIBLE note becomes the next glide anchor
 
         // Fixed-size slot target buffer — no heap allocation
         var targetSlots: (Int, Int, Int, Int, Int, Int, Int, Int) = (0, 0, 0, 0, 0, 0, 0, 0)
@@ -1362,6 +1363,7 @@ public final class SynthEngine: @unchecked Sendable {
                 voicesDX7[target].glideOffsetCents = (snapshot.portamentoEnabled != 0)
                     ? Float(Int(glidePrev ?? note) - Int(note)) * 100.0
                     : 0
+                anyVoiceTriggered = true
 
                 // Master tuning is applied per-block in renderFramesDX7 alongside RPN
                 // fine/coarse tuning, so it takes effect immediately on held notes
@@ -1422,7 +1424,10 @@ public final class SynthEngine: @unchecked Sendable {
                 }
             }
         }
-        previousNoteForGlide = note   // #79: remember the last-played note for the next glide
+        // #79: anchor the next glide to the last AUDIBLE note only — a note that
+        // triggered no voice (e.g. a coverage gap from a disabled slot) must not
+        // become the glide start, or the next note would glide from an unheard pitch.
+        if anyVoiceTriggered { previousNoteForGlide = note }
     }
 
     /// Determine target slots without heap allocation. Results written to fixed-size tuple.
