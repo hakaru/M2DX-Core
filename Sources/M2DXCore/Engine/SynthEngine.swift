@@ -968,12 +968,11 @@ public final class SynthEngine: @unchecked Sendable {
             case .layer: voicesForMode = kLayerBaseVoices   // #89: was kMaxVoices; decoupled so LAYER stays 128 while the buffer grows.
             }
             let baseVoices = (currentOversamplingMode == .off) ? voicesForMode : max(8, voicesForMode / 2)
-            // Scale the voice budget by unison (single 16 × unison 8 = 128).
-            // Capped at the kMaxVoices buffer (2048). In an optimized (Release)
-            // build 128 voices render at ~5% of the audio deadline, so this is
-            // RT-safe — the earlier 64 cap was based on a misleading Debug-build
-            // measurement (Debug is ~200× slower than Release for the DSP loop).
-            effectiveMaxVoices = min(kMaxVoices, baseVoices * max(1, snapshot.unisonCount) * max(1, snapshot.voiceStackMultiplier))
+            // #89: preserve the pre-Voice-Stack budget exactly — min(legacy 128 cap, base×unison) —
+            // so LAYER/dual + unison≥2 at stack=1 stay byte-identical to pre-#89 (spec §2). The
+            // Voice Stack multiplier then scales that up to the kMaxVoices (2048) buffer.
+            let preStackVoices = min(kLayerBaseVoices, baseVoices * max(1, snapshot.unisonCount))
+            effectiveMaxVoices = min(kMaxVoices, preStackVoices * max(1, snapshot.voiceStackMultiplier))
 
             // Reap voices outside the (possibly shrunken) active range. The render
             // loop only runs checkActive() within effectiveMaxVoices, so a voice
@@ -1475,7 +1474,7 @@ public final class SynthEngine: @unchecked Sendable {
             }
         case .layer:
             // Layer mode routes every played note to all enabled slots (stacking
-            // patches across the 128-voice pool). Same fan-out as tx816 today.
+            // patches across the voice pool). Same fan-out as tx816 today.
             for i in 0..<snapshot.activeSlotCount where snapshot.config(at: i).enabled {
                 appendTarget(i, to: &result, count: &count)
             }

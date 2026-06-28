@@ -173,6 +173,23 @@ import Testing
 
         // Without 1/N compensation peak4 ≈ 4×peak1 (phase-locked copies sum coherently).
         // With 1/N comp, peak4 should be ≈ peak1 (within 1.5× tolerance).
+        #expect(peak4 > 0)   // guard: 1/N must not silence the stack
         #expect(peak4 < peak1 * 1.5)
+    }
+
+    @Test("I-1: LAYER + unison≥2 at stack=1 keeps the legacy 128 budget (spec §2 LAYER unchanged)")
+    func layerUnisonStackOneStillLegacyCap() {
+        let engine = makeEngine()
+        engine.setLayerPartition(parts: 4, unison: 2, detuneCents: 0) // TX816 4×2 shape, unisonCount=2, stack defaults 1
+        let fc = 64
+        let l = UnsafeMutablePointer<Float>.allocate(capacity: fc)
+        let r = UnsafeMutablePointer<Float>.allocate(capacity: fc)
+        defer { l.deallocate(); r.deallocate() }
+        engine.render(into: l, bufferR: r, frameCount: fc) // apply the layer snapshot first
+        // 40 notes × (4 slots × 2 unison = 8 voices) = 320 demanded; legacy cap is 128.
+        for n in 36..<76 { engine.sendMIDI(MIDIEvent(kind: .noteOn, data1: UInt8(n), data2: UInt32(0x7F00))) }
+        engine.render(into: l, bufferR: r, frameCount: fc)
+        #expect(engine.debugActiveVoiceCount <= 128)  // FAILS before fix (would reach ~256)
+        #expect(engine.debugActiveVoiceCount > 64)     // confirms it really uses the 128 budget
     }
 }
