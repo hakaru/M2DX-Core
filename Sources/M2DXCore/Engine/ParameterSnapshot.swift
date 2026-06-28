@@ -33,6 +33,9 @@ public struct SlotConfig: Sendable {
     public var gain: Float = 1.0
     /// Per-slot stereo pan applied in render. -1 = hard left … 0 = center … +1 = hard right.
     public var pan: Float = 0.0
+    /// #76: when true, each note-on draws a deterministic random pan (per slot+
+    /// voice) instead of this fixed `pan`. Default false = fixed pan (unchanged).
+    public var panRandom: Bool = false
 
     public init(voiceStart: Int = 0, voiceCount: Int = 16,
                 noteRangeLow: UInt8 = 0, noteRangeHigh: UInt8 = 127,

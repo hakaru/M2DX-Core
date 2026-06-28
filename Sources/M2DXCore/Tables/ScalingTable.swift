@@ -161,3 +161,18 @@ package func unisonDetuneFactorRandom(slotIndex: Int, voiceIndex: Int, detuneCen
     let signed = Float(Int32(bitPattern: UInt32(truncatingIfNeeded: z))) / Float(0x80000000)  // [-1,1)
     return exp2((signed * d) / 1200.0)
 }
+
+/// Random (#76) pan in [-1, 1) for unison `voiceIndex` of slot `slotIndex`.
+/// Deterministic per (slot, voice) — same family as `unisonDetuneFactorRandom`
+/// but a distinct seed base so pan and detune randoms are independent. RT-safe.
+@inline(__always)
+package func layerPanRandom(slotIndex: Int, voiceIndex: Int) -> Float {
+    var z = UInt64(0x2545F4914F6CDD1D)                  // distinct base from detune
+        ^ (UInt64(bitPattern: Int64(slotIndex)) &* 0x9E3779B97F4A7C15)
+        ^ (UInt64(bitPattern: Int64(voiceIndex)) &* 0xD1B54A32D192ED03)
+    z = z &+ 0x9E3779B97F4A7C15                          // SplitMix64 step
+    z = (z ^ (z >> 30)) &* 0xBF58476D1CE4E5B9
+    z = (z ^ (z >> 27)) &* 0x94D049BB133111EB
+    z = z ^ (z >> 31)
+    return Float(Int32(bitPattern: UInt32(truncatingIfNeeded: z))) / Float(0x80000000)  // [-1,1)
+}

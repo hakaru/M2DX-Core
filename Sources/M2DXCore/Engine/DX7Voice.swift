@@ -156,6 +156,9 @@ package struct DX7Voice {
     var perNotePitchBendFactor: Float = 1.0
     var perNoteVolume: Float = 1.0
     var perNoteAftertouch: Float = 0.0
+    /// #76: per-voice pan [-1, 1] captured at note-on when the slot's panRandom
+    /// is on. Read by the render mix only in random mode; -1 = L, +1 = R.
+    var pan: Float = 0.0
     var detached: Bool = false
 
     // Pitch EG

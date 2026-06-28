@@ -554,6 +554,16 @@ public final class SynthEngine: @unchecked Sendable {
         bumpVersion()
     }
 
+    /// #76: per-slot random-pan toggle. When true, each note-on draws a
+    /// deterministic random pan (per slot+voice) instead of the fixed `pan`.
+    public func setSlotPanRandom(_ slotIdx: Int, _ random: Bool) {
+        guard slotIdx >= 0, slotIdx < kMaxSlots else { return }
+        var c = shadowSnapshot.config(at: slotIdx)
+        c.panRandom = random
+        shadowSnapshot.setConfig(at: slotIdx, c)
+        bumpVersion()
+    }
+
     // MARK: - Render Overload Monitoring
 
     /// Render overload count for adaptive buffer monitoring.
@@ -1100,7 +1110,10 @@ public final class SynthEngine: @unchecked Sendable {
         }
 
         for i in 0..<maxV {
-            let pan = snapshot.config(at: voicesDX7[i].slotId).pan
+            // #76: random pan reads the per-voice value captured at note-on; even
+            // (default) reads the live slot pan — bit-identical to before.
+            let cfg = snapshot.config(at: voicesDX7[i].slotId)
+            let pan = cfg.panRandom ? voicesDX7[i].pan : cfg.pan
             if pan == 0 {
                 panGainL[i] = 0.70710678
                 panGainR[i] = 0.70710678
@@ -1276,6 +1289,10 @@ public final class SynthEngine: @unchecked Sendable {
                 voicesDX7[target].algorithm = slot.algorithm
                 voicesDX7[target].engineMode = currentFMEngine
                 voicesDX7[target].slotId = slotIdx
+                // #76: capture a deterministic random pan at note-on (random mode).
+                if snapshot.config(at: slotIdx).panRandom {
+                    voicesDX7[target].pan = layerPanRandom(slotIndex: slotIdx, voiceIndex: u)
+                }
                 voicesDX7[target].feedbackShiftValue = feedbackShift(Int(slot.ops.0.feedback * 7.0 + 0.5))
 
                 voicesDX7[target].applyParams(slot.ops.0, opIndex: 0)
