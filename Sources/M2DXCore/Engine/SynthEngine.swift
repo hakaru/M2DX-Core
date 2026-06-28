@@ -323,6 +323,13 @@ public final class SynthEngine: @unchecked Sendable {
         bumpVersion()
     }
 
+    /// #89 experimental Voice Stack multiplier. 1 = off (default). Clamped 1...16.
+    /// Publishes via the shadow snapshot exactly like setUnison.
+    public func setVoiceStackMultiplier(_ m: Int) {
+        shadowSnapshot.voiceStackMultiplier = max(1, min(16, m))
+        bumpVersion()
+    }
+
     /// #79 portamento on/off + glide Time (0…1). Time maps to a constant glide
     /// rate (cents/sec) via `portamentoRate(fromTime:)`. Off (default) leaves the
     /// render path bit-identical.
@@ -958,7 +965,7 @@ public final class SynthEngine: @unchecked Sendable {
             case .single: voicesForMode = 16
             case .dual, .split: voicesForMode = 32
             case .tx816: voicesForMode = 64
-            case .layer: voicesForMode = kMaxVoices   // 128
+            case .layer: voicesForMode = kLayerBaseVoices   // #89: was kMaxVoices; decoupled so LAYER stays 128 while the buffer grows.
             }
             let baseVoices = (currentOversamplingMode == .off) ? voicesForMode : max(8, voicesForMode / 2)
             // Scale the voice budget by unison (single 16 × unison 8 = 128).

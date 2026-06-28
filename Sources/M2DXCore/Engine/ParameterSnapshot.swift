@@ -148,6 +148,10 @@ public struct SynthParamSnapshot: Sendable {
     /// Unison/layer detune distribution: 0 = even spread (default, unchanged),
     /// 1 = random (deterministic per slot+voice — recall-reproducible). #83.
     public var unisonDetuneMode: UInt8 = 0
+    /// #89 experimental Voice Stack: duplicate each note into N identical internal
+    /// voices (1/2/4/8/16×) to probe device polyphony/CPU limits. 1 = off (default,
+    /// behaviour unchanged). Multiplies the unison group; capped by effectiveMaxVoices.
+    public var voiceStackMultiplier: Int = 1
 
     /// #79 portamento (poly glide). 0 = off (default — OFF render path is
     /// bit-identical). When on, each note-on starts at the previous note's pitch

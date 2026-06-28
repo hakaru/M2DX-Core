@@ -4,7 +4,8 @@
 // MARK: - Constants
 
 package let kNumOperators = 6
-package let kMaxVoices = 128
+package let kMaxVoices = 2048            // #89: raised 128→2048 (voicesDX7 heap buffer / hard ceiling). ~2MB; RT-safe (init-time alloc; render iterates effectiveMaxVoices only).
+package let kLayerBaseVoices = 128       // #89: normal LAYER voice budget, decoupled from the kMaxVoices buffer so existing LAYER behaviour is unchanged.
 package let kNumAlgorithms = 32
 package let kBlockSize = 64
 package let kLgBlockSize: Int32 = 6  // log2(kBlockSize)
