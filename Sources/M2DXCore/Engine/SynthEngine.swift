@@ -969,11 +969,11 @@ public final class SynthEngine: @unchecked Sendable {
             }
             let baseVoices = (currentOversamplingMode == .off) ? voicesForMode : max(8, voicesForMode / 2)
             // Scale the voice budget by unison (single 16 × unison 8 = 128).
-            // Capped at the kMaxVoices buffer (128). In an optimized (Release)
+            // Capped at the kMaxVoices buffer (2048). In an optimized (Release)
             // build 128 voices render at ~5% of the audio deadline, so this is
             // RT-safe — the earlier 64 cap was based on a misleading Debug-build
             // measurement (Debug is ~200× slower than Release for the DSP loop).
-            effectiveMaxVoices = min(kMaxVoices, baseVoices * max(1, snapshot.unisonCount))
+            effectiveMaxVoices = min(kMaxVoices, baseVoices * max(1, snapshot.unisonCount) * max(1, snapshot.voiceStackMultiplier))
 
             // Reap voices outside the (possibly shrunken) active range. The render
             // loop only runs checkActive() within effectiveMaxVoices, so a voice
@@ -1318,8 +1318,10 @@ public final class SynthEngine: @unchecked Sendable {
 
             let unisonCount = max(1, snapshot.unisonCount)
             let unisonDetune = snapshot.unisonDetune
+            let voiceStack = max(1, snapshot.voiceStackMultiplier)   // #89
 
-            for u in 0..<unisonCount {
+            for _ in 0..<voiceStack {                                // #89: duplicate the unison group N times (identical copies)
+                for u in 0..<unisonCount {
                 // #83: even spread (default, bit-identical) or deterministic random.
                 let detuneFactor = snapshot.unisonDetuneMode == 0
                     ? unisonDetuneFactor(index: u, count: unisonCount, detuneCents: unisonDetune)
@@ -1334,7 +1336,7 @@ public final class SynthEngine: @unchecked Sendable {
                     voicesDX7[i].checkActive()
                     if !voicesDX7[i].active { target = i; foundFree = true; break }
                 }
-                if !foundFree && unisonCount == 1 {
+                if !foundFree && unisonCount == 1 && voiceStack == 1 {   // #89: no retrigger-collapse while stacking — steal instead so N distinct voices survive a full pool
                     for i in 0..<maxV {
                         if voicesDX7[i].midiNote == note && voicesDX7[i].slotId == slotIdx {
                             target = i; foundFree = true; break
@@ -1429,6 +1431,7 @@ public final class SynthEngine: @unchecked Sendable {
                 if bendFactor != 1.0 {
                     voicesDX7[target].applyPitchBend(bendFactor)
                 }
+            }
             }
         }
         // #79: anchor the next glide to the last AUDIBLE note only — a note that

@@ -39,4 +39,104 @@ import Testing
         #expect(engine.debugActiveVoiceCount <= 128)   // capped at kLayerBaseVoices, not 2048
         #expect(engine.debugActiveVoiceCount > 64)      // confirms it really uses the 128 budget
     }
+
+    @Test("stack multiplies a single note-on into N voices", arguments: [1, 2, 4, 8])
+    func stackProducesNVoices(mult: Int) {
+        let engine = makeEngine()
+        engine.setVoiceStackMultiplier(mult)
+        let fc = 64
+        let l = UnsafeMutablePointer<Float>.allocate(capacity: fc)
+        let r = UnsafeMutablePointer<Float>.allocate(capacity: fc)
+        defer { l.deallocate(); r.deallocate() }
+        engine.sendMIDI(MIDIEvent(kind: .noteOn, data1: 60, data2: UInt32(0x7F00)))
+        engine.render(into: l, bufferR: r, frameCount: fc)
+        #expect(engine.debugActiveVoiceCount == mult)
+    }
+
+    @Test("note-off releases ALL stacked voices (no leak)")
+    func noteOffReleasesAll() {
+        let engine = makeEngine()
+        engine.setVoiceStackMultiplier(4)
+        let fc = 64
+        let l = UnsafeMutablePointer<Float>.allocate(capacity: fc)
+        let r = UnsafeMutablePointer<Float>.allocate(capacity: fc)
+        defer { l.deallocate(); r.deallocate() }
+        engine.sendMIDI(MIDIEvent(kind: .noteOn, data1: 60, data2: UInt32(0x7F00)))
+        engine.render(into: l, bufferR: r, frameCount: fc)
+        #expect(engine.debugActiveVoiceCount == 4)
+        engine.sendMIDI(MIDIEvent(kind: .noteOff, data1: 60, data2: 0))
+        for _ in 0..<2000 { engine.render(into: l, bufferR: r, frameCount: fc) }
+        #expect(engine.debugActiveVoiceCount == 0)
+    }
+
+    @Test("all-notes-off clears stacked voices")
+    func allNotesOffClearsStack() {
+        let engine = makeEngine()
+        engine.setVoiceStackMultiplier(8)
+        let fc = 64
+        let l = UnsafeMutablePointer<Float>.allocate(capacity: fc)
+        let r = UnsafeMutablePointer<Float>.allocate(capacity: fc)
+        defer { l.deallocate(); r.deallocate() }
+        engine.sendMIDI(MIDIEvent(kind: .noteOn, data1: 64, data2: UInt32(0x7F00)))
+        engine.render(into: l, bufferR: r, frameCount: fc)
+        #expect(engine.debugActiveVoiceCount == 8)
+        engine.sendMIDI(MIDIEvent(kind: .controlChange, data1: 123, data2: 0)) // CC123 All Notes Off
+        for _ in 0..<2000 { engine.render(into: l, bufferR: r, frameCount: fc) }
+        #expect(engine.debugActiveVoiceCount == 0)
+    }
+
+    @Test("LAYER 8 slots × 2× = 16 voices for one note")
+    func layerTimesStack() {
+        let engine = makeEngine()
+        engine.setLayerPartition(parts: 8, unison: 1, detuneCents: 0)
+        engine.setVoiceStackMultiplier(2)
+        let fc = 64
+        let l = UnsafeMutablePointer<Float>.allocate(capacity: fc)
+        let r = UnsafeMutablePointer<Float>.allocate(capacity: fc)
+        defer { l.deallocate(); r.deallocate() }
+        // render once first so the LAYER + stack snapshot is applied before the note is drained
+        engine.render(into: l, bufferR: r, frameCount: fc)
+        engine.sendMIDI(MIDIEvent(kind: .noteOn, data1: 60, data2: UInt32(0x7F00)))
+        engine.render(into: l, bufferR: r, frameCount: fc)
+        #expect(engine.debugActiveVoiceCount == 16)
+    }
+
+    @Test("sustain pedal holds stacked voices through note-off, releases on pedal up")
+    func sustainHoldsStack() {
+        let engine = makeEngine()
+        engine.setVoiceStackMultiplier(4)
+        let fc = 64
+        let l = UnsafeMutablePointer<Float>.allocate(capacity: fc)
+        let r = UnsafeMutablePointer<Float>.allocate(capacity: fc)
+        defer { l.deallocate(); r.deallocate() }
+        engine.sendMIDI(MIDIEvent(kind: .controlChange, data1: 64, data2: 0x7F000000)) // sustain ON (>=0x40000000)
+        engine.sendMIDI(MIDIEvent(kind: .noteOn, data1: 60, data2: UInt32(0x7F00)))
+        engine.render(into: l, bufferR: r, frameCount: fc)
+        engine.sendMIDI(MIDIEvent(kind: .noteOff, data1: 60, data2: 0))
+        for _ in 0..<200 { engine.render(into: l, bufferR: r, frameCount: fc) }
+        #expect(engine.debugActiveVoiceCount == 4)   // still held by sustain
+        engine.sendMIDI(MIDIEvent(kind: .controlChange, data1: 64, data2: 0)) // sustain OFF
+        for _ in 0..<2000 { engine.render(into: l, bufferR: r, frameCount: fc) }
+        #expect(engine.debugActiveVoiceCount == 0)
+    }
+
+    @Test("multiplier clamps to 1...16 (behavioural)")
+    func clampBounds() {
+        let fc = 64
+        let l = UnsafeMutablePointer<Float>.allocate(capacity: fc)
+        let r = UnsafeMutablePointer<Float>.allocate(capacity: fc)
+        defer { l.deallocate(); r.deallocate() }
+
+        let low = makeEngine()
+        low.setVoiceStackMultiplier(0)             // clamps to 1
+        low.sendMIDI(MIDIEvent(kind: .noteOn, data1: 60, data2: UInt32(0x7F00)))
+        low.render(into: l, bufferR: r, frameCount: fc)
+        #expect(low.debugActiveVoiceCount == 1)
+
+        let high = makeEngine()
+        high.setVoiceStackMultiplier(999)          // clamps to 16
+        high.sendMIDI(MIDIEvent(kind: .noteOn, data1: 60, data2: UInt32(0x7F00)))
+        high.render(into: l, bufferR: r, frameCount: fc)
+        #expect(high.debugActiveVoiceCount == 16)  // single base 16 × 16 = 256 budget; one note × 16 = 16
+    }
 }
