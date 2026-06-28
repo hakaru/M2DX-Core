@@ -400,6 +400,10 @@ static inline uint16_t mki_clamp_atten(int32_t acc) {
     return (uint16_t)((uint32_t)v & 0xFFFFu);   // truncatingIfNeeded
 }
 
+// OPS modulation alignment: forward modulation feeds the carrier phase 3 bits
+// lower than MSFA. Twin of Swift `markIModScale` at the ÷8 default (Q12 scale 512 → v>>3).
+static inline int32_t mki_mod_scale(int32_t v) { return v >> 3; }
+
 static void compute_mod_mki(int32_t *output, const int32_t *input,
                             int32_t phase0, int32_t freq,
                             uint16_t atten1, uint16_t atten2, int add, int n) {
@@ -408,7 +412,7 @@ static void compute_mod_mki(int32_t *output, const int32_t *input,
     int32_t phase = phase0;
     for (int i = 0; i < n; i++) {
         aAcc += dA;
-        int32_t y = dx7refmki_sin(phase + input[i], mki_clamp_atten(aAcc));
+        int32_t y = dx7refmki_sin(phase + mki_mod_scale(input[i]), mki_clamp_atten(aAcc));
         if (add) output[i] += y; else output[i] = y;
         phase += freq;
     }
@@ -476,7 +480,7 @@ static void compute_fb2_mki(int32_t *output, mki_chain_params_t *p,
         y0 = y;
         y = dx7refmki_sin(ph0 + scaled_fb, mki_clamp_atten(a0));
         ph0 += p->freq[0];
-        y = dx7refmki_sin(ph1 + y, a1Target);
+        y = dx7refmki_sin(ph1 + mki_mod_scale(y), a1Target);
         ph1 += p->freq[1];
         output[i] = y;
     }
@@ -504,8 +508,8 @@ static void compute_fb3_mki(int32_t *output, mki_chain_params_t *p,
         a0 += dA0;
         y0 = y;
         y = dx7refmki_sin(ph0 + scaled_fb, mki_clamp_atten(a0)); ph0 += p->freq[0];
-        y = dx7refmki_sin(ph1 + y, a1); ph1 += p->freq[1];
-        y = dx7refmki_sin(ph2 + y, a2); ph2 += p->freq[2];
+        y = dx7refmki_sin(ph1 + mki_mod_scale(y), a1); ph1 += p->freq[1];
+        y = dx7refmki_sin(ph2 + mki_mod_scale(y), a2); ph2 += p->freq[2];
         output[i] = y;
     }
     p->phase[0] = ph0;

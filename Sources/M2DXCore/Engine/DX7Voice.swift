@@ -251,9 +251,10 @@ package struct DX7Voice {
         blockSize: Int
     ) {
         guard active else { return }
-        switch engineMode {
-        case .modern: renderBlockModern(output: output, bus1: bus1, bus2: bus2, blockSize: blockSize)
-        case .markI:  renderBlockMarkI(output: output, bus1: bus1, bus2: bus2, blockSize: blockSize)
+        if engineMode == .modern {
+            renderBlockModern(output: output, bus1: bus1, bus2: bus2, blockSize: blockSize)
+        } else {
+            renderBlockMarkI(output: output, bus1: bus1, bus2: bus2, blockSize: blockSize)
         }
     }
 

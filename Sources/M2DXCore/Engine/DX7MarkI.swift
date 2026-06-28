@@ -44,6 +44,22 @@ func markIAtten(_ levelIn: Int32) -> UInt16 {
 /// to Modern's kGainThreshold. Do not alias the Modern constant.
 let kMarkILevelThresh: UInt16 = UInt16(kMarkIEnvMax - 100)
 
+/// Mark I OPS modulation scale, Q12 fixed-point (scale / 4096 = the multiplier):
+/// the modulator output feeds the carrier phase scaled DOWN, which is what gives
+/// the OPS its darker, warmer timbre. Default 512 = ÷8 — the bit-exact-parity
+/// reference (`(v·512)>>12 == v>>3`, the value the dx7refmki C twin uses); the
+/// app overrides it via `SynthEngine.setMarkIModDivisor`, which is calibrated
+/// against real Dexed Mark I (BASS 1 / alg15, E.PIANO 1 / alg4). Q12 gives
+/// meaningful 0.1-step ÷X resolution across ÷2…÷16. Only the FORWARD modulation
+/// is scaled; the carrier DAC output (`<< 13`) and the feedback path are left
+/// unscaled. Written by an aligned-Int32 store (atomic on arm64).
+nonisolated(unsafe) var markIModScaleQ12: Int32 = 512
+
+@inline(__always)
+private func markIModScale(_ v: Int32) -> Int32 {
+    Int32(truncatingIfNeeded: (Int64(v) &* Int64(markIModScaleQ12)) >> 12)
+}
+
 // MARK: - Single-input FM kernels (mod / pure / fb)
 
 @inline(__always)
@@ -59,7 +75,7 @@ func computeModMkI(_ output: UnsafeMutablePointer<Int32>, _ input: UnsafePointer
     let dA = attenRamp(atten1, atten2, n); var aAcc = Int32(atten1); var phase = phase0
     for i in 0..<n {
         aAcc &+= dA
-        let y = mkiSin(phase &+ input[i], UInt16(truncatingIfNeeded: max(0, aAcc)))
+        let y = mkiSin(phase &+ markIModScale(input[i]), UInt16(truncatingIfNeeded: max(0, aAcc)))
         output[i] = add ? (output[i] &+ y) : y
         phase &+= freq
     }
@@ -116,7 +132,7 @@ func computeFb2MkI(_ output: UnsafeMutablePointer<Int32>, _ p: inout MarkIChainP
         y0 = y
         y = mkiSin(ph0 &+ scaledFb, UInt16(truncatingIfNeeded: max(0, a0)))
         ph0 &+= p.freq.0
-        y = mkiSin(ph1 &+ y, a1Target)
+        y = mkiSin(ph1 &+ markIModScale(y), a1Target)
         ph1 &+= p.freq.1
         output[i] = y
     }
@@ -136,8 +152,8 @@ func computeFb3MkI(_ output: UnsafeMutablePointer<Int32>, _ p: inout MarkIChainP
         a0 &+= dA0
         y0 = y
         y = mkiSin(ph0 &+ scaledFb, UInt16(truncatingIfNeeded: max(0, a0))); ph0 &+= p.freq.0
-        y = mkiSin(ph1 &+ y, a1); ph1 &+= p.freq.1
-        y = mkiSin(ph2 &+ y, a2); ph2 &+= p.freq.2
+        y = mkiSin(ph1 &+ markIModScale(y), a1); ph1 &+= p.freq.1
+        y = mkiSin(ph2 &+ markIModScale(y), a2); ph2 &+= p.freq.2
         output[i] = y
     }
     p.phase.0 = ph0; p.phase.1 = ph1; p.phase.2 = ph2

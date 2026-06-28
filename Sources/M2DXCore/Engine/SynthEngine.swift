@@ -17,6 +17,16 @@ public enum OversamplingMode: UInt8, Sendable, CaseIterable {
 public enum FMEngine: UInt8, Sendable, CaseIterable {
     case modern = 0
     case markI  = 1
+
+    public var displayName: String {
+        switch self {
+        case .modern: return "Modern"
+        case .markI:  return "Mark I"
+        }
+    }
+
+    /// True for the Mark I (OPS) engine; false for Modern.
+    public var isMarkI: Bool { self == .markI }
 }
 
 // MARK: - MIDI Event
@@ -482,10 +492,23 @@ public final class SynthEngine: @unchecked Sendable {
     // MARK: - FM Engine
 
     public func setFMEngine(_ engine: FMEngine) {
-        if engine == .markI { markIPrewarm() }   // materialize tables off the audio thread
+        if engine.isMarkI { markIPrewarm() }   // materialize tables off the audio thread
         shadowSnapshot.fmEngine = engine.rawValue
         bumpVersion()
     }
+
+    /// Mark I forward-modulation depth as a divisor ÷X (larger = darker). The
+    /// engine stores it as a Q12 scale (4096/X), so 0.1 steps stay distinct
+    /// across the whole ÷2…÷16 range. Read by the Mark I kernels on the render
+    /// thread; a plain aligned-Int32 write is atomic, and the value only changes
+    /// when the user moves the depth control.
+    public func setMarkIModDivisor(_ divisor: Double) {
+        let d = max(0.5, divisor)
+        markIModScaleQ12 = Int32(max(1, min(4096, (4096.0 / d).rounded())))
+    }
+
+    /// Test-only read of the current Mark I Q12 modulation scale.
+    public var debugMarkIModScaleQ12: Int32 { markIModScaleQ12 }
 
     /// Test-only read of the shadow snapshot's engine selection.
     public var debugShadowFMEngine: UInt8 { shadowSnapshot.fmEngine }

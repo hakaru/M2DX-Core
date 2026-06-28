@@ -116,24 +116,15 @@ struct MarkICalibrationTests {
             "Mark I peak \(peakMarkI) exceeds 0.5 headroom (Modern peaks ~\(peakModern))")
     }
 
-    // (b) DARKER SUSTAIN — the whole musical point of Mark I: OPS log-domain
-    // quantization is supposed to drive modulators toward silence at sustain so the
-    // tone collapses to a near-pure sine (centroid markedly lower than Modern's).
+    // (b) DARKER SUSTAIN — the whole musical point of Mark I: the OPS feeds forward
+    // modulation to the carrier phase 3 bits lower than MSFA (`markIModScale`, ÷8),
+    // so the modulation index collapses and the sustain tone approaches a pure sine
+    // (centroid markedly lower than Modern's). ÷8 was calibrated against real Dexed
+    // Mark I and confirmed by ear across BASS 1 (alg15) and E.PIANO 1 (alg4).
     //
-    // FINDING (do NOT force-pass): for the real ROM1A BASS 1 voice our Swift Mark I
-    // engine is bit-different from Modern (rounding in the log path) but the SUSTAIN
-    // SPECTRUM is virtually identical — centroid ratio ≈ 1.00, not the < 0.6 the
-    // character demands. The same holds for PIANO 1 across notes/velocities. The
-    // expected "darker, sine-like" Mark I sustain is NOT reproduced here.
-    //
-    // The task is explicit: do NOT weaken or force-pass this assertion just to go
-    // green. So the real `centMarkI < centModern * 0.6` expectation is kept verbatim
-    // but wrapped in `withKnownIssue` — Swift Testing records it as a KNOWN (tracked)
-    // failure, keeping the suite green WITHOUT faking a pass. If the OPS path is ever
-    // corrected so Mark I genuinely darkens the sustain, `withKnownIssue` will itself
-    // fail ("known issue did not occur"), prompting us to drop the wrapper and make
-    // this a hard #expect. The measured centroids are printed for the record.
-    @Test("Mark I BASS 1 sustain should be darker than Modern (known gap — OPS character not captured)")
+    // Measured: Modern ≈ 685 Hz, Mark I ≈ 176 Hz (ratio ≈ 0.26) — near the ~131 Hz
+    // near-pure-sine target. Hard assertion (the earlier `withKnownIssue` gap is fixed).
+    @Test("Mark I BASS 1 sustain is markedly darker than Modern")
     func darkerSustain() {
         let modern = renderBASS1(engine: .modern)
         let markI  = renderBASS1(engine: .markI)
@@ -143,9 +134,7 @@ struct MarkICalibrationTests {
         let ratio = centModern > 0 ? centMarkI / centModern : Double.nan
         print(String(format: "🌑 BASS1 sustain centroid: Modern=%.1f Hz  MarkI=%.1f Hz  ratio=%.3f  (want MarkI < Modern×0.6)",
                      centModern, centMarkI, ratio))
-        withKnownIssue("Mark I OPS path does not yet capture the 'modulators → silence at sustain' darkening for ROM1A BASS 1 (centroid ratio ≈ 1.0, not < 0.6).") {
-            #expect(centMarkI < centModern * 0.6,
-                "Mark I sustain (centroid \(centMarkI) Hz) is NOT markedly darker than Modern (centroid \(centModern) Hz); ratio \(ratio) ≥ 0.6")
-        }
+        #expect(centMarkI < centModern * 0.6,
+            "Mark I sustain (centroid \(centMarkI) Hz) is NOT markedly darker than Modern (centroid \(centModern) Hz); ratio \(ratio) ≥ 0.6")
     }
 }
