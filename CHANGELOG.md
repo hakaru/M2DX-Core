@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-06-29
+
+### Added
+- **Vintage 12-bit DAC companding (#75)** — `SynthEngine.setVintageDAC(_:)` +
+  `ParameterSnapshot.vintageDAC12bit`. When on AND the Mark I engine is active, the final mixed
+  output is passed through a DX7-style 12-bit companding DAC (`dac12bitCompand`: amplitude-selected
+  exponent 1/2/4/8 → 12-bit quantize → expand) for vintage lo-fi warmth/grit. Off, or on the
+  Modern engine, the render path is byte-identical to v1.14.1. RT-safe (abs/compare/round only).
+
 ## [1.14.1] - 2026-06-29
 
 ### Fixed
