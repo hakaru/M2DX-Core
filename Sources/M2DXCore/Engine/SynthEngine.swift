@@ -1063,6 +1063,15 @@ public final class SynthEngine: @unchecked Sendable {
 
             downsampler.applyCrossfade(bufferL: bufferL, bufferR: bufferR, frameCount: frameCount)
         }
+
+        // #75: DX7 12-bit DAC companding — Mark I only, on the final all-voices-summed,
+        // native-rate mix (post-downsample), before the app FX chain.
+        if currentFMEngine == .markI && snapshot.vintageDAC12bit != 0 {
+            for s in 0..<frameCount {
+                bufferL[s] = dac12bitCompand(bufferL[s])
+                bufferR[s] = dac12bitCompand(bufferR[s])
+            }
+        }
     }
 
     // MARK: - LFO
