@@ -162,6 +162,38 @@ package func unisonDetuneFactorRandom(slotIndex: Int, voiceIndex: Int, detuneCen
     return exp2((signed * d) / 1200.0)
 }
 
+/// Voice-stack (#89-detune) random detune factor for stack `copyIndex` of a given
+/// `noteOnIndex`, spread within ±`detuneCents`. Re-rolls every note-on (the engine
+/// advances `noteOnIndex` per note-on) for a live, analog feel — deliberately NOT
+/// recall-reproducible. Same SplitMix64 hash family as `unisonDetuneFactorRandom`
+/// with a distinct base seed so it is independent of unison/pan randoms. RT-safe.
+@inline(__always)
+package func voiceStackDetuneFactorRandom(noteOnIndex: UInt64, copyIndex: Int, detuneCents d: Float) -> Float {
+    guard d != 0 else { return 1.0 }
+    var z = UInt64(0x9E3779B185EBCA87)                          // distinct base seed
+        ^ (noteOnIndex &* 0x9E3779B97F4A7C15)
+        ^ (UInt64(bitPattern: Int64(copyIndex)) &* 0xD1B54A32D192ED03)
+    z = z &+ 0x9E3779B97F4A7C15                                  // SplitMix64 step
+    z = (z ^ (z >> 30)) &* 0xBF58476D1CE4E5B9
+    z = (z ^ (z >> 27)) &* 0x94D049BB133111EB
+    z = z ^ (z >> 31)
+    let signed = Float(Int32(bitPattern: UInt32(truncatingIfNeeded: z))) / Float(0x80000000)  // [-1,1)
+    return exp2((signed * d) / 1200.0)
+}
+
+/// Voice-stack (#89-detune) loudness compensation. Detuning decorrelates the N stacked
+/// copies: at 0 cents they are phase-locked and sum coherently (∝ N → 1/N keeps unity);
+/// past `kVoiceStackDecorrelationCents` they sum incoherently (∝ √N → 1/√N). Crossfades
+/// the exponent 1.0 → 0.5 so 0 cents reproduces the legacy 1/N exactly. RT-safe.
+@inline(__always)
+package func voiceStackGainFactor(multiplier n: Int, detuneCents d: Float) -> Float {
+    let nn = max(1, n)
+    guard nn > 1 else { return 1.0 }
+    let c = min(1.0, max(0, d) / kVoiceStackDecorrelationCents)   // 0…1
+    let p = 1.0 - 0.5 * c                                         // 1.0 → 0.5
+    return powf(Float(nn), -p)
+}
+
 /// Random (#76) pan in [-1, 1) for unison `voiceIndex` of slot `slotIndex`.
 /// Deterministic per (slot, voice) — same family as `unisonDetuneFactorRandom`
 /// but a distinct seed base so pan and detune randoms are independent. RT-safe.

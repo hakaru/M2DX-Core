@@ -104,6 +104,9 @@ public final class SynthEngine: @unchecked Sendable {
     private var shadowSnapshot = SynthParamSnapshot()
     private let snapshotRing = SnapshotRing<SynthParamSnapshot>(initial: SynthParamSnapshot())
     private var currentSnapshot = SynthParamSnapshot()
+    /// #89-detune: advances once per note-on so random voice-stack detune re-rolls
+    /// every note. Audio-thread only (mutated solely inside doNoteOn) → no atomics.
+    private var voiceStackNoteOnCounter: UInt64 = 0
 
     private let downsampler = Downsampler()
     private var currentOversamplingMode: OversamplingMode = .off
@@ -327,6 +330,14 @@ public final class SynthEngine: @unchecked Sendable {
     /// Publishes via the shadow snapshot exactly like setUnison.
     public func setVoiceStackMultiplier(_ m: Int) {
         shadowSnapshot.voiceStackMultiplier = max(1, min(16, m))
+        bumpVersion()
+    }
+
+    /// #89-detune: per-copy Voice Stack detune (cents, clamped 0…25) + distribution
+    /// mode (0 even, 1 random). Publishes via the shadow snapshot like setUnison.
+    public func setVoiceStackDetune(detuneCents: Float, detuneMode: UInt8) {
+        shadowSnapshot.voiceStackDetune = max(0, min(25, detuneCents))
+        shadowSnapshot.voiceStackDetuneMode = detuneMode
         bumpVersion()
     }
 
@@ -1120,7 +1131,9 @@ public final class SynthEngine: @unchecked Sendable {
             for i in 0..<snapshot.activeSlotCount where snapshot.config(at: i).enabled { enabled += 1 }
             layerGain = 1.0 / sqrtf(Float(max(1, enabled)))
         }
-        let voiceStackGain = 1.0 / Float(max(1, snapshot.voiceStackMultiplier))   // #89: phase-locked copies sum to N×; 1/N holds unity. (If empirically over-attenuated — copies not perfectly phase-locked — switch to 1/√N.)
+        // #89-detune: 1/N when phase-locked (detune 0), crossfading to 1/√N as the
+        // stacked copies decorrelate, so a detuned supersaw stays ≈ a single note's loudness.
+        let voiceStackGain = voiceStackGainFactor(multiplier: snapshot.voiceStackMultiplier, detuneCents: snapshot.voiceStackDetune)
         let vol = masterVolume * expression * ccVolume * unisonGain * layerGain * voiceStackGain
         let maxV = effectiveMaxVoices
         let slotCount = snapshot.activeSlotCount
@@ -1288,6 +1301,7 @@ public final class SynthEngine: @unchecked Sendable {
 
     private func doNoteOn(_ note: UInt8, velocity16: UInt16) {
         let snapshot = currentSnapshot
+        voiceStackNoteOnCounter &+= 1   // #89-detune: re-roll random spread each note-on
         // #79: capture the previous note BEFORE this note-on overwrites it, so
         // every voice seeded below glides from the last-played note.
         let glidePrev = previousNoteForGlide
@@ -1319,13 +1333,23 @@ public final class SynthEngine: @unchecked Sendable {
             let unisonCount = max(1, snapshot.unisonCount)
             let unisonDetune = snapshot.unisonDetune
             let voiceStack = max(1, snapshot.voiceStackMultiplier)   // #89
+            let stackDetune = snapshot.voiceStackDetune              // #89-detune
+            let stackMode = snapshot.voiceStackDetuneMode            // 0 even, 1 random
+            let stackNote = voiceStackNoteOnCounter                  // captured once for this note-on
 
-            for _ in 0..<voiceStack {                                // #89: duplicate the unison group N times (identical copies)
+            for s in 0..<voiceStack {                                // #89-detune: `s` identifies the stack copy
+                // #89-detune: per-copy spread. 1.0 when single copy or detune off
+                // (keeps detune=0 byte-identical to the legacy identical stack).
+                let stackFactor: Float = (voiceStack < 2 || stackDetune == 0) ? 1.0
+                    : (stackMode == 0
+                        ? unisonDetuneFactor(index: s, count: voiceStack, detuneCents: stackDetune)
+                        : voiceStackDetuneFactorRandom(noteOnIndex: stackNote, copyIndex: s, detuneCents: stackDetune))
                 for u in 0..<unisonCount {
                 // #83: even spread (default, bit-identical) or deterministic random.
-                let detuneFactor = snapshot.unisonDetuneMode == 0
+                let unisonFactor = snapshot.unisonDetuneMode == 0
                     ? unisonDetuneFactor(index: u, count: unisonCount, detuneCents: unisonDetune)
                     : unisonDetuneFactorRandom(slotIndex: slotIdx, voiceIndex: u, detuneCents: unisonDetune)
+                let detuneFactor = unisonFactor * stackFactor        // #89-detune: combine unison × stack
 
                 let transposedNote = UInt8(clamping: Int(note) + Int(slot.transpose))
                 let maxV = effectiveMaxVoices

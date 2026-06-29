@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-06-29
+
+### Added
+- **Voice Stack detune (#89)** — the experimental Voice Stack can now detune its stacked
+  copies into a supersaw-style unison thickener.
+  - `ParameterSnapshot.voiceStackDetune` (cents, 0…25) and `voiceStackDetuneMode`
+    (0 = even spread, 1 = random, re-rolled per note-on).
+  - `SynthEngine.setVoiceStackDetune(detuneCents:detuneMode:)`.
+  - Decorrelation-aware loudness compensation: gain crossfades 1/N → 1/√N as detune grows
+    (`kVoiceStackDecorrelationCents = 6`). `voiceStackDetune == 0` renders byte-identical to v1.13.1.
+  - RT-safe: reuses the SplitMix64 hash family; new per-note-on counter is audio-thread-local.
+
 ### Changed
 - **License: MIT → Apache License 2.0** (2026-04-27)
   - The repository as a whole (`M2DXCore` Swift target + `DX7Ref` C test target + tests + docs) is now Apache 2.0
