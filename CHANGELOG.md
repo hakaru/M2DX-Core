@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.1] - 2026-06-29
+
+### Fixed
+- **Mark I Alg 6 feedback-op ramp anchor (#85)** — in the fused Alg 6 feedback path the
+  feedback operator (OP6)'s inter-block attenuation ramp anchor (`markIGainOut`) was
+  overwritten with the follower (OP5)'s attenuation, corrupting OP6's next-block ramp
+  whenever OP5 and OP6 EG levels differ. OP6's anchor is already set to its own `atten2`
+  in the gain switch; the follower uses a constant attenuation in `computeFb2MkI` and
+  needs no anchor (the Alg 4 branch already did this). Removed the spurious write in both
+  the Swift engine and the bit-exact `dx7refmki` C twin, preserving Swift↔C parity. Added
+  `MarkIAlg6AnchorTests`, an independent contract-derived oracle the shared-mistake parity
+  tests could not catch.
+
 ## [1.14.0] - 2026-06-29
 
 ### Added
