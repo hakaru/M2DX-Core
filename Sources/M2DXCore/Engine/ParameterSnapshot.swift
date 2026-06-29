@@ -152,6 +152,11 @@ public struct SynthParamSnapshot: Sendable {
     /// voices (1/2/4/8/16×) to probe device polyphony/CPU limits. 1 = off (default,
     /// behaviour unchanged). Multiplies the unison group; capped by effectiveMaxVoices.
     public var voiceStackMultiplier: Int = 1
+    /// #89-detune: per-copy detune of the Voice Stack, in cents (0…25). 0 = legacy
+    /// identical (phase-locked) copies — render byte-identical. Spread per copy.
+    public var voiceStackDetune: Float = 0
+    /// #89-detune distribution: 0 = even symmetric spread, 1 = random (re-rolled per note-on).
+    public var voiceStackDetuneMode: UInt8 = 0
 
     /// #79 portamento (poly glide). 0 = off (default — OFF render path is
     /// bit-identical). When on, each note-on starts at the previous note's pitch

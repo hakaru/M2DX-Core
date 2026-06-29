@@ -68,4 +68,63 @@ import Foundation
         let second = voiceStackDetuneFactorRandom(noteOnIndex: 1, copyIndex: 0, detuneCents: 25)
         #expect(first != second)
     }
+
+    // MARK: end-to-end wiring
+
+    private func makeEngine() -> SynthEngine {
+        let e = SynthEngine()
+        e.setSampleRate(48000)
+        return e
+    }
+
+    private func renderStack(detuneCents: Float, mode: UInt8, mult: Int) -> [Float] {
+        let e = makeEngine()
+        e.loadDX7Preset(DX7FactoryPresets.initVoice)
+        e.setVoiceStackMultiplier(mult)
+        e.setVoiceStackDetune(detuneCents: detuneCents, detuneMode: mode)
+        let fc = 64
+        let l = UnsafeMutablePointer<Float>.allocate(capacity: fc)
+        let r = UnsafeMutablePointer<Float>.allocate(capacity: fc)
+        defer { l.deallocate(); r.deallocate() }
+        e.render(into: l, bufferR: r, frameCount: fc)   // apply preset + stack snapshot
+        e.sendMIDI(MIDIEvent(kind: .noteOn, data1: 60, data2: UInt32(0x7F00)))
+        var out = [Float](repeating: 0, count: fc * 8)
+        for blk in 0..<8 {
+            e.render(into: l, bufferR: r, frameCount: fc)
+            for s in 0..<fc { out[blk * fc + s] = l[s] }
+        }
+        return out
+    }
+
+    @Test("even detune changes the stacked output vs the phase-locked baseline (wiring)")
+    func evenDetuneAltersOutput() {
+        let flat = renderStack(detuneCents: 0, mode: 0, mult: 2)
+        let det  = renderStack(detuneCents: 24, mode: 0, mult: 2)
+        var diff: Float = 0
+        for i in 0..<flat.count { diff += abs(flat[i] - det[i]) }
+        #expect(diff > 0.001)   // detuned copies beat → audibly different from identical copies
+    }
+
+    @Test("random detune changes the stacked output (wiring)")
+    func randomDetuneAltersOutput() {
+        let flat = renderStack(detuneCents: 0, mode: 1, mult: 4)
+        let det  = renderStack(detuneCents: 24, mode: 1, mult: 4)
+        var diff: Float = 0
+        for i in 0..<flat.count { diff += abs(flat[i] - det[i]) }
+        #expect(diff > 0.001)
+    }
+
+    @Test("detune does not change the stacked voice count")
+    func detuneKeepsVoiceCount() {
+        let e = makeEngine()
+        e.setVoiceStackMultiplier(4)
+        e.setVoiceStackDetune(detuneCents: 20, detuneMode: 0)
+        let fc = 64
+        let l = UnsafeMutablePointer<Float>.allocate(capacity: fc)
+        let r = UnsafeMutablePointer<Float>.allocate(capacity: fc)
+        defer { l.deallocate(); r.deallocate() }
+        e.sendMIDI(MIDIEvent(kind: .noteOn, data1: 60, data2: UInt32(0x7F00)))
+        e.render(into: l, bufferR: r, frameCount: fc)
+        #expect(e.debugActiveVoiceCount == 4)
+    }
 }
