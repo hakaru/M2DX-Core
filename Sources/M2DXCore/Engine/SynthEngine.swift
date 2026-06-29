@@ -538,6 +538,12 @@ public final class SynthEngine: @unchecked Sendable {
         bumpVersion()
     }
 
+    /// #75 vintage 12-bit DAC mode on/off. Off (default) leaves the render path bit-identical.
+    public func setVintageDAC(_ on: Bool) {
+        shadowSnapshot.vintageDAC12bit = on ? 1 : 0
+        bumpVersion()
+    }
+
     // MARK: - FM Engine
 
     public func setFMEngine(_ engine: FMEngine) {

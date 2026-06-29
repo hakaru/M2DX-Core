@@ -141,6 +141,9 @@ public struct SynthParamSnapshot: Sendable {
     public var sampleRate: Float = 44100
     public var version: UInt64 = 0
     public var oversamplingMode: UInt8 = 0
+    /// #75 vintage 12-bit DAC companding: 0 = off (render byte-identical). Applied at the
+    /// final mixed output when the Mark I engine is active.
+    public var vintageDAC12bit: UInt8 = 0
     public var fmEngine: UInt8 = 0
     public var masterTuning: Int16 = 0
     public var unisonCount: Int = 1

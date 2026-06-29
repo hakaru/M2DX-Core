@@ -40,6 +40,18 @@ func markIAtten(_ levelIn: Int32) -> UInt16 {
     return clamped == 0 ? UInt16(kMarkIEnvMax - 1) : UInt16(clamped)
 }
 
+/// DX7 12-bit DAC companding (#75): pick an exponent by amplitude so small signals are
+/// boosted to use more of the 12-bit range, quantize to 12-bit, then expand. exp ∈ {1,2,4,8}
+/// keeps the compressed mantissa in ~(0.5, 1.0]. Small signals get a finer effective step
+/// (1/(2048·exp)) — the companding that yields the vintage warmth/grit. RT-safe.
+@inline(__always)
+func dac12bitCompand(_ sample: Float) -> Float {
+    let a = abs(sample)
+    let exp: Float = a > 0.5 ? 1 : (a > 0.25 ? 2 : (a > 0.125 ? 4 : 8))
+    let q = (sample * exp * 2048).rounded() / 2048
+    return q / exp
+}
+
 /// Mark I silence threshold (attenuation ABOVE this = inaudible). Opposite sense
 /// to Modern's kGainThreshold. Do not alias the Modern constant.
 let kMarkILevelThresh: UInt16 = UInt16(kMarkIEnvMax - 100)
