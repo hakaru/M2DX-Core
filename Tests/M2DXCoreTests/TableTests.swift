@@ -214,9 +214,9 @@ struct ScalingTableTests {
 
     @Test("scaleKeyboardLevel no effect at break point")
     func klsAtBreakPoint() {
-        let result = scaleKeyboardLevel(60, breakPoint: 39, leftDepth: 50, rightDepth: 50,
+        // Dexed hinge is at note = breakPoint + 17, so bp=39 → note 56 yields offset 0.
+        let result = scaleKeyboardLevel(56, breakPoint: 39, leftDepth: 50, rightDepth: 50,
                                         leftCurve: 0, rightCurve: 0)
-        // Note 60, bp=39 → bp adjusted to 39+21=60, so diff=0
         #expect(result == 0, "At break point, KLS should be 0")
     }
 
