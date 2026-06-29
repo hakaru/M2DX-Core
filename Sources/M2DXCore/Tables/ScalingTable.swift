@@ -52,49 +52,44 @@ package func scaleOutputLevel(_ ol: Int) -> Int {
 
 // MARK: - Keyboard Level Scaling (KLS)
 
-/// Exponential KLS curve table (32 entries).
-/// Approximates DX7 OPS chip non-linear scaling.
-package let kNlsTable: [Int] = [
-    0,  0,  0,  1,  2,  4,  6,  9,
-    13, 17, 22, 28, 34, 41, 49, 58,
-    68, 79, 90, 103, 116, 131, 146, 163,
-    181, 200, 220, 241, 264, 288, 313, 339
+/// Exponential KLS curve table (33 entries) — verbatim from MSFA/Dexed dx7note.cc
+/// `exp_scale_data`. Indexed by the keyboard-distance group, clamped to its last entry.
+package let kExpScaleData: [Int] = [
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 14, 16, 19, 23, 27, 33,
+    39, 47, 56, 66, 80, 94, 110, 126, 142, 158, 174, 190, 206, 222, 238, 250
 ]
 
-/// Keyboard Level Scaling — returns offset (signed).
-/// Negative curves → positive offset (more attenuation).
-/// Positive curves → negative offset (boost).
+/// One side of the DX7 keyboard level-scaling curve (Dexed `ScaleCurve`).
+/// `curve`: 0 = −LIN, 1 = −EXP, 2 = +EXP, 3 = +LIN. The −curves (0/1) attenuate away
+/// from the breakpoint (negative result); the +curves (2/3) boost (positive result).
+@inline(__always)
+package func scaleCurve(group: Int, depth: Int, curve: UInt8) -> Int {
+    var scale: Int
+    if curve == 0 || curve == 3 {            // linear
+        scale = (group * depth * 329) >> 12
+    } else {                                  // exponential
+        let rawExp = kExpScaleData[min(group, kExpScaleData.count - 1)]
+        scale = (rawExp * depth * 329) >> 15
+    }
+    if curve < 2 { scale = -scale }
+    return scale
+}
+
+/// Keyboard Level Scaling — returns the signed output-level offset for `note`
+/// (Dexed `ScaleLevel`). The breakpoint hinge sits at note = breakPoint + 17. The
+/// result is NOT pre-clamped to ±127; the caller clamps the summed output level.
 @inline(__always)
 package func scaleKeyboardLevel(
     _ note: UInt8, breakPoint: UInt8,
     leftDepth: UInt8, rightDepth: UInt8,
     leftCurve: UInt8, rightCurve: UInt8
 ) -> Int {
-    let bp = Int(breakPoint) + 21
-    let diff = Int(note) - bp
-    if diff == 0 { return 0 }
-
-    let distance: Int, depth: Int, curve: UInt8
-    if diff < 0 {
-        distance = -diff; depth = Int(leftDepth); curve = leftCurve
+    let offset = Int(note) - Int(breakPoint) - 17
+    if offset >= 0 {
+        return scaleCurve(group: (offset + 1) / 3, depth: Int(rightDepth), curve: rightCurve)
     } else {
-        distance = diff; depth = Int(rightDepth); curve = rightCurve
+        return scaleCurve(group: -(offset - 1) / 3, depth: Int(leftDepth), curve: leftCurve)
     }
-    guard depth > 0 else { return 0 }
-
-    let group = min(31, (distance + 1) / 3)
-    let isLinear = (curve == 0 || curve == 3)
-    let isNegative = curve < 2
-
-    let scale: Int
-    if isLinear {
-        scale = (group * depth * 329 + 2048) >> 12
-    } else {
-        let nlsValue = kNlsTable[group]
-        scale = (nlsValue * depth + 1024) >> 11
-    }
-    let capped = min(127, scale)
-    return isNegative ? capped : -capped
 }
 
 // MARK: - AMS Depth Table (4 entries, Q24)

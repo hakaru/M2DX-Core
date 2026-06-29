@@ -72,6 +72,37 @@ struct DX7RefTests {
         }
     }
 
+    // MARK: - 3b. ScaleLevel vs REAL Dexed (non-circular golden values)
+
+    @Test("scaleKeyboardLevel matches REAL Dexed ScaleLevel golden values")
+    func scaleKeyboardLevelMatchesRealDexedGoldens() {
+        // Golden values computed directly from asb2m10/dexed Source/msfa/dx7note.cc
+        // ScaleLevel/ScaleCurve: offset = midinote - break_pt - 17; group = (offset+1)/3 (right)
+        // or -(offset-1)/3 (left); linear (curve 0/3) = (group*depth*329)>>12; exp (curve 1/2) =
+        // (exp_scale_data[min(group,32)]*depth*329)>>15; then `if (curve < 2) scale = -scale`.
+        // Curve encoding 0=-LIN, 1=-EXP, 2=+EXP, 3=+LIN. No internal 127 cap (clamped later at
+        // the outlevel sum). This is intentionally NOT compared against the C-twin, breaking the
+        // circular scaleLevelMatchesDEXED reference.
+        // (note, bp, leftDepth, rightDepth, leftCurve, rightCurve) -> expected
+        let cases: [(UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, Int)] = [
+            (36,  39, 99, 99, 0, 0, -55),  // left  -LIN: roll off below breakpoint (NEGATIVE)
+            (108, 39,  0, 99, 0, 2,  38),  // right +EXP: boost above breakpoint (POSITIVE)
+            (60,  39, 50, 99, 1, 3,   7),  // right +LIN
+            (48,  60, 99, 50, 1, 0, -10),  // left  -EXP
+            (56,  39, 99, 99, 2, 2,   0),  // exactly at hinge (break_pt + 17) -> 0
+            (100, 39,  0,  0, 2, 2,   0),  // depth 0 -> 0
+            (120, 39,  0, 99, 0, 3, 166),  // right +LIN, uncapped (>127 before the outlevel clamp)
+            (30,  60, 99,  0, 2, 0,  32),  // left  +EXP: boost below breakpoint
+            (24,  39, 99,  0, 0, 0, -87),  // left  -LIN
+        ]
+        for (note, bp, ld, rd, lc, rc, expected) in cases {
+            let result = scaleKeyboardLevel(note, breakPoint: bp, leftDepth: ld, rightDepth: rd,
+                                            leftCurve: lc, rightCurve: rc)
+            #expect(result == expected,
+                "scaleKeyboardLevel(\(note), bp:\(bp), L:\(ld), R:\(rd), lC:\(lc), rC:\(rc)) = \(result), expected real-Dexed \(expected)")
+        }
+    }
+
     // MARK: - 4. scaleOutputLevel
 
     @Test("scaleOutputLevel matches DEXED for all OL values (0-99)")

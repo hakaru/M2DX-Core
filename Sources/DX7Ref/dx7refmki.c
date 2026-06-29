@@ -49,11 +49,9 @@ static const uint8_t velocity_data[64] = {
     246, 248, 249, 250, 251, 252, 253, 254
 };
 
-static const int nls_table[32] = {
-    0,  0,  0,  1,  2,  4,  6,  9,
-    13, 17, 22, 28, 34, 41, 49, 58,
-    68, 79, 90, 103, 116, 131, 146, 163,
-    181, 200, 220, 241, 264, 288, 313, 339
+static const int exp_scale_data[33] = {
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 14, 16, 19, 23, 27, 33,
+    39, 47, 56, 66, 80, 94, 110, 126, 142, 158, 174, 190, 206, 222, 238, 250
 };
 
 static const int level_lut[20] = {
@@ -233,34 +231,27 @@ static int scale_velocity(int velocity, int sensitivity) {
     return scaled;
 }
 
+static int scale_curve(int group, int depth, int curve) {
+    int scale;
+    if (curve == 0 || curve == 3) {        // linear
+        scale = (group * depth * 329) >> 12;
+    } else {                               // exponential
+        int raw_exp = exp_scale_data[min_int(group, 32)];
+        scale = (raw_exp * depth * 329) >> 15;
+    }
+    if (curve < 2) { scale = -scale; }
+    return scale;
+}
+
 static int scale_level(int midinote, int break_point,
                        int left_depth, int right_depth,
                        int left_curve, int right_curve) {
-    int bp = break_point + 21;
-    int diff = midinote - bp;
-    if (diff == 0) return 0;
-
-    int distance, depth, curve;
-    if (diff < 0) {
-        distance = -diff; depth = left_depth; curve = left_curve;
+    int offset = midinote - break_point - 17;
+    if (offset >= 0) {
+        return scale_curve((offset + 1) / 3, right_depth, right_curve);
     } else {
-        distance = diff; depth = right_depth; curve = right_curve;
+        return scale_curve(-(offset - 1) / 3, left_depth, left_curve);
     }
-    if (depth == 0) return 0;
-
-    int group = min_int(31, (distance + 1) / 3);
-    int is_linear = (curve == 0 || curve == 3);
-    int is_negative = (curve < 2);
-
-    int scale;
-    if (is_linear) {
-        scale = (group * depth * 329 + 2048) >> 12;
-    } else {
-        int nls_value = nls_table[min_int(31, group)];
-        scale = (nls_value * depth + 1024) >> 11;
-    }
-    int capped = min_int(127, scale);
-    return is_negative ? capped : -capped;
 }
 
 static int scale_outlevel(int outlevel) {
