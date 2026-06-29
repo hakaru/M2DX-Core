@@ -22,8 +22,11 @@ jobs:
         run: swift test
 
       - name: Check no msfa identifiers
+        # Case-sensitive: guards against copied MSFA code identifiers (lowercase
+        # `msfa` namespace / `src/msfa/` paths) while allowing the uppercase
+        # "MSFA" attribution required by Apache-2.0 (see NOTICE).
         run: |
-          if grep -ri msfa Sources/; then
-            echo "ERROR: msfa identifiers found in source code"
+          if grep -rn "msfa" Sources/; then
+            echo "ERROR: lowercase 'msfa' identifiers found in source code"
             exit 1
           fi
