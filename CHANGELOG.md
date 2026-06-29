@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-06-30
+
+### Fixed
+- **Keyboard Level Scaling fidelity (KLS) — now matches real Dexed `ScaleLevel`/`ScaleCurve`.**
+  `scaleKeyboardLevel` (and the `dx7ref`/`dx7refmki` C twins) diverged from the real
+  asb2m10/dexed `dx7note.cc` on three parity-invisible, shared Swift+C counts that the circular
+  `scaleLevelMatchesDEXED` test (M2DX vs the equally-wrong twin) had hidden:
+  - **Sign was inverted** — `−`curves (0/1) now correctly attenuate away from the breakpoint and
+    `+`curves (2/3) boost; previously every KLS curve ran backwards.
+  - **Exponential curve was ~8–15× too weak** — now uses Dexed's `exp_scale_data[33]` with
+    `(raw·depth·329) >> 15` (was a foreign `kNlsTable` with `(…+1024) >> 11`, capping near 16/127).
+  - **Breakpoint constant** is now `note − break_pt − 17` (was `+21`, which shifted the whole
+    curve up 4 semitones).
+  - The linear path drops the spurious `+2048` rounding and the internal `min(127)` cap (clamping
+    happens at the output-level sum, like Dexed).
+  Audible: KLS-heavy and imported DX7 ROM patches now scale operator level across the keyboard in
+  the correct direction and magnitude, correcting a long-standing over-brightness (e.g. ROM1A
+  BASS 1's Modern sustain centroid drops 685→180 Hz toward the Dexed-faithful value).
+
+### Tests
+- Added `scaleKeyboardLevelMatchesRealDexedGoldens` (hardcoded real-Dexed values) to break the
+  circular M2DX-vs-twin reference; re-baselined `klsAtBreakPoint` to the `+17` hinge (note 56).
+- `MarkICalibrationTests.darkerSustain` → `withKnownIssue`: the corrected KLS removes BASS 1's
+  over-brightness so the `÷0.6` "Mark I markedly darker" threshold no longer holds; revisit
+  together with the Mark I `÷8` modulation-darkness calibration.
+
 ## [1.15.0] - 2026-06-29
 
 ### Added
