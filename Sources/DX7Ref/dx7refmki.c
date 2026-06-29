@@ -665,8 +665,9 @@ void dx7refmki_voice_render(dx7refmki_voice_t *v, int32_t *buf) {
                 v->fb_buf[0] = fb_buf[0]; v->fb_buf[1] = fb_buf[1];
                 v->params[0].phase = p.phase[0];
                 v->params[1].phase = p.phase[1];
-                // op1's ramp anchor (Swift: ops.0.markIGainOut = markIAtten(ops.1.levelIn)).
-                v->params[0].mki_atten_out = dx7refmki_atten(v->params[1].level_in);
+                // #85: OP6's ramp anchor (params[0].mki_atten_out) is already its own
+                // atten2, set above. The follower uses a constant atten in
+                // compute_fb2_mki and needs no anchor (mirrors the Swift twin / Alg 4).
                 opIdx = 2;  // consumed op0 + op1
             } else {
                 // Alg 4: op0 (OP6, fb) -> op1 (OP5) -> op2 (OP4).

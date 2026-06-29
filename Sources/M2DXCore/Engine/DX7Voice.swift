@@ -541,7 +541,11 @@ package struct DX7Voice {
                     ops.0.fbBuf = fbBuf
                     ops.0.phase = p.phase.0
                     ops.1.phase = p.phase.1
-                    ops.0.markIGainOut = markIAtten(ops.1.levelIn)  // op1's ramp anchor
+                    // #85: OP6's ramp anchor (ops.0.markIGainOut) is already its own
+                    // atten2, set in the gain switch above. The follower (OP5) uses a
+                    // constant atten inside computeFb2MkI and needs no anchor — same as
+                    // the Alg 4 branch below. (A prior line wrote OP5's atten into OP6's
+                    // anchor here, corrupting OP6's next-block ramp when OP5≠OP6 level.)
                     opIdx = 2  // consumed op0 + op1
                 } else {
                     // Alg 4: op0 (OP6, fb) → op1 (OP5) → op2 (OP4).
