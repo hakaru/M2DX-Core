@@ -61,6 +61,7 @@ public struct OperatorSnapshot: Sendable {
     public var level: Float = 1.0
     public var ratio: Float = 1.0
     public var detune: Float = 1.0
+    public var detuneCents: Float = 0   // #96: DX7 detune param − 7 (−7…+7) for per-note frequency-dependent detune
     public var feedback: Float = 0.0
     public var egR0: Float = 99, egR1: Float = 75, egR2: Float = 50, egR3: Float = 50
     public var egL0: Float = 1.0, egL1: Float = 0.8, egL2: Float = 0.7, egL3: Float = 0.0

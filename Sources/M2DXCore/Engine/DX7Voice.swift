@@ -721,6 +721,7 @@ package struct DX7Voice {
             op.setOutputLevel(params.dx7OutputLevel)
             op.ratio = params.ratio
             op.detune = params.detune
+            op.detuneCents = params.detuneCents
             op.env.setRates(params.dx7EgR0, params.dx7EgR1, params.dx7EgR2, params.dx7EgR3)
             op.env.setLevels(params.dx7EgL0, params.dx7EgL1, params.dx7EgL2, params.dx7EgL3)
             // Recompute frequency from the new ratio/detune so live edits affect a

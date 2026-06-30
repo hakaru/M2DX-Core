@@ -128,6 +128,20 @@ package func fixedFreqHz(coarse: UInt8, fine: UInt8) -> Float {
     return powf(10.0, Float(Int(coarse) & 3) + Float(fine) / 100.0)
 }
 
+// MARK: - Operator Detune (frequency-dependent, DEXED dx7note.cc)
+
+/// DX7 operator detune as a per-note frequency multiplier (DEXED `dx7ref_osc_freq`).
+/// In the Q24 log2 domain DEXED does `logfreq += (0.0209·exp(-0.396·log2 freq)/7)·logfreq·c`
+/// with `c = detune − 7` (−7…+7), giving ~±17 cents in the bass down to ~±3.5 cents in the
+/// treble — NOT the pitch-independent constant ±7c M2DX used before. #96
+@inline(__always)
+package func dexedDetuneFactor(_ freq: Float, detuneCents: Float) -> Float {
+    guard detuneCents != 0, freq > 0 else { return 1.0 }
+    let lf = log2f(freq)                                  // = logfreq / (1<<24)
+    let detuneRatio = 0.0209 * expf(-0.396 * lf) / 7.0
+    return exp2f(detuneRatio * lf * detuneCents)
+}
+
 // MARK: - Unison Detune
 
 /// Symmetric unison detune factor for voice `index` of `count`, spread to ±`detuneCents`.

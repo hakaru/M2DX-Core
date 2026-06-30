@@ -422,7 +422,7 @@ public final class SynthEngine: @unchecked Sendable {
 
     public func setOperatorDetune(_ opIndex: Int, cents: Float) {
         guard opIndex >= 0, opIndex < kNumOperators else { return }
-        withShadowOp(opIndex) { $0.detune = powf(2.0, cents / 1200.0) }
+        withShadowOp(opIndex) { $0.detune = powf(2.0, cents / 1200.0); $0.detuneCents = cents }
         bumpVersion()
     }
 
@@ -794,6 +794,7 @@ public final class SynthEngine: @unchecked Sendable {
             s.level = op.normalizedLevel
             s.ratio = op.frequencyRatio
             s.detune = powf(2.0, op.detuneCents / 1200.0)
+            s.detuneCents = op.detuneCents
             // Feedback stored as Float(fb)/7.0 — only on the feedback operator (op0)
             s.feedback = isFeedbackOp ? Float(voiceFeedback) / 7.0 : 0
             s.dx7OutputLevel = op.outputLevel

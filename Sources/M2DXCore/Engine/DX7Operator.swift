@@ -13,6 +13,7 @@ package struct DX7Operator {
     var frequency: Float = 440
     var ratio: Float = 1.0
     var detune: Float = 1.0
+    var detuneCents: Float = 0   // #96: DX7 detune param − 7 (−7…+7); per-note factor computed at noteOn
     var outputLevel: Int = 99
     var phase: Int32 = 0          // Q24 phase accumulator
     var freq: Int32 = 0           // Q24 per-sample phase increment
@@ -41,6 +42,10 @@ package struct DX7Operator {
 
     mutating func noteOn(baseFreq: Float) {
         baseFrequency = baseFreq
+        // #96: DEXED applies a frequency-dependent operator detune (more cents in the bass, less
+        // in the treble), not a pitch-independent constant ±7c. Recompute the factor per note.
+        // (Fixed-freq ops get their frequency overridden right after note-on; detune cancels.)
+        detune = dexedDetuneFactor(baseFreq, detuneCents: detuneCents)
         frequency = baseFreq * ratio * detune
         updateFreq()
         env.noteOn()
