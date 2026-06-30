@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.18.1] - 2026-06-30
+
+### Fixed (v1.17.0 fidelity-audit review follow-ups)
+- **#96 held-note detune** — `DX7Voice.applyParams` reverted a sounding note's detune to the
+  pitch-independent constant on any live parameter edit (a snapshot version bump applies params to
+  all active voices), jumping the pitch versus a freshly-struck note. It now recomputes the per-note
+  `dexedDetuneFactor`, matching note-on.
+- **#97 EG-bias ceiling** — the EG-bias level boost ignored the `min(127, …+klsOffset)` ceiling the
+  real `env.outlevel` uses, over-brightening key-scaled operators already saturated at the 127 OL
+  ceiling; the boost now routes through the same ceiling.
+- **Pitch EG render-thread guard** — `PitchEG.process` guards the Float→Int32 `unit` narrowing
+  against a degenerate sample rate (0 / NaN) so it can't trap on the audio thread.
+
 ## [1.18.0] - 2026-06-30
 
 ### Added
