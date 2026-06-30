@@ -8,23 +8,36 @@ import Darwin
 /// Simple 4-stage pitch envelope generator that outputs semitones directly.
 /// Operates in Float arithmetic at block rate (64 samples/block).
 /// Level 50 = center (0 semitones), 0 = -48 semitones, 99 = +48 semitones.
+/// DX7 pitch envelope — a faithful port of DEXED `PitchEnv` (pitchenv.cc). Seeds at L4,
+/// ramps L4→L1→L2→L3 (sustains at L3 while held), releases to L4; level→pitch is the
+/// non-linear `pitchenv_tab`, and rate sets a constant per-block slope. #93
 package struct PitchEG {
     var rates:  (UInt8, UInt8, UInt8, UInt8) = (99, 99, 99, 99)
     var levels: (UInt8, UInt8, UInt8, UInt8) = (50, 50, 50, 50)
-    /// -1 = idle, 0-3 = active stages
-    var stage: Int = -1
-    /// Current interpolated level (0-99 float)
-    var currentLevel: Float = 50.0
-    var targetLevel: Float = 50.0
-    var increment: Float = 0.0
+    /// -1 = idle, 0-3 = active stages, 4 = done (holds at L4).
+    var ix: Int = -1
+    /// DEXED PitchEnv `level_`: `pitchenv_tab[level] << 19` (1<<24 = one octave).
+    var level: Int32 = 0
+    var targetLevel: Int32 = 0
+    var rising: Bool = false
     var down: Bool = false
     var enabled: Bool = false
 
-    /// Current pitch offset in semitones (-48 to +48).
-    var semitones: Float {
-        (currentLevel - 50.0) / 49.0 * 48.0
+    /// Pitch offset in semitones: level / (1<<24) octaves × 12 (1 pitchenv_tab unit ≈ 0.375 st).
+    var semitones: Float { Float(level) / Float(1 << 24) * 12.0 }
+
+    @inline(__always)
+    private func tab(_ l: UInt8) -> Int32 { Int32(kPitchEnvTab[Int(min(99, l))]) << 19 }
+    @inline(__always)
+    private func levelForStage(_ s: Int) -> UInt8 {
+        switch s { case 0: return levels.0; case 1: return levels.1; case 2: return levels.2; default: return levels.3 }
+    }
+    @inline(__always)
+    private func rateForStage(_ s: Int) -> UInt8 {
+        switch s { case 0: return rates.0; case 1: return rates.1; case 2: return rates.2; default: return rates.3 }
     }
 
+    /// DEXED PitchEnv::set + keydown(true): seed at L4, then advance(0). Starts at L4, NOT L1.
     mutating func noteOn(
         r0: UInt8, r1: UInt8, r2: UInt8, r3: UInt8,
         l0: UInt8, l1: UInt8, l2: UInt8, l3: UInt8,
@@ -34,102 +47,46 @@ package struct PitchEG {
         levels = (l0, l1, l2, l3)
         enabled = r0 != 99 || r1 != 99 || r2 != 99 || r3 != 99 ||
                   l0 != 50 || l1 != 50 || l2 != 50 || l3 != 50
-        guard enabled else { stage = -1; return }
-
-        currentLevel = Float(l0)   // Start at L0 (pre-attack level)
-        stage = 0
+        guard enabled else { ix = -1; level = 0; down = false; return }
+        level = tab(l3)        // seed at L4
         down = true
-        advanceStage(sampleRate: sampleRate)
+        advance(0)
     }
 
+    /// DEXED keydown(false): advance(3), releasing toward L4.
     mutating func noteOff(sampleRate: Float) {
-        guard enabled else { return }
+        guard enabled, down else { return }
         down = false
-        if stage >= 0 && stage < 3 {
-            stage = 3
-            advanceStage(sampleRate: sampleRate)
-        }
+        advance(3)
     }
 
-    private mutating func advanceStage(sampleRate: Float) {
-        guard stage >= 0 && stage < 4 else {
-            stage = -1
-            return
-        }
-        // DX7 Pitch EG stages:
-        //  Stage 0: L0 → L1 at R0
-        //  Stage 1: L1 → L2 at R1
-        //  Stage 2: L2 → L3 at R2  (sustain while key held)
-        //  Stage 3: L3 → L0 at R3  (release, return to pre-attack level)
-        let lvl: Float
-        let rate: UInt8
-        switch stage {
-        case 0: lvl = Float(levels.1); rate = rates.0
-        case 1: lvl = Float(levels.2); rate = rates.1
-        case 2: lvl = Float(levels.3); rate = rates.2
-        case 3: lvl = Float(levels.0); rate = rates.3
-        default: stage = -1; return
-        }
-        targetLevel = lvl
-
-        let blocksPerSecond = sampleRate / Float(kBlockSize)
-        if rate >= 99 {
-            // Instant: jump immediately, recurse to next stage
-            currentLevel = targetLevel
-            increment = 0.0
-            // Hold sustain stage when key is down
-            if stage == 2 && down { return }
-            stage += 1
-            if stage < 4 {
-                advanceStage(sampleRate: sampleRate)
-            } else {
-                stage = -1
-                currentLevel = 50.0
-            }
-        } else {
-            // Exponential time curve: rate 0 ≈ very slow, rate 98 ≈ fast
-            let timeSeconds = powf(10.0, Float(99 - Int(rate)) / 30.0) * 0.01
-            let totalBlocks = max(1.0, timeSeconds * blocksPerSecond)
-            increment = (targetLevel - currentLevel) / totalBlocks
-        }
+    @inline(__always)
+    private mutating func advance(_ newIx: Int) {
+        ix = newIx
+        guard ix < 4 else { return }
+        targetLevel = tab(levelForStage(ix))
+        rising = targetLevel > level
     }
 
-    /// Call once per 64-sample block. Returns true while envelope is active.
+    /// Advance once per render block (DEXED PitchEnv::getsample). `sampleRate` is the
+    /// (possibly oversampled) render rate, so wall-clock pitch-EG time stays constant.
     @discardableResult
     mutating func process(sampleRate: Float) -> Bool {
-        guard enabled && stage >= 0 else { return false }
-
-        // Sustain: hold at L3 while key is held
-        if stage == 2 && down && increment == 0.0 { return true }
-
-        if increment == 0.0 {
-            // Already at target — advance to next stage
-            if stage == 2 && down { return true }
-            stage += 1
-            if stage >= 4 { stage = -1; currentLevel = 50.0; return false }
-            advanceStage(sampleRate: sampleRate)
-            return stage >= 0
+        guard enabled, ix >= 0, ix < 4 else { return false }
+        // unit = N·(1<<24) / (21.3·Fs); inc = pitchenv_rate[rate] · unit.
+        let unit = Int32(64.0 * Float(1 << 24) / (21.3 * sampleRate) + 0.5)
+        let inc = Int32(kPitchEnvRate[Int(min(99, rateForStage(ix)))]) &* unit
+        // Stages 0-2 always advance; stage 3 (release) only after note-off.
+        if ix < 3 || !down {
+            if rising {
+                level = level &+ inc
+                if level >= targetLevel { level = targetLevel; advance(ix + 1) }
+            } else {
+                level = level &- inc
+                if level <= targetLevel { level = targetLevel; advance(ix + 1) }
+            }
         }
-
-        // Interpolate toward target
-        currentLevel += increment
-        let reached: Bool
-        if increment > 0 {
-            reached = currentLevel >= targetLevel
-        } else {
-            reached = currentLevel <= targetLevel
-        }
-
-        if reached {
-            currentLevel = targetLevel
-            increment = 0.0
-            if stage == 2 && down { return true }
-            stage += 1
-            if stage >= 4 { stage = -1; currentLevel = 50.0; return false }
-            advanceStage(sampleRate: sampleRate)
-        }
-
-        return stage >= 0
+        return ix >= 0 && ix < 4
     }
 }
 
