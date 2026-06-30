@@ -73,8 +73,11 @@ package struct PitchEG {
     @discardableResult
     mutating func process(sampleRate: Float) -> Bool {
         guard enabled, ix >= 0, ix < 4 else { return false }
-        // unit = N·(1<<24) / (21.3·Fs); inc = pitchenv_rate[rate] · unit.
-        let unit = Int32(64.0 * Float(1 << 24) / (21.3 * sampleRate) + 0.5)
+        // unit = N·(1<<24) / (21.3·Fs); inc = pitchenv_rate[rate] · unit. Guard the Float→Int32
+        // narrowing so a degenerate sampleRate (0 → Inf, or NaN) can't trap on the render thread.
+        let unitF = Float(kBlockSize) * Float(1 << 24) / (21.3 * sampleRate) + 0.5
+        guard unitF.isFinite else { return ix >= 0 && ix < 4 }
+        let unit = Int32(unitF)
         let inc = Int32(kPitchEnvRate[Int(min(99, rateForStage(ix)))]) &* unit
         // Stages 0-2 always advance; stage 3 (release) only after note-off.
         if ix < 3 || !down {
@@ -692,8 +695,12 @@ package struct DX7Voice {
         withOp(opIndex) { op in
             op.setOutputLevel(params.dx7OutputLevel)
             op.ratio = params.ratio
-            op.detune = params.detune
             op.detuneCents = params.detuneCents
+            // #96: keep the per-note frequency-dependent detune on live edits to a HELD note
+            // (matching noteOn), not the pitch-independent params.detune. Fixed-freq ops cancel
+            // detune, so the constant value is harmless there.
+            op.detune = op.isFixedFreq ? params.detune
+                : dexedDetuneFactor(op.baseFrequency, detuneCents: params.detuneCents)
             op.env.setRates(params.dx7EgR0, params.dx7EgR1, params.dx7EgR2, params.dx7EgR3)
             op.env.setLevels(params.dx7EgL0, params.dx7EgL1, params.dx7EgL2, params.dx7EgL3)
             // Recompute frequency from the new ratio/detune so live edits affect a
