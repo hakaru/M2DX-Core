@@ -23,14 +23,10 @@ package struct DX7Envelope {
 
     var srMultiplier: Int64 = 1 << 24  // Q24: (44100/sampleRate) × (1<<24)
 
-    var releaseBlockCount: Int = 0
-    var releaseTimeoutBlocks: Int = 1378  // ~2s at 44.1kHz
-
     var isActive: Bool { ix >= 0 }
 
     mutating func setSampleRate(_ sr: Float) {
         srMultiplier = Int64(Double(44100.0) / Double(sr) * Double(1 << 24))
-        releaseTimeoutBlocks = Int(sr * 2.0) / kBlockSize
         recalcCurrentInc()
     }
 
@@ -52,7 +48,6 @@ package struct DX7Envelope {
     mutating func noteOn() {
         level = 0
         down = true
-        releaseBlockCount = 0
         advance(0)
     }
 
@@ -96,13 +91,11 @@ package struct DX7Envelope {
             }
         }
 
-        if !down {
-            releaseBlockCount += 1
-            if releaseBlockCount >= releaseTimeoutBlocks {
-                level = 0; ix = -1
-            }
-        }
-
+        // No fixed 2 s wall-clock release kill (which truncated + clicked slow release tails,
+        // and which neither the real DX7 nor the DEXED C twin have): the release runs to its
+        // natural completion (advance(4) → ix = -1 at the L4 floor), bit-exactly matching the
+        // DEXED reference EG trace. Voice slots for long releases are reclaimed by voice
+        // stealing, not a wall-clock guillotine. (#92)
         return level
     }
 

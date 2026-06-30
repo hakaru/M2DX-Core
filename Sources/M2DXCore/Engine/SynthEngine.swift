@@ -71,6 +71,7 @@ public final class SynthEngine: @unchecked Sendable {
         var atPitchDepth: Float = 0
         var controllerAmpMod: Float = 1.0
         var lfoAMDNorm: Float = 0
+        var egBiasOL: Int32 = 0   // #97: controller→EG-bias output-level boost (0…99 OL points)
     }
 
     /// SplitMix64 — small, fast, deterministic PRNG used for LFO Sample-and-Hold.
@@ -422,7 +423,7 @@ public final class SynthEngine: @unchecked Sendable {
 
     public func setOperatorDetune(_ opIndex: Int, cents: Float) {
         guard opIndex >= 0, opIndex < kNumOperators else { return }
-        withShadowOp(opIndex) { $0.detune = powf(2.0, cents / 1200.0) }
+        withShadowOp(opIndex) { $0.detune = powf(2.0, cents / 1200.0); $0.detuneCents = cents }
         bumpVersion()
     }
 
@@ -794,6 +795,7 @@ public final class SynthEngine: @unchecked Sendable {
             s.level = op.normalizedLevel
             s.ratio = op.frequencyRatio
             s.detune = powf(2.0, op.detuneCents / 1200.0)
+            s.detuneCents = op.detuneCents
             // Feedback stored as Float(fb)/7.0 — only on the feedback operator (op0)
             s.feedback = isFeedbackOp ? Float(voiceFeedback) / 7.0 : 0
             s.dx7OutputLevel = op.outputLevel
@@ -1076,12 +1078,12 @@ public final class SynthEngine: @unchecked Sendable {
 
     // MARK: - LFO
 
-    /// DX7 LFO speed (0…99) → frequency in Hz. Calibrated to the documented DX7
-    /// LFO range: 0.0625 Hz at speed 0, ≈47 Hz at speed 99 (exponential).
+    /// DX7 LFO speed (0…99) → frequency in Hz — the verbatim DEXED `lfoSource` table
+    /// (asb2m10/dexed Source/msfa/lfo.cc): 0.0625 Hz at speed 0 up to ~49.3 Hz at speed 99.
+    /// Replaces the old pragmatic exponential (1.47·e^(0.035·speed)), whose 1.47 Hz floor at
+    /// speed 0 put the DX7's slow vibrato / multi-second sweeps (sub-0.1 Hz) out of reach. #94
     package static func lfoSpeedToHz(_ speed: UInt8) -> Float {
-        // Usable vibrato range: ~1.5 Hz at speed 0, ~5 Hz at the default 35, ~47 Hz
-        // at 99. (Pragmatic exponential — pending exact DX7/Dexed reference data.)
-        1.47 * expf(Float(speed) * 0.0350)
+        kLFOSpeedHz[Int(min(99, speed))]
     }
 
     private func lfoWaveformValue(_ phase: Float, waveform: UInt8, slotIdx: Int = 0) -> Float {
@@ -1172,6 +1174,11 @@ public final class SynthEngine: @unchecked Sendable {
             let bAmp = Float(slot.breathAmp) / 99.0 * breathDepth
             let aAmp = Float(slot.aftertouchAmp) / 99.0 * aftertouchDepth
             slotMods[s].controllerAmpMod = 1.0 - (wAmp + fAmp + bAmp + aAmp) * 0.5
+            // #97: EG-bias destination — each controller's EG-bias range (0-99) × its depth
+            // raises the operator output level by that many OL points (summed, capped at 99).
+            let egb = Float(slot.wheelEGBias) * modWheelDepth + Float(slot.footEGBias) * footDepth
+                    + Float(slot.breathEGBias) * breathDepth + Float(slot.aftertouchEGBias) * aftertouchDepth
+            slotMods[s].egBiasOL = Int32(min(99.0, egb))
         }
 
         for i in 0..<maxV {
@@ -1275,6 +1282,7 @@ public final class SynthEngine: @unchecked Sendable {
                     lfoAmpModVal = lfoAmpModVal &+ Int32(volAtten)
                 }
                 voicesDX7[i].lfoAmpMod = lfoAmpModVal
+                voicesDX7[i].egBiasOL = voicesDX7[i].detached ? 0 : slotMods[s].egBiasOL   // #97
             }
 
             for i in 0..<maxV {

@@ -3,6 +3,7 @@
 // Compares M2DX Swift engine functions against DEXED C reference implementations.
 
 import Testing
+import Foundation
 @testable import M2DXCore
 import DX7Ref
 
@@ -113,6 +114,33 @@ struct DX7RefTests {
             #expect(m2dx == dexed,
                 "scaleOutputLevel mismatch: OL=\(ol) → M2DX=\(m2dx), DEXED=\(dexed)")
         }
+    }
+
+    // MARK: - 4b. Operator detune (frequency-dependent, #96)
+
+    @Test("Operator detune is frequency-dependent, matching DEXED dx7ref_osc_freq (#96)")
+    func detuneMatchesDexedFrequencyDependent() {
+        let notes: [UInt8] = [24, 36, 48, 60, 69, 84, 96, 108]   // C1 … C8
+        let detunes = [0, 1, 4, 7, 10, 13, 14]                   // DX7 param 0-14 (7 = center)
+        for note in notes {
+            let freq = kMIDIFreqLUT[Int(note)]
+            for d in detunes {
+                // M2DX production detune (cents) via the per-note factor used at note-on.
+                let factor = dexedDetuneFactor(freq, detuneCents: Float(d - 7))
+                let m2dxCents = log2(Double(factor)) * 1200.0
+                // DEXED reference: logfreq(detune) − logfreq(center) in cents (ratio mode).
+                let lfDet = Double(dx7ref_osc_freq(Int32(note), 0, 0, 0, Int32(d)))
+                let lfCtr = Double(dx7ref_osc_freq(Int32(note), 0, 0, 0, 7))
+                let refCents = (lfDet - lfCtr) / Double(1 << 24) * 1200.0
+                #expect(abs(m2dxCents - refCents) < 0.4,
+                    "detune note=\(note) param=\(d): M2DX \(m2dxCents)c vs DEXED \(refCents)c (Δ=\(m2dxCents - refCents))")
+            }
+        }
+        // Frequency-dependence: max detune is much larger in the bass than the treble. The old
+        // pitch-independent constant ±7c would give equal values and fail this.
+        let bass = abs(log2(Double(dexedDetuneFactor(kMIDIFreqLUT[24], detuneCents: 7))) * 1200)
+        let treble = abs(log2(Double(dexedDetuneFactor(kMIDIFreqLUT[108], detuneCents: 7))) * 1200)
+        #expect(bass > treble * 2.5, "C1 detune (\(bass)c) should be >2.5× C8 (\(treble)c)")
     }
 
     // MARK: - 5. Exp2 Lookup
