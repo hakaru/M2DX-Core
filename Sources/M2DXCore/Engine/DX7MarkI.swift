@@ -56,7 +56,9 @@ func dac12bitCompand(_ sample: Float) -> Float {
 /// full scale (`mkiSin` max mantissa `8192 << 13` = 2^26). Per-voice raw OPS samples are
 /// divided by this before `dac12bitCompand` so its (−1,1)-normalized exponent selector
 /// (0.5/0.25/0.125) engages across the real dynamic range, then multiplied back.
-let kMarkIDACFullScale: Float = 67108864   // 2^26
+/// Runtime-settable for calibration A/B tests (like `markIModScaleQ12`); default 2^26 =
+/// unchanged shipping behavior. Read per-sample as an aligned Float (RT-safe on arm64/x86_64).
+nonisolated(unsafe) var kMarkIDACFullScale: Float = 67108864   // 2^26
 
 /// Mark I silence threshold (attenuation ABOVE this = inaudible). Opposite sense
 /// to Modern's kGainThreshold. Do not alias the Modern constant.

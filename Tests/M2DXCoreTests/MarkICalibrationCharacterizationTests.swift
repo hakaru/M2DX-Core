@@ -219,6 +219,129 @@ struct MarkICalibrationCharacterizationTests {
         print("DAC A/B WAVs written to \(dir.path) — on-device listen: does DAC-on add the intended grit, or is it filtered by downsampling?")
     }
 
+    // MARK: - R-sweep DAC A/B
+
+    /// Render the given preset with Mark I engine for `frames` samples.
+    /// `dacOn` and the caller-set `kMarkIDACFullScale` are respected.
+    private func renderMarkIR(_ preset: DX7Preset, dacOn: Bool, frames: Int) -> [Float] {
+        let synth = SynthEngine()
+        synth.setSampleRate(sampleRate)
+        synth.setMasterVolume(1.0)
+        synth.setFMEngine(.markI)
+        synth.setVintageDAC(dacOn)
+        synth.loadDX7Preset(preset)
+
+        let blk = 512
+        var wL = [Float](repeating: 0, count: blk), wR = [Float](repeating: 0, count: blk)
+        wL.withUnsafeMutableBufferPointer { lp in wR.withUnsafeMutableBufferPointer { rp in
+            synth.render(into: lp.baseAddress!, bufferR: rp.baseAddress!, frameCount: blk)
+        }}
+        synth.sendMIDI(MIDIEvent(kind: .noteOn, data1: 60, data2: UInt32(100) << 9))
+
+        var outL = [Float](repeating: 0, count: frames)
+        var outR = [Float](repeating: 0, count: frames)
+        outL.withUnsafeMutableBufferPointer { op in outR.withUnsafeMutableBufferPointer { rp in
+            var off = 0
+            while off < frames {
+                let c = min(blk, frames - off)
+                synth.render(into: op.baseAddress! + off, bufferR: rp.baseAddress! + off, frameCount: c)
+                off += c
+            }
+        }}
+        return outL
+    }
+
+    /// R-sweep: render three representative Mark I patches at DAC-off plus DAC-on for
+    /// R ∈ {2^26, 2^25, 2^24, 2^23} and write peak-normalised (−3 dBFS) WAVs.  Also
+    /// prints per-(patch,R) exponent-region engagement counts so we can see how lowering
+    /// R shifts more signal into the coarse exponent bands.
+    @Test("R-sweep DAC A/B: WAVs at R ∈ {2^26,2^25,2^24,2^23} (#95)")
+    func renderDACScaleAB() throws {
+        guard ProcessInfo.processInfo.environment["M2DX_MARKI_CHAR"] != nil else {
+            print("MarkICalibrationCharacterizationTests skipped — set M2DX_MARKI_CHAR=1")
+            return
+        }
+        // Restore shipping default R regardless of how the test exits.
+        defer { kMarkIDACFullScale = Float(1 << 26) }
+
+        let dir = URL(fileURLWithPath: "/tmp/m2dx-marki-dac")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+
+        let allPresets = DX7FactoryPresets.all
+        // 1. E.PIANO (decay tail): tine decay exposes both fine and coarse exponent regions.
+        let ePiano = allPresets.first(where: { $0.name.hasPrefix("E.PIANO") }) ?? allPresets[0]
+        // 2. Bell/tine (long quiet decay where the fine 1/16384-step grid matters most).
+        let bell = allPresets.first(where: { $0.name == "TINE BELL" })
+                ?? allPresets.first(where: { $0.name.contains("BELL") })
+                ?? allPresets[1]
+        // 3. Bright/sustained with high feedback (brass sustain → coarse exponent engagement).
+        let bright = allPresets.first(where: { $0.name == "BRASS" })
+                  ?? allPresets.first(where: { $0.name.contains("STRINGS") && $0.feedback > 0 })
+                  ?? allPresets.first(where: { $0.feedback > 0 })
+                  ?? allPresets[2]
+
+        let patches: [(slug: String, preset: DX7Preset)] = [
+            ("epiano", ePiano),
+            ("bell",   bell),
+            ("bright", bright),
+        ]
+        let rEntries: [(suffix: String, r: Float)] = [
+            ("R2p26", Float(1 << 26)),
+            ("R2p25", Float(1 << 25)),
+            ("R2p24", Float(1 << 24)),
+            ("R2p23", Float(1 << 23)),
+        ]
+        let renderFrames = 120000   // 2.5 s at 48 kHz — covers attack + long decay tail
+        let targetPeak: Float = 0.707   // −3 dBFS peak-normalise
+
+        print("── R-sweep DAC A/B (note 60 vel 100, peak-normalised −3 dBFS) ──")
+        print("Patches: \(ePiano.name)  \(bell.name)  \(bright.name)")
+        print("  patch      variant    rawPeak  exp1     exp2     exp4     exp8     file")
+
+        for (slug, preset) in patches {
+            // DAC-OFF reference
+            let offBuf = renderMarkIR(preset, dacOn: false, frames: renderFrames)
+            let offPeak = offBuf.map { abs($0) }.max() ?? 1
+            let offG = offPeak > 0 ? targetPeak / offPeak : 1
+            let offNorm = offBuf.map { $0 * offG }
+            let offURL = dir.appendingPathComponent("\(slug)_dacoff.wav")
+            try writeWAV(offNorm, sampleRate: Int(sampleRate), to: offURL)
+            let sp = slug.padding(toLength: 10, withPad: " ", startingAt: 0)
+            print(String(format: "  %@ dacoff     %.4f  —        —        —        —        %@",
+                         sp, offPeak, offURL.lastPathComponent))
+
+            // DAC-ON at each R value
+            for (suffix, rVal) in rEntries {
+                kMarkIDACFullScale = rVal
+                let buf = renderMarkIR(preset, dacOn: true, frames: renderFrames)
+                let peak = buf.map { abs($0) }.max() ?? 1
+
+                // Approximate pre-compand input level per sample: outL[s] ≈ blockBuf[s] * scale,
+                // where scale = masterVol * pL / 2^28 (pL = 0.7071 center pan, masterVol = 1.0).
+                // So blockBuf[s] / R ≈ outL[s] * 2^28 / (R * 0.7071).
+                // We use 2^28 / R as a close approximation (pL difference only shifts thresholds ~41%).
+                let invR: Float = 268435456.0 / rVal
+                var cnt1 = 0, cnt2 = 0, cnt4 = 0, cnt8 = 0
+                for s in buf {
+                    let a = abs(s) * invR
+                    if      a > 0.5   { cnt1 += 1 }
+                    else if a > 0.25  { cnt2 += 1 }
+                    else if a > 0.125 { cnt4 += 1 }
+                    else              { cnt8 += 1 }
+                }
+
+                let g = peak > 0 ? targetPeak / peak : 1
+                let norm = buf.map { $0 * g }
+                let url = dir.appendingPathComponent("\(slug)_\(suffix).wav")
+                try writeWAV(norm, sampleRate: Int(sampleRate), to: url)
+                let sfx = suffix.padding(toLength: 9, withPad: " ", startingAt: 0)
+                print(String(format: "  %@ %@  %.4f  %-8d %-8d %-8d %-8d %@",
+                             sp, sfx, peak, cnt1, cnt2, cnt4, cnt8, url.lastPathComponent))
+            }
+        }
+        print("── WAVs written to \(dir.path) ──")
+    }
+
     // MARK: - Feedback comparison
 
     @Test("Render Modern vs Mark I feedback comparison")
