@@ -71,6 +71,7 @@ public final class SynthEngine: @unchecked Sendable {
         var atPitchDepth: Float = 0
         var controllerAmpMod: Float = 1.0
         var lfoAMDNorm: Float = 0
+        var egBiasOL: Int32 = 0   // #97: controller→EG-bias output-level boost (0…99 OL points)
     }
 
     /// SplitMix64 — small, fast, deterministic PRNG used for LFO Sample-and-Hold.
@@ -1173,6 +1174,11 @@ public final class SynthEngine: @unchecked Sendable {
             let bAmp = Float(slot.breathAmp) / 99.0 * breathDepth
             let aAmp = Float(slot.aftertouchAmp) / 99.0 * aftertouchDepth
             slotMods[s].controllerAmpMod = 1.0 - (wAmp + fAmp + bAmp + aAmp) * 0.5
+            // #97: EG-bias destination — each controller's EG-bias range (0-99) × its depth
+            // raises the operator output level by that many OL points (summed, capped at 99).
+            let egb = Float(slot.wheelEGBias) * modWheelDepth + Float(slot.footEGBias) * footDepth
+                    + Float(slot.breathEGBias) * breathDepth + Float(slot.aftertouchEGBias) * aftertouchDepth
+            slotMods[s].egBiasOL = Int32(min(99.0, egb))
         }
 
         for i in 0..<maxV {
@@ -1276,6 +1282,7 @@ public final class SynthEngine: @unchecked Sendable {
                     lfoAmpModVal = lfoAmpModVal &+ Int32(volAtten)
                 }
                 voicesDX7[i].lfoAmpMod = lfoAmpModVal
+                voicesDX7[i].egBiasOL = voicesDX7[i].detached ? 0 : slotMods[s].egBiasOL   // #97
             }
 
             for i in 0..<maxV {

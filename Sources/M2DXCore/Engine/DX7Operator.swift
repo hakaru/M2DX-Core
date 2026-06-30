@@ -72,9 +72,19 @@ package struct DX7Operator {
 
     /// Update gain from EG. Called once per block before compute.
     @inline(__always)
-    mutating func updateGain(lfoAmpMod: Int32) {
+    mutating func updateGain(lfoAmpMod: Int32, egBiasOL: Int32 = 0) {
         let egLevel = env.getsample()
         levelIn = egLevel
+
+        // #97: controller→EG bias raises the operator output level in real time. Apply it as an
+        // exact level offset through the real scaleOutputLevel curve (= raising OL by `egBiasOL`
+        // points), so a breath/AT/wheel/foot controller assigned to EG bias brightens + swells
+        // the whole voice — the DX7's main expressive dynamics path. (OL-point scale calibratable.)
+        if egBiasOL > 0 {
+            let biasedOL = min(99, outputLevel + Int(egBiasOL))
+            let dOut = (scaleOutputLevel(biasedOL) - scaleOutputLevel(outputLevel)) << 5
+            levelIn = levelIn &+ (Int32(dOut) << 16)
+        }
 
         if amsDepth > 0 && lfoAmpMod > 0 {
             let amod = Int32((Int64(lfoAmpMod) * Int64(amsDepth)) >> 24)

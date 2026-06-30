@@ -106,6 +106,7 @@ package struct DX7Voice {
     var pitchBendFactor: Float = 1.0
     var slotId: Int = 0
     var lfoAmpMod: Int32 = 0
+    var egBiasOL: Int32 = 0   // #97: controller→EG-bias OL boost, set per render block
     var feedbackShiftValue: Int = 16
     var engineMode: FMEngine = .modern
 
@@ -201,9 +202,10 @@ package struct DX7Voice {
     @inline(__always)
     mutating func updateGains() {
         let lfaMod = lfoAmpMod
-        ops.0.updateGain(lfoAmpMod: lfaMod); ops.1.updateGain(lfoAmpMod: lfaMod)
-        ops.2.updateGain(lfoAmpMod: lfaMod); ops.3.updateGain(lfoAmpMod: lfaMod)
-        ops.4.updateGain(lfoAmpMod: lfaMod); ops.5.updateGain(lfoAmpMod: lfaMod)
+        let bias = egBiasOL
+        ops.0.updateGain(lfoAmpMod: lfaMod, egBiasOL: bias); ops.1.updateGain(lfoAmpMod: lfaMod, egBiasOL: bias)
+        ops.2.updateGain(lfoAmpMod: lfaMod, egBiasOL: bias); ops.3.updateGain(lfoAmpMod: lfaMod, egBiasOL: bias)
+        ops.4.updateGain(lfoAmpMod: lfaMod, egBiasOL: bias); ops.5.updateGain(lfoAmpMod: lfaMod, egBiasOL: bias)
     }
 
     /// Render one block, dispatching to the selected FM engine.
