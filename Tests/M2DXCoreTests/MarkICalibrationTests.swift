@@ -116,15 +116,16 @@ struct MarkICalibrationTests {
             "Mark I peak \(peakMarkI) exceeds 0.5 headroom (Modern peaks ~\(peakModern))")
     }
 
-    // (b) DARKER SUSTAIN — the whole musical point of Mark I: the OPS feeds forward
-    // modulation to the carrier phase 3 bits lower than MSFA (`markIModScale`, ÷8),
-    // so the modulation index collapses and the sustain tone approaches a pure sine
-    // (centroid markedly lower than Modern's). ÷8 was calibrated against real Dexed
-    // Mark I and confirmed by ear across BASS 1 (alg15) and E.PIANO 1 (alg4).
-    //
-    // Measured: Modern ≈ 685 Hz, Mark I ≈ 176 Hz (ratio ≈ 0.26) — near the ~131 Hz
-    // near-pure-sine target. Hard assertion (the earlier `withKnownIssue` gap is fixed).
-    @Test("Mark I BASS 1 sustain is markedly darker than Modern")
+    // (b) DARKER SUSTAIN — Mark I (OPS) is the darker/warmer engine: its sustain spectral
+    // centroid is lower than Modern's. We assert only the DIRECTION (Mark I < Modern), not a
+    // magnitude. How MUCH darker is set by the forward-mod divisor (app default ÷5), whose
+    // audible effect is small and patch-dependent — an A/B across ÷4…÷8 spans only ~12% on
+    // BASS 1 and is divisor-insensitive on E.PIANO 1 at sustain (the user confirmed ÷4–÷8 are
+    // nearly indistinguishable by ear), so it is a low-impact calibration left to the ear; see
+    // docs/mark-i-recalibration-plan.md (markI-ops-dac finding 2 — closed, ÷5 maintained).
+    // The earlier ×0.6 "markedly darker" threshold was an artifact of the pre-KLS-fix
+    // over-bright Modern (centroid ~685 Hz, now correctly ~180 Hz).
+    @Test("Mark I BASS 1 sustain is darker than Modern")
     func darkerSustain() {
         let modern = renderBASS1(engine: .modern)
         let markI  = renderBASS1(engine: .markI)
@@ -132,21 +133,9 @@ struct MarkICalibrationTests {
         let centModern = centroid(modern, over: sustain)
         let centMarkI  = centroid(markI,  over: sustain)
         let ratio = centModern > 0 ? centMarkI / centModern : Double.nan
-        print(String(format: "🌑 BASS1 sustain centroid: Modern=%.1f Hz  MarkI=%.1f Hz  ratio=%.3f  (want MarkI < Modern×0.6)",
+        print(String(format: "🌑 BASS1 sustain centroid: Modern=%.1f Hz  MarkI=%.1f Hz  ratio=%.3f  (want MarkI < Modern)",
                      centModern, centMarkI, ratio))
-        // KNOWN ISSUE — the fix/kls-fidelity branch ported real-Dexed ScaleLevel/ScaleCurve,
-        // correcting BASS 1's previously inverted/under-scaled keyboard level scaling. That had
-        // been over-driving a modulator and rendering Modern far too bright (sustain centroid
-        // ~685 Hz — the obs-7181 "≈2× brighter than Dexed" symptom; a KLS-only change can shift
-        // the centroid only via the FM modulation index, i.e. a modulator level). With faithful
-        // KLS the Modern centroid drops to ~180 Hz and Mark I to ~142 Hz: Mark I is still darker
-        // (ratio ~0.79) but no longer < Modern×0.6. The 0.6 threshold was propped up by the
-        // pre-fix over-brightness, and the Mark I ÷8 darkness it asserts is itself flagged as
-        // "too dark vs a real DX7" (audit markI-ops-dac finding 2). Re-tune or retire this
-        // magnitude assertion when the ÷8 calibration is revisited.
-        withKnownIssue("KLS fidelity fix corrected Modern over-brightness; 0.6 threshold + Mark I ÷8 darkness pending markI-ops-dac review") {
-            #expect(centMarkI < centModern * 0.6,
-                "Mark I sustain (centroid \(centMarkI) Hz) is NOT markedly darker than Modern (centroid \(centModern) Hz); ratio \(ratio) ≥ 0.6")
-        }
+        #expect(centMarkI < centModern,
+            "Mark I sustain (centroid \(centMarkI) Hz) should be darker than Modern (centroid \(centModern) Hz); ratio \(ratio)")
     }
 }
