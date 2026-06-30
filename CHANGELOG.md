@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.18.0] - 2026-06-30
+
+### Added
+- **Voice Stack random velocity (#89 follow-up)** — adds `setVoiceStackVelocityRandom(range:)`
+  and `SynthParamSnapshot.voiceStackVelocityRandomRange`. When Voice Stack is above 1×,
+  each stacked copy gets a deterministic per-note/per-copy velocity offset within ±0...64
+  MIDI velocity steps, applied in 16-bit velocity space so MIDI 2.0 precision is preserved.
+  Range 0 is byte-for-byte unchanged and randomized values clamp to 1...65535.
+
+### Tests
+- Added helper and end-to-end Voice Stack coverage for random velocity range, rerolling,
+  clamping, and per-copy operator velocity offsets.
+
 ## [1.17.0] - 2026-06-30
 
 DX7 fidelity audit — engine/voice dimension fixes (verified against DEXED/MSFA source).

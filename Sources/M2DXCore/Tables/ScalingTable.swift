@@ -190,6 +190,31 @@ package func voiceStackDetuneFactorRandom(noteOnIndex: UInt64, copyIndex: Int, d
     return exp2((signed * d) / 1200.0)
 }
 
+/// Voice-stack (#89-velocity) per-copy velocity randomization. `range7` is a
+/// ± range in MIDI 1.0 velocity steps; the delta is applied in 16-bit velocity
+/// space so MIDI 2.0 sub-step precision is preserved. Re-rolls per note-on and
+/// copy, and clamps to 1...65535 so a sounded note cannot turn into note-off.
+@inline(__always)
+package func voiceStackVelocityRandomized(
+    _ velocity16: UInt16,
+    range7 rawRange: UInt8,
+    noteOnIndex: UInt64,
+    copyIndex: Int
+) -> UInt16 {
+    let range = Int(min(rawRange, 64))
+    guard range > 0 else { return velocity16 }
+    var z = UInt64(0xD6E8FEB86659FD93)                          // distinct base seed
+        ^ (noteOnIndex &* 0x9E3779B97F4A7C15)
+        ^ (UInt64(bitPattern: Int64(copyIndex)) &* 0xD1B54A32D192ED03)
+    z = z &+ 0x9E3779B97F4A7C15                                  // SplitMix64 step
+    z = (z ^ (z >> 30)) &* 0xBF58476D1CE4E5B9
+    z = (z ^ (z >> 27)) &* 0x94D049BB133111EB
+    z = z ^ (z >> 31)
+    let signed = Float(Int32(bitPattern: UInt32(truncatingIfNeeded: z))) / Float(0x80000000)  // [-1,1)
+    let delta = Int(signed * Float(range * 512))
+    return UInt16(clamping: max(1, min(0xFFFF, Int(velocity16) + delta)))
+}
+
 /// Voice-stack (#89-detune) loudness compensation. Detuning decorrelates the N stacked
 /// copies: at 0 cents they are phase-locked and sum coherently (∝ N → 1/N keeps unity);
 /// past `kVoiceStackDecorrelationCents` they sum incoherently (∝ √N → 1/√N). Crossfades

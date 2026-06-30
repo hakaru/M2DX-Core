@@ -198,6 +198,19 @@ package struct DX7Voice {
         }
     }
 
+    /// Test introspection: velocity scaling offset of operator `i` (0...5).
+    func operatorVelocityOffset(_ i: Int) -> Int {
+        switch i {
+        case 0: return ops.0.velocityOffset
+        case 1: return ops.1.velocityOffset
+        case 2: return ops.2.velocityOffset
+        case 3: return ops.3.velocityOffset
+        case 4: return ops.4.velocityOffset
+        case 5: return ops.5.velocityOffset
+        default: return 0
+        }
+    }
+
     /// Update EG and compute gain for all 6 operators (once per block)
     @inline(__always)
     mutating func updateGains() {

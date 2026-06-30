@@ -69,6 +69,39 @@ import Foundation
         #expect(first != second)
     }
 
+    // MARK: voiceStackVelocityRandomized
+
+    @Test("velocity random range 0 leaves velocity unchanged")
+    func velocityRandomZero() {
+        #expect(voiceStackVelocityRandomized(0x4001, range7: 0, noteOnIndex: 7, copyIndex: 2) == 0x4001)
+    }
+
+    @Test("velocity random stays within the requested 7-bit step range")
+    func velocityRandomBounded() {
+        let base = UInt16(64 << 9)
+        let range: UInt8 = 12
+        for copy in 0..<16 {
+            let v = voiceStackVelocityRandomized(base, range7: range, noteOnIndex: 0, copyIndex: copy)
+            #expect(abs(Int(v) - Int(base)) <= Int(range) * 512)
+        }
+    }
+
+    @Test("velocity random differs by copy and re-rolls by note-on")
+    func velocityRandomVaries() {
+        let base = UInt16(64 << 9)
+        let a = voiceStackVelocityRandomized(base, range7: 32, noteOnIndex: 0, copyIndex: 0)
+        let b = voiceStackVelocityRandomized(base, range7: 32, noteOnIndex: 0, copyIndex: 1)
+        let c = voiceStackVelocityRandomized(base, range7: 32, noteOnIndex: 1, copyIndex: 0)
+        #expect(a != b)
+        #expect(a != c)
+    }
+
+    @Test("velocity random clamps but preserves note-on")
+    func velocityRandomClamps() {
+        #expect(voiceStackVelocityRandomized(1, range7: 64, noteOnIndex: 0, copyIndex: 0) >= 1)
+        #expect(voiceStackVelocityRandomized(0xFFFF, range7: 64, noteOnIndex: 0, copyIndex: 2) <= 0xFFFF)
+    }
+
     // MARK: end-to-end wiring
 
     private func makeEngine() -> SynthEngine {
@@ -126,5 +159,23 @@ import Foundation
         e.sendMIDI(MIDIEvent(kind: .noteOn, data1: 60, data2: UInt32(0x7F00)))
         e.render(into: l, bufferR: r, frameCount: fc)
         #expect(e.debugActiveVoiceCount == 4)
+    }
+
+    @Test("velocity random changes per-copy velocity offsets (wiring)")
+    func velocityRandomAltersOffsets() {
+        let e = makeEngine()
+        e.setVoiceStackMultiplier(4)
+        e.setVoiceStackVelocityRandom(range: 40)
+        for op in 0..<6 { e.setOperatorVelocitySensitivity(op, value: 7) }
+        let fc = 64
+        let l = UnsafeMutablePointer<Float>.allocate(capacity: fc)
+        let r = UnsafeMutablePointer<Float>.allocate(capacity: fc)
+        defer { l.deallocate(); r.deallocate() }
+        e.render(into: l, bufferR: r, frameCount: fc)
+        e.sendMIDI(MIDIEvent(kind: .noteOn, data1: 60, data2: UInt32(64 << 9)))
+        e.render(into: l, bufferR: r, frameCount: fc)
+        let offsets = e.activeVoiceVelocityOffsets(0)
+        #expect(offsets.count == 4)
+        #expect(Set(offsets).count > 1)
     }
 }

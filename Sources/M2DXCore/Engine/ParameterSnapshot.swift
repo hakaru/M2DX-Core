@@ -161,6 +161,9 @@ public struct SynthParamSnapshot: Sendable {
     public var voiceStackDetune: Float = 0
     /// #89-detune distribution: 0 = even symmetric spread, 1 = random (re-rolled per note-on).
     public var voiceStackDetuneMode: UInt8 = 0
+    /// #89-velocity: per-copy Voice Stack velocity randomization range in MIDI
+    /// velocity steps (0...64). 0 = off; applied in 16-bit velocity space.
+    public var voiceStackVelocityRandomRange: UInt8 = 0
 
     /// #79 portamento (poly glide). 0 = off (default — OFF render path is
     /// bit-identical). When on, each note-on starts at the previous note's pitch

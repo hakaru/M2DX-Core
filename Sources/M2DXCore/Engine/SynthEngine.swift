@@ -342,6 +342,13 @@ public final class SynthEngine: @unchecked Sendable {
         bumpVersion()
     }
 
+    /// #89-velocity: per-copy Voice Stack velocity randomization range in MIDI
+    /// velocity steps. 0 = off. Clamped 0...64.
+    public func setVoiceStackVelocityRandom(range: UInt8) {
+        shadowSnapshot.voiceStackVelocityRandomRange = min(64, range)
+        bumpVersion()
+    }
+
     /// #79 portamento on/off + glide Time (0…1). Time maps to a constant glide
     /// rate (cents/sec) via `portamentoRate(fromTime:)`. Off (default) leaves the
     /// render path bit-identical.
@@ -389,6 +396,15 @@ public final class SynthEngine: @unchecked Sendable {
         var r: [Float] = []
         for i in 0..<kMaxVoices where voicesDX7[i].active {
             r.append(voicesDX7[i].operatorFrequency(opIndex))
+        }
+        return r
+    }
+
+    /// Test introspection: velocity offsets of all active voices for operator `opIndex`.
+    internal func activeVoiceVelocityOffsets(_ opIndex: Int) -> [Int] {
+        var r: [Int] = []
+        for i in 0..<kMaxVoices where voicesDX7[i].active {
+            r.append(voicesDX7[i].operatorVelocityOffset(opIndex))
         }
         return r
     }
@@ -1358,6 +1374,7 @@ public final class SynthEngine: @unchecked Sendable {
             let voiceStack = max(1, snapshot.voiceStackMultiplier)   // #89
             let stackDetune = snapshot.voiceStackDetune              // #89-detune
             let stackMode = snapshot.voiceStackDetuneMode            // 0 even, 1 random
+            let stackVelocityRange = snapshot.voiceStackVelocityRandomRange
             let stackNote = voiceStackNoteOnCounter                  // captured once for this note-on
 
             for s in 0..<voiceStack {                                // #89-detune: `s` identifies the stack copy
@@ -1367,6 +1384,8 @@ public final class SynthEngine: @unchecked Sendable {
                     : (stackMode == 0
                         ? unisonDetuneFactor(index: s, count: voiceStack, detuneCents: stackDetune)
                         : voiceStackDetuneFactorRandom(noteOnIndex: stackNote, copyIndex: s, detuneCents: stackDetune))
+                let stackVelocity16 = (voiceStack < 2 || stackVelocityRange == 0) ? velocity16
+                    : voiceStackVelocityRandomized(velocity16, range7: stackVelocityRange, noteOnIndex: stackNote, copyIndex: s)
                 for u in 0..<unisonCount {
                 // #83: even spread (default, bit-identical) or deterministic random.
                 let unisonFactor = snapshot.unisonDetuneMode == 0
@@ -1411,7 +1430,7 @@ public final class SynthEngine: @unchecked Sendable {
                 voicesDX7[target].applyParams(slot.ops.4, opIndex: 4)
                 voicesDX7[target].applyParams(slot.ops.5, opIndex: 5)
 
-                voicesDX7[target].noteOn(transposedNote, velocity16: velocity16, midiNote: note, detuneFactor: detuneFactor)
+                voicesDX7[target].noteOn(transposedNote, velocity16: stackVelocity16, midiNote: note, detuneFactor: detuneFactor)
                 // #79 portamento (Poly/Always): start at the previous note's pitch
                 // and glide to target. Slot transpose cancels (prev and note share
                 // it). Set explicitly every note-on so a reused voice never keeps a
@@ -1440,7 +1459,7 @@ public final class SynthEngine: @unchecked Sendable {
                     }
 
                     voicesDX7[target].withOp(opIdx) { op in
-                        op.velocityOffset = scaleVelocity(velocity16, sens: Int(opSnap.velocitySensitivity))
+                        op.velocityOffset = scaleVelocity(stackVelocity16, sens: Int(opSnap.velocitySensitivity))
                         op.klsOffset = scaleKeyboardLevel(
                             transposedNote, breakPoint: opSnap.klsBreakPoint,
                             leftDepth: opSnap.klsLeftDepth, rightDepth: opSnap.klsRightDepth,
