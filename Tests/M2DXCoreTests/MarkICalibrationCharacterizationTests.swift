@@ -81,4 +81,113 @@ struct MarkICalibrationCharacterizationTests {
             #expect(markIPeaks[i] >= markIPeaks[i - 1] - 1e-4)
         }
     }
+
+    /// Render the given factory preset (algorithm INTACT — feedback op stays in the
+    /// signal path) at a chosen global feedback amount and return the full left buffer.
+    private func feedbackRender(_ preset: DX7Preset, engine: FMEngine, divisor: Double?, feedback: Int) -> [Float] {
+        let synth = SynthEngine()
+        synth.setSampleRate(sampleRate)
+        synth.setMasterVolume(1.0)
+        synth.setFMEngine(engine)
+        if let d = divisor { synth.setMarkIModDivisor(d) }
+
+        synth.loadDX7Preset(preset)                            // preset's own algorithm kept intact
+        synth.setOperatorFeedback(feedback)                    // global feedback (lands on the fb op)
+
+        let blk = 512
+        var pL = [Float](repeating: 0, count: blk), pR = [Float](repeating: 0, count: blk)
+        pL.withUnsafeMutableBufferPointer { lp in pR.withUnsafeMutableBufferPointer { rp in
+            synth.render(into: lp.baseAddress!, bufferR: rp.baseAddress!, frameCount: blk)
+        }}
+        synth.sendMIDI(MIDIEvent(kind: .noteOn, data1: 60, data2: UInt32(100) << 9))
+
+        var outL = [Float](repeating: 0, count: total)
+        var outR = [Float](repeating: 0, count: total)
+        outL.withUnsafeMutableBufferPointer { op in outR.withUnsafeMutableBufferPointer { rp in
+            var off = 0
+            while off < total {
+                let c = min(blk, total - off)
+                synth.render(into: op.baseAddress! + off, bufferR: rp.baseAddress! + off, frameCount: c)
+                off += c
+            }
+        }}
+        return outL
+    }
+
+    /// Spectral centroid (Hz) over `range` via a coarse 40 Hz-grid DFT (lower = darker).
+    /// Copied verbatim from MarkIDivisorABTests.swift.
+    private func centroid(_ samples: [Float], over range: Range<Int>) -> Double {
+        let sr = Double(sampleRate)
+        let n = range.count
+        var numer = 0.0, denom = 0.0, f = 40.0
+        while f < 10000.0 {
+            var re = 0.0, im = 0.0
+            let w = 2.0 * Double.pi * f / sr
+            for i in range {
+                let s = Double(samples[i]); let p = w * Double(i - range.lowerBound)
+                re += s * cos(p); im -= s * sin(p)
+            }
+            let mag2 = (re * re + im * im) / Double(n * n)
+            numer += f * mag2; denom += mag2; f += 40.0
+        }
+        return denom > 0 ? numer / denom : 0
+    }
+
+    @Test("Render Modern vs Mark I feedback comparison")
+    func renderFeedbackComparison() {
+        guard ProcessInfo.processInfo.environment["M2DX_MARKI_CHAR"] != nil else {
+            print("MarkICalibrationCharacterizationTests skipped — set M2DX_MARKI_CHAR=1 to render the curve")
+            return
+        }
+        defer { SynthEngine().setMarkIModDivisor(8.0) }          // restore process-global default
+
+        // Finding 3 ("Mark I feedback 4× too strong") shows up in BRIGHTNESS more than peak:
+        // Mark I re-injects a 4×-larger internal feedback signal → brighter timbre even when
+        // rendered level matches. So we measure BOTH peak and spectral centroid and sweep the
+        // global feedback. If centroidRatio (and/or peakRatio) grows above ~1 as fb climbs 0→7,
+        // finding 3 is real; if both stay ≈1.0, it does not manifest as rendered.
+        //
+        // Select a preset that ACTUALLY exercises the Mark I feedback-deepening branch:
+        // DX7Voice.swift:417 deepens feedback by 2 shifts only for algIndex 3/5/31 (DX7 alg
+        // 4/6/32). A hardcoded index is fragile — the existing MarkIDivisorABTests comment
+        // "all[11] = E.PIANO 1 (alg 4)" is stale (all[11] is now "TINE BELL", algIndex 6 = DX7
+        // alg 7, OUTSIDE the deepened set), so we scan for the first feedback-bearing preset
+        // whose algorithm is in the deepened set instead.
+        // Prefer a feedback STACK (algIndex 3/5 = DX7 alg 4/6, a modulator→carrier feedback
+        // chain — the canonical finding-3 case) over the all-carriers alg 32 (algIndex 31),
+        // whose lone self-feedback carrier dilutes the effect. Fall back to any deepened alg.
+        let deepened: Set<Int> = [3, 5, 31]
+        guard let preset = DX7FactoryPresets.all.first(where: { ($0.algorithm == 3 || $0.algorithm == 5) && $0.feedback > 0 })
+            ?? DX7FactoryPresets.all.first(where: { deepened.contains($0.algorithm) && $0.feedback > 0 }) else {
+            Issue.record("no feedback-deepened-algorithm preset found in DX7FactoryPresets.all")
+            return
+        }
+        // Feedback-ACTIVE window: DX7 feedback operators are typically fast-decay transients
+        // (tine/sparkle), so by the steady-state window (50 ms+) the fb op has decayed and the
+        // feedback amount no longer affects output. Measured empirically: for the alg-32 fb
+        // preset, the entire fb-0-vs-7 difference lives in the first 2400 samples; the steady
+        // tail is identical. So we measure peak + centroid over the attack window where the
+        // feedback op (and the Mark I feedback-deepening, DX7Voice.swift:417) actually manifests.
+        let window = 0..<2400
+        let feedbacks = [0, 4, 7]
+        print("feedback-deepened preset: \(preset.name) (algorithm field \(preset.algorithm)); window = attack 0..2400")
+        print("fb, modernPeak, markIPeak, peakRatio, modernCentroid, markICentroid, centroidRatio")
+        for fb in feedbacks {
+            let mBuf = feedbackRender(preset, engine: .modern, divisor: nil, feedback: fb)
+            let kBuf = feedbackRender(preset, engine: .markI, divisor: 5.0, feedback: fb)
+            // Peak + centroid over the feedback-active attack window.
+            var mPeak: Float = 0, kPeak: Float = 0
+            for i in window { mPeak = max(mPeak, abs(mBuf[i])); kPeak = max(kPeak, abs(kBuf[i])) }
+            let peakRatio = mPeak > 0 ? kPeak / mPeak : 0
+            let mCent = centroid(mBuf, over: window)
+            let kCent = centroid(kBuf, over: window)
+            let centRatio = mCent > 0 ? kCent / mCent : 0
+            print(String(format: "%d, %.5f, %.5f, %.3f, %.1f, %.1f, %.3f",
+                         fb, mPeak, kPeak, peakRatio, mCent, kCent, centRatio))
+            // Sanity only — peaks finite and in range, centroids finite and positive.
+            #expect(mPeak.isFinite && kPeak.isFinite)
+            #expect(mPeak <= 1.0 && kPeak <= 1.0)
+            #expect(mCent.isFinite && kCent.isFinite && mCent > 0 && kCent > 0)
+        }
+    }
 }
