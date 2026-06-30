@@ -118,6 +118,9 @@ public final class SynthEngine: @unchecked Sendable {
     /// #67: set by `doNRPN` (render thread) when host automation mutates `currentSnapshot`
     /// without a UI version bump, so the per-block apply still runs that block.
     private var automationDirty = false
+    /// #67 test seam: number of times the per-block parameter apply has run (to verify a no-op
+    /// NRPN does not trigger it).
+    private var appliedCount = 0
 
     private let voicesDX7: UnsafeMutablePointer<DX7Voice> = {
         let ptr = UnsafeMutablePointer<DX7Voice>.allocate(capacity: kMaxVoices)
@@ -390,6 +393,9 @@ public final class SynthEngine: @unchecked Sendable {
     /// #67: the render-thread parameter snapshot, so tests can observe doNRPN automation
     /// effects without reaching into the (private) voice array.
     public var debugCurrentSnapshot: SynthParamSnapshot { currentSnapshot }
+
+    /// #67 test seam: how many times the per-block parameter apply has run.
+    public var debugApplyCount: Int { appliedCount }
 
     /// Test introspection: slotId of each active voice.
     internal func activeVoiceSlotIds() -> [Int] {
@@ -983,6 +989,7 @@ public final class SynthEngine: @unchecked Sendable {
         if snapshot.version != appliedVersion || automationDirty {
             automationDirty = false
             appliedVersion = snapshot.version
+            appliedCount &+= 1
 
             let newOSMode = OversamplingMode(rawValue: snapshot.oversamplingMode) ?? .off
             if newOSMode != currentOversamplingMode {
@@ -1746,31 +1753,38 @@ public final class SynthEngine: @unchecked Sendable {
         // #67: render-thread-safe synth-param automation. The AUv3 render handler converts host
         // automation for the non-FX synth params into NRPN MIDIEvents on the lock-free `sendMIDI`
         // ring (producer==consumer==render in the AUv3). Apply them by mutating the render-owned
-        // `currentSnapshot` audio-locally — exactly like `doRPN`'s overrides, NEVER the main-thread
-        // `shadowSnapshot`/`snapshotRing` producer — and flag the per-block apply so the change
-        // reaches every voice this block (and any voice allocated later). Bank selects the param
-        // group: 0–5 = operators (index = AUv3 operator offset), 64+ = global/LFO/PitchEG/controllers.
+        // `currentSnapshot` audio-locally — like `doRPN` (which uses dedicated override fields),
+        // NEVER the main-thread `shadowSnapshot`/`snapshotRing` producer — and flag the per-block
+        // apply ONLY when a real field changed, so the change reaches every voice this block (and any
+        // voice allocated later). Bank selects the param group: 0–5 = operators (index = AUv3
+        // operator offset), 64+ = global/LFO/PitchEG/controllers.
         let v = decodeNRPNValue(value)
+        let changed: Bool
         switch bank {
-        case 0..<UInt8(kNumOperators): applyOperatorNRPN(Int(bank), offset: index, value: v)
-        case 64: applyGlobalNRPN(index: index, value: v)
-        case 65: applyLFONRPN(index: index, value: v)
-        case 66: applyPitchEGNRPN(index: index, value: v)
-        case 67: applyControllerNRPN(index: index, value: v)
-        default: break
+        case 0..<UInt8(kNumOperators): changed = applyOperatorNRPN(Int(bank), offset: index, value: v)
+        case 64: changed = applyGlobalNRPN(index: index, value: v)
+        case 65: changed = applyLFONRPN(index: index, value: v)
+        case 66: changed = applyPitchEGNRPN(index: index, value: v)
+        case 67: changed = applyControllerNRPN(index: index, value: v)
+        default: changed = false
         }
+        // A no-op NRPN (an unrouted index such as oscSync/fmEngine/markIDepth, or an operator gap)
+        // must NOT trigger the heavy per-voice apply.
+        if changed { automationDirty = true }
     }
 
     /// Apply one operator NRPN param to the render-owned `currentSnapshot` (#67). `offset` is the
     /// AUv3 `M2DXParameterAddressMap.Operator` offset; the field writes mirror the main-thread
     /// `set*` setters exactly, but on `currentSnapshot` instead of `shadowSnapshot`.
-    private func applyOperatorNRPN(_ op: Int, offset: UInt8, value v: Float) {
+    private func applyOperatorNRPN(_ op: Int, offset: UInt8, value v: Float) -> Bool {
+        var handled = true
         withCurrentOp(op) { o in
             switch offset {
             case 0:  o.dx7OutputLevel = nrpnInt(v, 0, 99)                 // output level
             case 1:  o.ratio = max(0, v)                                  // frequency ratio
             case 2:  let c = min(7, max(-7, v))                          // detune (factor + cents, like setOperatorDetune)
                      o.detuneCents = c; o.detune = powf(2.0, c / 1200.0)
+            case 3:  o.feedback = Float(nrpnInt(v, 0, 7)) / 7.0           // per-op feedback (only op0 is rendered; mirrors the UI setter)
             case 4:  o.fixedFrequency = nrpnU8(v, 1)                      // fixed-freq mode
             case 5:  o.fixedFreqCoarse = nrpnU8(v, 31)
             case 6:  o.fixedFreqFine = nrpnU8(v, 99)
@@ -1790,75 +1804,71 @@ public final class SynthEngine: @unchecked Sendable {
             case 32: o.klsRightDepth = nrpnU8(v, 99)
             case 33: o.klsLeftCurve = nrpnU8(v, 3)
             case 34: o.klsRightCurve = nrpnU8(v, 3)
-            default: break                                               // feedback(3) is global-only; gaps unused
+            default: handled = false                                     // gaps (14–19, 24–29, 35+) are not real params
             }
         }
-        automationDirty = true
+        return handled
     }
 
     /// Global params (#67, NRPN bank 64). oscSync / fmEngine / markIDepth are intentionally not
     /// routed (no snapshot field, or an unsafe per-block engine switch / external Mark I state).
-    private func applyGlobalNRPN(index: UInt8, value v: Float) {
+    private func applyGlobalNRPN(index: UInt8, value v: Float) -> Bool {
         switch index {
-        case 0: currentSnapshot.slots.0.algorithm = nrpnInt(v, 0, kNumAlgorithms - 1)   // algorithm
-        case 2: withCurrentOp(0) { $0.feedback = Float(nrpnInt(v, 0, 7)) / 7.0 }         // global feedback (op0)
-        case 4: currentSnapshot.transpose = Int8(nrpnInt(v, -24, 24))                    // performance transpose
-        default: break
+        case 0: currentSnapshot.slots.0.algorithm = nrpnInt(v, 0, kNumAlgorithms - 1); return true   // algorithm
+        case 2: withCurrentOp(0) { $0.feedback = Float(nrpnInt(v, 0, 7)) / 7.0 }; return true         // global feedback (op0)
+        case 4: currentSnapshot.transpose = Int8(nrpnInt(v, -24, 24)); return true                    // performance transpose
+        default: return false   // oscSync(3)/fmEngine(5)/markIDepth(6): no snapshot field or unsafe to automate
         }
-        automationDirty = true
     }
 
     /// LFO params (#67, NRPN bank 65; index = AUv3 LFO address − 700).
-    private func applyLFONRPN(index: UInt8, value v: Float) {
+    private func applyLFONRPN(index: UInt8, value v: Float) -> Bool {
         switch index {
-        case 0: currentSnapshot.slots.0.lfoSpeed = nrpnU8(v, 99)
-        case 1: currentSnapshot.slots.0.lfoDelay = nrpnU8(v, 99)
-        case 2: currentSnapshot.slots.0.lfoPMD = nrpnU8(v, 99)
-        case 3: currentSnapshot.slots.0.lfoAMD = nrpnU8(v, 99)
-        case 4: currentSnapshot.slots.0.lfoSync = nrpnU8(v, 1)
-        case 5: currentSnapshot.slots.0.lfoWaveform = nrpnU8(v, 5)
-        case 6: currentSnapshot.slots.0.lfoPMS = nrpnU8(v, 7)
-        default: break
+        case 0: currentSnapshot.slots.0.lfoSpeed = nrpnU8(v, 99); return true
+        case 1: currentSnapshot.slots.0.lfoDelay = nrpnU8(v, 99); return true
+        case 2: currentSnapshot.slots.0.lfoPMD = nrpnU8(v, 99); return true
+        case 3: currentSnapshot.slots.0.lfoAMD = nrpnU8(v, 99); return true
+        case 4: currentSnapshot.slots.0.lfoSync = nrpnU8(v, 1); return true
+        case 5: currentSnapshot.slots.0.lfoWaveform = nrpnU8(v, 5); return true
+        case 6: currentSnapshot.slots.0.lfoPMS = nrpnU8(v, 7); return true
+        default: return false
         }
-        automationDirty = true
     }
 
     /// Pitch EG params (#67, NRPN bank 66; index = AUv3 PitchEG address − 800: rate1–4 = 0–3,
     /// level1–4 = 10–13).
-    private func applyPitchEGNRPN(index: UInt8, value v: Float) {
+    private func applyPitchEGNRPN(index: UInt8, value v: Float) -> Bool {
         switch index {
-        case 0:  currentSnapshot.slots.0.pitchEGR0 = nrpnU8(v, 99)
-        case 1:  currentSnapshot.slots.0.pitchEGR1 = nrpnU8(v, 99)
-        case 2:  currentSnapshot.slots.0.pitchEGR2 = nrpnU8(v, 99)
-        case 3:  currentSnapshot.slots.0.pitchEGR3 = nrpnU8(v, 99)
-        case 10: currentSnapshot.slots.0.pitchEGL0 = nrpnU8(v, 99)
-        case 11: currentSnapshot.slots.0.pitchEGL1 = nrpnU8(v, 99)
-        case 12: currentSnapshot.slots.0.pitchEGL2 = nrpnU8(v, 99)
-        case 13: currentSnapshot.slots.0.pitchEGL3 = nrpnU8(v, 99)
-        default: break
+        case 0:  currentSnapshot.slots.0.pitchEGR0 = nrpnU8(v, 99); return true
+        case 1:  currentSnapshot.slots.0.pitchEGR1 = nrpnU8(v, 99); return true
+        case 2:  currentSnapshot.slots.0.pitchEGR2 = nrpnU8(v, 99); return true
+        case 3:  currentSnapshot.slots.0.pitchEGR3 = nrpnU8(v, 99); return true
+        case 10: currentSnapshot.slots.0.pitchEGL0 = nrpnU8(v, 99); return true
+        case 11: currentSnapshot.slots.0.pitchEGL1 = nrpnU8(v, 99); return true
+        case 12: currentSnapshot.slots.0.pitchEGL2 = nrpnU8(v, 99); return true
+        case 13: currentSnapshot.slots.0.pitchEGL3 = nrpnU8(v, 99); return true
+        default: return false
         }
-        automationDirty = true
     }
 
     /// Controller-mapping params (#67, NRPN bank 67; index = AUv3 Controller address − 900:
     /// wheel 0–2, foot 10–12, breath 20–22, aftertouch 30–32; each pitch/amp/egBias 0–99).
-    private func applyControllerNRPN(index: UInt8, value v: Float) {
+    private func applyControllerNRPN(index: UInt8, value v: Float) -> Bool {
         let u = nrpnU8(v, 99)
         switch index {
-        case 0:  currentSnapshot.slots.0.wheelPitch = u
-        case 1:  currentSnapshot.slots.0.wheelAmp = u
-        case 2:  currentSnapshot.slots.0.wheelEGBias = u
-        case 10: currentSnapshot.slots.0.footPitch = u
-        case 11: currentSnapshot.slots.0.footAmp = u
-        case 12: currentSnapshot.slots.0.footEGBias = u
-        case 20: currentSnapshot.slots.0.breathPitch = u
-        case 21: currentSnapshot.slots.0.breathAmp = u
-        case 22: currentSnapshot.slots.0.breathEGBias = u
-        case 30: currentSnapshot.slots.0.aftertouchPitch = u
-        case 31: currentSnapshot.slots.0.aftertouchAmp = u
-        case 32: currentSnapshot.slots.0.aftertouchEGBias = u
-        default: break
+        case 0:  currentSnapshot.slots.0.wheelPitch = u; return true
+        case 1:  currentSnapshot.slots.0.wheelAmp = u; return true
+        case 2:  currentSnapshot.slots.0.wheelEGBias = u; return true
+        case 10: currentSnapshot.slots.0.footPitch = u; return true
+        case 11: currentSnapshot.slots.0.footAmp = u; return true
+        case 12: currentSnapshot.slots.0.footEGBias = u; return true
+        case 20: currentSnapshot.slots.0.breathPitch = u; return true
+        case 21: currentSnapshot.slots.0.breathAmp = u; return true
+        case 22: currentSnapshot.slots.0.breathEGBias = u; return true
+        case 30: currentSnapshot.slots.0.aftertouchPitch = u; return true
+        case 31: currentSnapshot.slots.0.aftertouchAmp = u; return true
+        case 32: currentSnapshot.slots.0.aftertouchEGBias = u; return true
+        default: return false
         }
-        automationDirty = true
     }
 }

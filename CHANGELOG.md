@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.20.1] - 2026-06-30
+
+### Fixed
+- **#67 adversarial-review follow-ups (2 low-severity).** (1) **Per-operator feedback automation
+  was a no-op** — `doNRPN` dropped operator offset 3, so host automation of "OPn Feedback" did
+  nothing while the UI value-observer applied it. `applyOperatorNRPN` now handles offset 3
+  (`feedback = clamp(0…7)/7`, mirroring the setter; only op0 is rendered, as before). (2) **A no-op
+  NRPN triggered the per-block apply** — the `apply*NRPN` helpers set `automationDirty`
+  unconditionally, so automating an unrouted param (`oscSync`/`fmEngine`/`markIDepth`) ran the
+  full per-voice apply for nothing. The helpers now return whether a field changed and
+  `automationDirty` is set only then. Plus comment accuracy (the doNRPN/doRPN analogy). 269 tests.
+
 ## [1.20.0] - 2026-06-30
 
 ### Added

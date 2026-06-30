@@ -107,6 +107,28 @@ struct NRPNAutomationTests {
         #expect(s.transpose == -24)
     }
 
+    @Test("NRPN per-operator feedback (offset 3) reaches the snapshot — UI/automation parity (#67 review)")
+    func nrpnOperatorFeedback() {
+        let e = SynthEngine(); e.setSampleRate(48000)
+        e.sendMIDI(nrpnOp(0, 3, 7))      // op0 feedback = 7 → 1.0 (stored 0…1, like setOperatorFeedback)
+        render(e)
+        #expect(abs(e.debugCurrentSnapshot.ops.0.feedback - 1.0) < 0.01)
+    }
+
+    @Test("a no-op NRPN must not trigger the per-block apply (#67 review)")
+    func noOpNRPNSkipsApply() {
+        let e = SynthEngine(); e.setSampleRate(48000)
+        e.sendMIDI(nrpn(64, 0, 7))       // algorithm — handled
+        render(e)
+        let baseline = e.debugApplyCount
+        e.sendMIDI(nrpn(64, 3, 1))       // oscSync — no snapshot field, must be a no-op
+        render(e)
+        #expect(e.debugApplyCount == baseline, "a no-op NRPN must not run the per-block apply")
+        e.sendMIDI(nrpn(64, 0, 9))       // algorithm — handled again
+        render(e)
+        #expect(e.debugApplyCount == baseline + 1, "a handled NRPN runs the apply once")
+    }
+
     /// Render a held middle-C past attack + gain smoothing and return the peak |sample|,
     /// optionally driving every operator's output level to 0 via NRPN host automation first.
     private func playPeak(automateSilence: Bool) -> Float {
