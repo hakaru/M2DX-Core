@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.20.0] - 2026-06-30
+
+### Added
+- **#67 render-thread-safe synth-param host automation (NRPN)** — `doNRPN` (previously an empty
+  stub) now applies MIDI 2.0 NRPN assignable-controller events audio-locally on the render thread,
+  exactly like `doRPN`'s tuning overrides and **never touching the main-thread
+  `shadowSnapshot`/`snapshotRing` producer**. The AUv3 routes host automation for every
+  snapshot-backed synth param (operator level/ratio/detune/mode/freq/sensitivities/EG rates+levels/
+  KLS, global algorithm/feedback/transpose, LFO, Pitch EG, controller mappings) as NRPN on the
+  lock-free `sendMIDI` ring (producer==consumer==render in the AUv3); `doNRPN` mutates the
+  render-owned `currentSnapshot` and flags a per-block re-apply. `render()` now captures the apply
+  snapshot **after** `drainMIDI` so render-time automation is included, gated on `|| automationDirty`.
+  Values use a uniform signed 16.8 fixed-point transport. `oscSync` / `fmEngine` / `markIDepth` are
+  intentionally not routed (no snapshot field, or an unsafe per-block engine switch / external Mark I
+  state). RT-safe (no alloc/lock); full suite green (267 tests).
+
 ## [1.19.0] - 2026-06-30
 
 ### Fixed
