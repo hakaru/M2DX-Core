@@ -152,3 +152,16 @@ The Mark I/Modern divergence (~15% hotter, ~34% darker) is **invariant to the fe
 ### Net decision
 
 The coordinated recalibration (audit findings 1 + 2 + 3) is **not warranted** — Mark I is already level-matched to Modern, and its modest darker/warmer FM character is the intended, ear-accepted ÷5 calibration. M2DX **#95 is re-scoped to the one real, structural issue: the 12-bit DAC (#75) degenerates to a fixed quantizer** at the post-normalization tiny scale and must move to per-voice on the ~full-scale signal. That is the sole remaining work and is tracked as #95 Stage 1.
+
+## Stage 1 outcome (2026-06-30) — DAC moved per-voice, full-scale R = 2²⁵
+
+The companding was relocated from the post-normalization summed mix to per-voice on the raw OPS
+sample (`SynthEngine.swift`, `dac12bitCompand(Float(blockBuf[s]) / kMarkIDACFullScale) * kMarkIDACFullScale`);
+the DAC-off path is byte-exact and `dx7refmki` parity is unaffected (DAC gated off there). The
+full-scale reference `kMarkIDACFullScale` was chosen by **ear A/B over an R sweep**: at R = 2²⁶
+(the OPS single-op full scale) ~80% of samples stayed at exponent 8 (the finest grid) → inaudible;
+**R = 2²⁵ is the shipped value** (exp 2/4 engaged = audible-but-not-crushed vintage character;
+2²⁴/2²³ over-crush). `kMarkIDACFullScale` is a runtime-settable `nonisolated(unsafe) var` (same
+RT-safe pattern as `markIModScaleQ12`), default 2²⁵. Tests: 262 green incl. parity + calibration +
+`VintageDACTests`. Note: per-voice companding runs at the oversampled rate; downsampling removes
+only ~3 dB of the quantization noise, so per-voice-at-native (Option B) was not needed.
