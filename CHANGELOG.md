@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.0] - 2026-06-30
+
+DX7 fidelity audit — engine/voice dimension fixes (verified against DEXED/MSFA source).
+
+### Fixed
+- **EG release force-kill removed (#92)** — `DX7Envelope` no longer guillotines the release after
+  a fixed ~2 s wall-clock (which truncated + clicked slow-release tails); the release runs to its
+  natural completion, bit-exactly matching the DEXED EG trace. Long releases are reclaimed by voice
+  stealing, not a wall-clock cap.
+- **Frequency-dependent operator detune (#96)** — detune now follows DEXED's per-note curve
+  (~±17 c in the bass down to ~±3.5 c in the treble) instead of a pitch-independent constant ±7 c,
+  so detuned operator pairs beat at the correct rate (`dexedDetuneFactor`).
+- **LFO speed→Hz from the DEXED `lfoSource` table (#94)** — replaces the pragmatic exponential whose
+  1.47 Hz floor at speed 0 made the DX7's slow vibrato / multi-second sweeps unreachable; now
+  0.0625 Hz at speed 0 up to ~49.3 Hz at speed 99 (`kLFOSpeedHz`).
+- **Pitch EG rewritten to DEXED `PitchEnv` (#93)** — starts at L4 / sustains at L3 / releases to L4
+  (was a mis-rotated PL1/PL4/PL1), uses the non-linear `pitchenv_tab` (level 70 → 7.5 st, was 19.6),
+  and a constant per-block slope (was a fixed per-stage duration). Adds `kPitchEnvTab`/`kPitchEnvRate`.
+
+### Added
+- **Controller→EG-bias destination (#97)** — wheel/foot/breath/AT assigned to EG bias now raise the
+  operator output level in real time (the DX7's main breath/AT-controlled brightness/dynamics path),
+  routed through the real `scaleOutputLevel`. Was stored but never applied. With no controller
+  assigned the render path is byte-identical to v1.16.0. (OL-point scale is calibratable by ear.)
+
+### Tests
+- New coverage where the audit found none: `slowReleaseNotKilledAtTwoSeconds`,
+  `detuneMatchesDexedFrequencyDependent` (vs `dx7ref_osc_freq`), `lfoSpeedRange`, `PitchEGTests`,
+  `EGBiasTests`. 248 tests pass.
+
 ## [1.16.0] - 2026-06-30
 
 ### Fixed
