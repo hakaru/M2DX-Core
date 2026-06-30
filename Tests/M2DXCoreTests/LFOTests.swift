@@ -8,10 +8,13 @@ import Darwin
 @Suite("LFO")
 struct LFOTests {
 
-    @Test("LFO speed maps to a usable vibrato range (~5 Hz at default 35, ~47 Hz at 99)")
+    @Test("LFO speed→Hz matches the DEXED lfoSource table — slow vibrato reachable (#94)")
     func lfoSpeedRange() {
-        #expect(abs(SynthEngine.lfoSpeedToHz(35) - 5.0) < 0.5, "default speed 35 → ~5 Hz (usable vibrato)")
-        #expect(abs(SynthEngine.lfoSpeedToHz(99) - 47.0) < 1.0, "speed 99 → ~47 Hz")
+        // Verbatim DEXED lfoSource[] (asb2m10/dexed lfo.cc). The headline #94 fix is the slow
+        // end: speed 0 is ~0.0625 Hz, not the old pragmatic-exponential 1.47 Hz floor.
+        #expect(abs(SynthEngine.lfoSpeedToHz(0) - 0.062541) < 0.001, "speed 0 → ~0.0625 Hz (slow sweep)")
+        #expect(abs(SynthEngine.lfoSpeedToHz(35) - 5.617346) < 0.01, "default speed 35 → ~5.6 Hz")
+        #expect(abs(SynthEngine.lfoSpeedToHz(99) - 49.261084) < 0.01, "speed 99 → ~49.3 Hz")
     }
 
     @Test("LFO speed→Hz is monotonically increasing")

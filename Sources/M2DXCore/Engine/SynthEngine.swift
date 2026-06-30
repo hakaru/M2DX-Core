@@ -1077,12 +1077,12 @@ public final class SynthEngine: @unchecked Sendable {
 
     // MARK: - LFO
 
-    /// DX7 LFO speed (0…99) → frequency in Hz. Calibrated to the documented DX7
-    /// LFO range: 0.0625 Hz at speed 0, ≈47 Hz at speed 99 (exponential).
+    /// DX7 LFO speed (0…99) → frequency in Hz — the verbatim DEXED `lfoSource` table
+    /// (asb2m10/dexed Source/msfa/lfo.cc): 0.0625 Hz at speed 0 up to ~49.3 Hz at speed 99.
+    /// Replaces the old pragmatic exponential (1.47·e^(0.035·speed)), whose 1.47 Hz floor at
+    /// speed 0 put the DX7's slow vibrato / multi-second sweeps (sub-0.1 Hz) out of reach. #94
     package static func lfoSpeedToHz(_ speed: UInt8) -> Float {
-        // Usable vibrato range: ~1.5 Hz at speed 0, ~5 Hz at the default 35, ~47 Hz
-        // at 99. (Pragmatic exponential — pending exact DX7/Dexed reference data.)
-        1.47 * expf(Float(speed) * 0.0350)
+        kLFOSpeedHz[Int(min(99, speed))]
     }
 
     private func lfoWaveformValue(_ phase: Float, waveform: UInt8, slotIdx: Int = 0) -> Float {
