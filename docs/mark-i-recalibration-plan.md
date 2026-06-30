@@ -122,3 +122,33 @@ WAVs: `/tmp/m2dx-marki-ab/{bass1,epiano1}_{modern,mki_div4,mki_div5,mki_div6,mki
 4. App: bump `M2DXAudioEngine` default divisor + UI range; new M2DX-Core release + pin bump; on-device A/B.
 
 Until then: v1.16.0 ships the KLS fix with Mark I unchanged (÷5), `darkerSustain` `withKnownIssue`.
+
+## finding 1 & 3 characterization + decision (2026-06-30, M2DX #95)
+
+Before implementing the coordinated fix, a measurement-first pass (`Tests/M2DXCoreTests/MarkICalibrationCharacterizationTests.swift`, env-gated `M2DX_MARKI_CHAR=1`) rendered the carrier and feedback paths through the full `SynthEngine` for Modern vs Mark I. **The audit's finding 1 and finding 3 do NOT manifest as rendered behaviour — both are closed as no-ops.**
+
+### finding 1 (carrier "4× / 12 dB hot") — CLOSED, no change
+
+Pure single carrier (alg 32, op0 only, no modulation), output-level sweep, Mark I (÷5) vs Modern peak ratio:
+
+| level | 0.10 | 0.20 | 0.35 | 0.50 | 0.70 | 0.85 | 1.00 |
+|---|---|---|---|---|---|---|---|
+| ratio (markI/modern) | 1.000 | 1.000 | 1.000 | 0.999 | 1.000 | 1.000 | 1.000 |
+
+The carrier is **already level-matched to Modern at every level** (the slight per-sample differences confirm independent code paths converging to the same level). The audit's theoretical `2²⁶ vs 2²⁴ = 4×` is fully absorbed by the level/attenuation→output mapping and never reaches the rendered carrier. A constant `<<13→<<11` would make typical patches **~4× too quiet** (a regression), so it is **rejected**. This also matches the original A/B raw-peak data (BASS 1 0.0824 vs 0.0871; E.PIANO 0.0957 vs 0.0993).
+
+### finding 3 (feedback "4× too strong") — CLOSED, no action
+
+Feedback sweep on a Mark-I-deepened feedback stack (DX7 alg 6, `algIndex 5`; the Mark I feedback deepening at `DX7Voice.swift:417` is gated to `algIndex {3,5,31}` = DX7 alg 4/6/32 only — 3 of 32), attack window 0..2400:
+
+| fb | peakRatio (markI/modern) | centroidRatio |
+|---|---|---|
+| 0 | 1.146 | 0.658 |
+| 4 | 1.145 | 0.660 |
+| 7 | 1.145 | 0.660 |
+
+The Mark I/Modern divergence (~15% hotter, ~34% darker) is **invariant to the feedback amount** — it is the forward-mod **divisor** (finding 2, already CLOSED at ÷5: the intended OPS warmth), not feedback-specific. The alg-4/6/32 `+2` feedback band-aids already compensate the feedback strength **and are required for `dx7refmki` Swift==C parity**; removing them needs the (rejected) `<<11`. So **no action**. (Caveat: not stress-tested on a feedback-dominant patch; the decision rests primarily on the structural argument — band-aids required for parity, finding-1 moot — corroborated by the fb-invariant measurement.)
+
+### Net decision
+
+The coordinated recalibration (audit findings 1 + 2 + 3) is **not warranted** — Mark I is already level-matched to Modern, and its modest darker/warmer FM character is the intended, ear-accepted ÷5 calibration. M2DX **#95 is re-scoped to the one real, structural issue: the 12-bit DAC (#75) degenerates to a fixed quantizer** at the post-normalization tiny scale and must move to per-voice on the ~full-scale signal. That is the sole remaining work and is tracked as #95 Stage 1.
