@@ -143,6 +143,24 @@ struct DX7RefTests {
         #expect(bass > treble * 2.5, "C1 detune (\(bass)c) should be >2.5× C8 (\(treble)c)")
     }
 
+    @Test("Live param edit on a held note keeps the per-note frequency-dependent detune (#96)")
+    func liveEditKeepsPerNoteDetune() {
+        var voice = DX7Voice()
+        var snap = OperatorSnapshot()
+        snap.ratio = 1.0
+        snap.detuneCents = 7                        // max detune
+        snap.detune = Float(exp2(7.0 / 1200.0))     // the old pitch-independent constant factor
+        snap.dx7OutputLevel = 99
+        voice.applyParams(snap, opIndex: 0)
+        voice.noteOn(24, velocity16: UInt16(100) << 9)   // C1 — large frequency-dependent detune
+        let freshFreq = voice.ops.0.frequency
+        // Simulate a live param edit on the held note (snapshot version bump → applyParams on all voices).
+        voice.applyParams(snap, opIndex: 0)
+        let editedFreq = voice.ops.0.frequency
+        #expect(abs(editedFreq - freshFreq) < 0.001,
+                "live edit must keep the per-note detune (fresh=\(freshFreq), edited=\(editedFreq))")
+    }
+
     // MARK: - 5. Exp2 Lookup
 
     @Test("exp2 lookup matches DEXED for representative input values")

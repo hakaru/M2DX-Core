@@ -31,6 +31,26 @@ struct EGBiasTests {
                 "EG bias +50 OL = scaleOutputLevel(90)−(40) delta: got \(biased - base), expected \(expected)")
     }
 
+    /// levelIn of an op whose KLS pushes its output level past the 127 OL ceiling.
+    private func ceilingLevelIn(egBiasOL: Int32) -> Int32 {
+        var op = DX7Operator()
+        op.env.setLevels(99, 99, 70, 0)
+        op.klsOffset = 100             // large positive KLS → scaleOutputLevel(OL)+kls saturates at 127
+        op.setOutputLevel(40)          // 68 + 100 → clamped to 127 (already maxed)
+        op.env.noteOn()
+        for _ in 0..<10 { _ = op.env.getsample() }
+        op.updateGain(lfoAmpMod: 0, egBiasOL: egBiasOL)
+        return op.levelIn
+    }
+
+    @Test("EG bias respects the 127 OL ceiling (klsOffset) — #97")
+    func egBiasRespectsCeiling() {
+        // The op already saturates the 127 ceiling via KLS, so a further EG-bias boost must add
+        // NOTHING — the real env path can't exceed 127 either.
+        #expect(ceilingLevelIn(egBiasOL: 50) == ceilingLevelIn(egBiasOL: 0),
+                "EG bias must not boost an operator already at the 127 OL ceiling")
+    }
+
     @Test("EG bias of 0 is a no-op")
     func egBiasZeroNoOp() {
         var a = DX7Operator(); a.env.setLevels(99, 99, 70, 0); a.setOutputLevel(50); a.env.noteOn()

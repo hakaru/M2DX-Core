@@ -81,9 +81,13 @@ package struct DX7Operator {
         // points), so a breath/AT/wheel/foot controller assigned to EG bias brightens + swells
         // the whole voice — the DX7's main expressive dynamics path. (OL-point scale calibratable.)
         if egBiasOL > 0 {
+            // Raise the operator level by egBiasOL OL points, through the SAME `min(127, …+klsOffset)`
+            // ceiling the real `env.outlevel` uses — so the bias never pushes a key-scaled operator
+            // past the 127 OL ceiling (it would otherwise over-brighten already-saturated notes).
             let biasedOL = min(99, outputLevel + Int(egBiasOL))
-            let dOut = (scaleOutputLevel(biasedOL) - scaleOutputLevel(outputLevel)) << 5
-            levelIn = levelIn &+ (Int32(dOut) << 16)
+            let base = min(127, scaleOutputLevel(outputLevel) + klsOffset)
+            let boosted = min(127, scaleOutputLevel(biasedOL) + klsOffset)
+            levelIn = levelIn &+ (Int32((boosted - base) << 5) << 16)
         }
 
         if amsDepth > 0 && lfoAmpMod > 0 {
