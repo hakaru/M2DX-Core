@@ -115,6 +115,9 @@ public final class SynthEngine: @unchecked Sendable {
 
     private var baseSampleRate: Float = 44100
     private var appliedVersion: UInt64 = 0
+    /// #67: set by `doNRPN` (render thread) when host automation mutates `currentSnapshot`
+    /// without a UI version bump, so the per-block apply still runs that block.
+    private var automationDirty = false
 
     private let voicesDX7: UnsafeMutablePointer<DX7Voice> = {
         let ptr = UnsafeMutablePointer<DX7Voice>.allocate(capacity: kMaxVoices)
@@ -383,6 +386,10 @@ public final class SynthEngine: @unchecked Sendable {
 
     /// Public test accessor: number of currently-active voices (used by FMEngineSwitchTests).
     public var debugActiveVoiceCount: Int { (0..<kMaxVoices).reduce(0) { $0 + (voicesDX7[$1].active ? 1 : 0) } }
+
+    /// #67: the render-thread parameter snapshot, so tests can observe doNRPN automation
+    /// effects without reaching into the (private) voice array.
+    public var debugCurrentSnapshot: SynthParamSnapshot { currentSnapshot }
 
     /// Test introspection: slotId of each active voice.
     internal func activeVoiceSlotIds() -> [Int] {
@@ -930,6 +937,21 @@ public final class SynthEngine: @unchecked Sendable {
         }
     }
 
+    /// #67: render-thread counterpart of `withShadowOp` — mutates the render-owned
+    /// `currentSnapshot` (slot-0 ops) for `doNRPN` host automation. Never touches the
+    /// main-thread `shadowSnapshot` producer, so it is SPSC-safe on the audio thread.
+    private func withCurrentOp(_ i: Int, _ body: (inout OperatorSnapshot) -> Void) {
+        switch i {
+        case 0: body(&currentSnapshot.ops.0)
+        case 1: body(&currentSnapshot.ops.1)
+        case 2: body(&currentSnapshot.ops.2)
+        case 3: body(&currentSnapshot.ops.3)
+        case 4: body(&currentSnapshot.ops.4)
+        case 5: body(&currentSnapshot.ops.5)
+        default: break
+        }
+    }
+
     // MARK: - Render (audio thread)
 
     public func render(into bufferL: UnsafeMutablePointer<Float>,
@@ -939,7 +961,6 @@ public final class SynthEngine: @unchecked Sendable {
         if let newSnapshot = snapshotRing.popLatest() {
             currentSnapshot = newSnapshot
         }
-        let snapshot = currentSnapshot
 
         // Consume any pending controller-reset request on the render thread.
         let ctrlGen = _ctrlResetRequest.load(ordering: .relaxed)
@@ -952,8 +973,15 @@ public final class SynthEngine: @unchecked Sendable {
         // before intermediate preset change snapshots corrupt active voices.
         drainMIDI()
 
-        // Apply parameter changes to all voices
-        if snapshot.version != appliedVersion {
+        // Capture the snapshot AFTER drainMIDI so render-thread host automation — `doNRPN`,
+        // which mutates the render-owned `currentSnapshot` audio-locally (#67) — is included
+        // in this block's apply.
+        let snapshot = currentSnapshot
+
+        // Apply parameter changes to all voices. `automationDirty` forces the apply when host
+        // automation changed a param without a UI version bump (same value path as a UI change).
+        if snapshot.version != appliedVersion || automationDirty {
+            automationDirty = false
             appliedVersion = snapshot.version
 
             let newOSMode = OversamplingMode(rawValue: snapshot.oversamplingMode) ?? .off
@@ -1699,6 +1727,19 @@ public final class SynthEngine: @unchecked Sendable {
     }
 
     private func doNRPN(_ bank: UInt8, index: UInt8, value: UInt32) {
-        // Vendor-specific: reserved for future use
+        // #67: render-thread-safe synth-param automation. The AUv3 render handler converts host
+        // automation for the non-FX synth params into NRPN MIDIEvents on the lock-free `sendMIDI`
+        // ring (producer==consumer==render in the AUv3). Apply them by mutating the render-owned
+        // `currentSnapshot` audio-locally — exactly like `doRPN`'s overrides, NEVER the main-thread
+        // `shadowSnapshot`/`snapshotRing` producer — and flag the per-block apply so the change
+        // reaches every voice this block (and any voice allocated later).
+        switch index {
+        case 0:  // operator output level (0–99); bank = operator index 0–5
+            guard bank < UInt8(kNumOperators) else { return }
+            withCurrentOp(Int(bank)) { $0.dx7OutputLevel = Int(min(value, 99)) }
+            automationDirty = true
+        default:
+            break
+        }
     }
 }
