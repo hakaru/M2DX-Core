@@ -1726,20 +1726,139 @@ public final class SynthEngine: @unchecked Sendable {
         }
     }
 
+    // #67: NRPN value transport is signed 16.8 fixed point in the 24-bit data field, so one
+    // uniform encode/decode carries every param type (int / continuous / signed). The app side
+    // `M2DXAUParameterRouting.encodeNRPNValue` is the exact inverse.
+    @inline(__always)
+    private func decodeNRPNValue(_ raw: UInt32) -> Float {
+        let m = raw & 0x00FFFFFF
+        let signed = (m & 0x0080_0000) != 0 ? Int32(bitPattern: m | 0xFF00_0000) : Int32(m)
+        return Float(signed) / 256.0
+    }
+    @inline(__always) private func nrpnInt(_ v: Float, _ lo: Int, _ hi: Int) -> Int {
+        Int(min(Float(hi), max(Float(lo), v.rounded())))
+    }
+    @inline(__always) private func nrpnU8(_ v: Float, _ hi: UInt8) -> UInt8 {
+        UInt8(min(Float(hi), max(0, v.rounded())))
+    }
+
     private func doNRPN(_ bank: UInt8, index: UInt8, value: UInt32) {
         // #67: render-thread-safe synth-param automation. The AUv3 render handler converts host
         // automation for the non-FX synth params into NRPN MIDIEvents on the lock-free `sendMIDI`
         // ring (producer==consumer==render in the AUv3). Apply them by mutating the render-owned
         // `currentSnapshot` audio-locally — exactly like `doRPN`'s overrides, NEVER the main-thread
         // `shadowSnapshot`/`snapshotRing` producer — and flag the per-block apply so the change
-        // reaches every voice this block (and any voice allocated later).
-        switch index {
-        case 0:  // operator output level (0–99); bank = operator index 0–5
-            guard bank < UInt8(kNumOperators) else { return }
-            withCurrentOp(Int(bank)) { $0.dx7OutputLevel = Int(min(value, 99)) }
-            automationDirty = true
-        default:
-            break
+        // reaches every voice this block (and any voice allocated later). Bank selects the param
+        // group: 0–5 = operators (index = AUv3 operator offset), 64+ = global/LFO/PitchEG/controllers.
+        let v = decodeNRPNValue(value)
+        switch bank {
+        case 0..<UInt8(kNumOperators): applyOperatorNRPN(Int(bank), offset: index, value: v)
+        case 64: applyGlobalNRPN(index: index, value: v)
+        case 65: applyLFONRPN(index: index, value: v)
+        case 66: applyPitchEGNRPN(index: index, value: v)
+        case 67: applyControllerNRPN(index: index, value: v)
+        default: break
         }
+    }
+
+    /// Apply one operator NRPN param to the render-owned `currentSnapshot` (#67). `offset` is the
+    /// AUv3 `M2DXParameterAddressMap.Operator` offset; the field writes mirror the main-thread
+    /// `set*` setters exactly, but on `currentSnapshot` instead of `shadowSnapshot`.
+    private func applyOperatorNRPN(_ op: Int, offset: UInt8, value v: Float) {
+        withCurrentOp(op) { o in
+            switch offset {
+            case 0:  o.dx7OutputLevel = nrpnInt(v, 0, 99)                 // output level
+            case 1:  o.ratio = max(0, v)                                  // frequency ratio
+            case 2:  let c = min(7, max(-7, v))                          // detune (factor + cents, like setOperatorDetune)
+                     o.detuneCents = c; o.detune = powf(2.0, c / 1200.0)
+            case 4:  o.fixedFrequency = nrpnU8(v, 1)                      // fixed-freq mode
+            case 5:  o.fixedFreqCoarse = nrpnU8(v, 31)
+            case 6:  o.fixedFreqFine = nrpnU8(v, 99)
+            case 7:  o.velocitySensitivity = nrpnU8(v, 7)
+            case 8:  o.ampModSensitivity = nrpnU8(v, 3)
+            case 9:  o.keyboardRateScaling = nrpnU8(v, 7)
+            case 10: o.dx7EgR0 = nrpnInt(v, 0, 99)                        // EG rates 1–4
+            case 11: o.dx7EgR1 = nrpnInt(v, 0, 99)
+            case 12: o.dx7EgR2 = nrpnInt(v, 0, 99)
+            case 13: o.dx7EgR3 = nrpnInt(v, 0, 99)
+            case 20: o.dx7EgL0 = nrpnInt(v, 0, 99)                        // EG levels 1–4
+            case 21: o.dx7EgL1 = nrpnInt(v, 0, 99)
+            case 22: o.dx7EgL2 = nrpnInt(v, 0, 99)
+            case 23: o.dx7EgL3 = nrpnInt(v, 0, 99)
+            case 30: o.klsBreakPoint = nrpnU8(v, 99)                      // keyboard level scaling
+            case 31: o.klsLeftDepth = nrpnU8(v, 99)
+            case 32: o.klsRightDepth = nrpnU8(v, 99)
+            case 33: o.klsLeftCurve = nrpnU8(v, 3)
+            case 34: o.klsRightCurve = nrpnU8(v, 3)
+            default: break                                               // feedback(3) is global-only; gaps unused
+            }
+        }
+        automationDirty = true
+    }
+
+    /// Global params (#67, NRPN bank 64). oscSync / fmEngine / markIDepth are intentionally not
+    /// routed (no snapshot field, or an unsafe per-block engine switch / external Mark I state).
+    private func applyGlobalNRPN(index: UInt8, value v: Float) {
+        switch index {
+        case 0: currentSnapshot.slots.0.algorithm = nrpnInt(v, 0, kNumAlgorithms - 1)   // algorithm
+        case 2: withCurrentOp(0) { $0.feedback = Float(nrpnInt(v, 0, 7)) / 7.0 }         // global feedback (op0)
+        case 4: currentSnapshot.transpose = Int8(nrpnInt(v, -24, 24))                    // performance transpose
+        default: break
+        }
+        automationDirty = true
+    }
+
+    /// LFO params (#67, NRPN bank 65; index = AUv3 LFO address − 700).
+    private func applyLFONRPN(index: UInt8, value v: Float) {
+        switch index {
+        case 0: currentSnapshot.slots.0.lfoSpeed = nrpnU8(v, 99)
+        case 1: currentSnapshot.slots.0.lfoDelay = nrpnU8(v, 99)
+        case 2: currentSnapshot.slots.0.lfoPMD = nrpnU8(v, 99)
+        case 3: currentSnapshot.slots.0.lfoAMD = nrpnU8(v, 99)
+        case 4: currentSnapshot.slots.0.lfoSync = nrpnU8(v, 1)
+        case 5: currentSnapshot.slots.0.lfoWaveform = nrpnU8(v, 5)
+        case 6: currentSnapshot.slots.0.lfoPMS = nrpnU8(v, 7)
+        default: break
+        }
+        automationDirty = true
+    }
+
+    /// Pitch EG params (#67, NRPN bank 66; index = AUv3 PitchEG address − 800: rate1–4 = 0–3,
+    /// level1–4 = 10–13).
+    private func applyPitchEGNRPN(index: UInt8, value v: Float) {
+        switch index {
+        case 0:  currentSnapshot.slots.0.pitchEGR0 = nrpnU8(v, 99)
+        case 1:  currentSnapshot.slots.0.pitchEGR1 = nrpnU8(v, 99)
+        case 2:  currentSnapshot.slots.0.pitchEGR2 = nrpnU8(v, 99)
+        case 3:  currentSnapshot.slots.0.pitchEGR3 = nrpnU8(v, 99)
+        case 10: currentSnapshot.slots.0.pitchEGL0 = nrpnU8(v, 99)
+        case 11: currentSnapshot.slots.0.pitchEGL1 = nrpnU8(v, 99)
+        case 12: currentSnapshot.slots.0.pitchEGL2 = nrpnU8(v, 99)
+        case 13: currentSnapshot.slots.0.pitchEGL3 = nrpnU8(v, 99)
+        default: break
+        }
+        automationDirty = true
+    }
+
+    /// Controller-mapping params (#67, NRPN bank 67; index = AUv3 Controller address − 900:
+    /// wheel 0–2, foot 10–12, breath 20–22, aftertouch 30–32; each pitch/amp/egBias 0–99).
+    private func applyControllerNRPN(index: UInt8, value v: Float) {
+        let u = nrpnU8(v, 99)
+        switch index {
+        case 0:  currentSnapshot.slots.0.wheelPitch = u
+        case 1:  currentSnapshot.slots.0.wheelAmp = u
+        case 2:  currentSnapshot.slots.0.wheelEGBias = u
+        case 10: currentSnapshot.slots.0.footPitch = u
+        case 11: currentSnapshot.slots.0.footAmp = u
+        case 12: currentSnapshot.slots.0.footEGBias = u
+        case 20: currentSnapshot.slots.0.breathPitch = u
+        case 21: currentSnapshot.slots.0.breathAmp = u
+        case 22: currentSnapshot.slots.0.breathEGBias = u
+        case 30: currentSnapshot.slots.0.aftertouchPitch = u
+        case 31: currentSnapshot.slots.0.aftertouchAmp = u
+        case 32: currentSnapshot.slots.0.aftertouchEGBias = u
+        default: break
+        }
+        automationDirty = true
     }
 }
