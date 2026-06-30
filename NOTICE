@@ -47,6 +47,15 @@ FM synthesis and the publicly documented behavior of the DX7 hardware,
 with bit-level cross-validation against the MSFA C reference described
 above.
 
+  Exception — verbatim table copy: the LFO speed -> Hz table `kLFOSpeedHz`
+  (`Sources/M2DXCore/Tables/FrequencyTable.swift`, also referenced from
+  `Sources/M2DXCore/Engine/SynthEngine.swift`) is copied verbatim from
+  MSFA's `lfoSource[]` table (`src/msfa/lfo.cc`), which is Apache 2.0
+  licensed (see the attribution above), rather than independently
+  generated. It is the sole verbatim copy in the M2DXCore Swift target;
+  all other tables and computational kernels are independently generated
+  as described.
+
 ================================================================================
 Files and licenses
 ================================================================================

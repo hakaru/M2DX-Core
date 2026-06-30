@@ -22,11 +22,21 @@ jobs:
         run: swift test
 
       - name: Check no msfa identifiers
-        # Case-sensitive: guards against copied MSFA code identifiers (lowercase
-        # `msfa` namespace / `src/msfa/` paths) while allowing the uppercase
+        # Case-sensitive: guards against copied MSFA code (lowercase `msfa`
+        # namespace / `src/msfa/` include paths) while allowing the uppercase
         # "MSFA" attribution required by Apache-2.0 (see NOTICE).
+        #
+        # Attribution path-citations are allowed: a comment line (//, ///, *,
+        # /*) that references the upstream (dexed / MSFA / NOTICE). The one
+        # verbatim Apache-2.0 table copy (kLFOSpeedHz) is documented in NOTICE
+        # and cites `Source/msfa/lfo.cc`; that is provenance, not pasted code.
+        # Bare lowercase `msfa` in code, or in a non-attribution comment, fails.
         run: |
-          if grep -rn "msfa" Sources/; then
-            echo "ERROR: lowercase 'msfa' identifiers found in source code"
+          matches=$(grep -rn "msfa" Sources/ \
+            | grep -vE '^[^:]+:[0-9]+:[[:space:]]*(///?|\*|/\*).*(dexed|MSFA|NOTICE)' \
+            || true)
+          if [ -n "$matches" ]; then
+            echo "ERROR: lowercase 'msfa' found outside an allowed attribution comment:"
+            echo "$matches"
             exit 1
           fi
