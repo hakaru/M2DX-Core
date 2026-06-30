@@ -52,6 +52,12 @@ func dac12bitCompand(_ sample: Float) -> Float {
     return q / exp
 }
 
+/// #95: full-scale reference for per-voice DAC companding — the OPS single-operator
+/// full scale (`mkiSin` max mantissa `8192 << 13` = 2^26). Per-voice raw OPS samples are
+/// divided by this before `dac12bitCompand` so its (−1,1)-normalized exponent selector
+/// (0.5/0.25/0.125) engages across the real dynamic range, then multiplied back.
+let kMarkIDACFullScale: Float = 67108864   // 2^26
+
 /// Mark I silence threshold (attenuation ABOVE this = inaudible). Opposite sense
 /// to Modern's kGainThreshold. Do not alias the Modern constant.
 let kMarkILevelThresh: UInt16 = UInt16(kMarkIEnvMax - 100)
