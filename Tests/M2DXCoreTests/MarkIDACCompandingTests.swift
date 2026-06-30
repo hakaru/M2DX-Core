@@ -52,12 +52,14 @@ struct MarkIDACCompandingTests {
         #expect(gridError(quiet, 2048) > 1e-3)       // and NOT on the coarse grid -> companding engaged
     }
 
-    @Test("R sizes the per-voice raw into the engaged region; the old post-norm scale was always exp 8")
-    func full_scale_reference_engages() {
-        // Stage 0 measured a loud single carrier's raw OPS peak ~2^25; / R lands at the exp-1/2 boundary
-        // (engaged). The OLD location companded the summed /2^28 mix (~0.08 < 0.125) -> always exp 8.
-        #expect(Float(1 << 25) / kMarkIDACFullScale <= 0.5)   // loud per-voice raw is in the engaged region
-        #expect(Float(0.08) <= 0.125)                          // old post-norm peak was stuck at exp 8
+    @Test("kMarkIDACFullScale is the OPS single-op full scale (2^26)")
+    func full_scale_reference_pinned() {
+        // R = 2^26 = mkiSin max mantissa (8192 << 13). Stage 0 measured a loud single carrier's raw
+        // OPS peak ~2^25 = 0.5*R, which dac12bitCompand maps into the engaged exponent region; the
+        // old summed-mix post-normalization peak (~0.08 < 0.125) was stuck at exponent 8. Pin R so
+        // any future change to it is a deliberate, reviewed edit. (Amplitude-dependent companding
+        // behavior itself is covered by `companding_is_amplitude_dependent`.)
+        #expect(kMarkIDACFullScale == Float(1 << 26))
     }
 
     @Test("DAC-on output differs from DAC-off (companding is active per voice)")
