@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.19.0] - 2026-06-30
+
+### Fixed
+- **#95 Mark I 12-bit DAC companding** — the #75 vintage 12-bit DAC ran its companding on the
+  post-normalization, all-voices-summed mix, whose tiny peak (~0.08) always selected exponent 8,
+  degenerating it into a fixed quantizer. It now runs **per-voice on the raw OPS sample**, divided
+  by a full-scale reference `kMarkIDACFullScale` (chosen by ear A/B: **2²⁵**; at the OPS full scale
+  2²⁶ ~80% of samples stayed at exponent 8 = inaudible), so the amplitude-dependent exponent
+  selection actually engages. The DAC-off path is byte-exact and `dx7refmki` parity is unaffected
+  (the DAC is gated by the vintage-DAC flag, off in parity). `kMarkIDACFullScale` is a
+  runtime-settable `nonisolated(unsafe) var` (same RT-safe pattern as `markIModScaleQ12`).
+
+### Investigation (no engine change)
+- **#95 Mark I carrier-level / feedback recalibration — closed as no-ops.** A measurement harness
+  (`MarkICalibrationCharacterizationTests`) showed the Mark I carrier is already level-matched to
+  Modern (peak ratio 1.000 across all output levels — the audit's "finding 1" 4×-hot carrier does
+  not manifest as rendered), and the feedback-patch Mark I/Modern divergence is invariant to the
+  feedback amount (the audit's "finding 3" is the forward-mod divisor, already closed at ÷5, not
+  feedback-specific). No carrier-output or feedback recalibration was warranted. See
+  `docs/mark-i-recalibration-plan.md`.
+
 ## [1.18.1] - 2026-06-30
 
 ### Fixed (v1.17.0 fidelity-audit review follow-ups)

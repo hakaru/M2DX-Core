@@ -1082,14 +1082,6 @@ public final class SynthEngine: @unchecked Sendable {
             downsampler.applyCrossfade(bufferL: bufferL, bufferR: bufferR, frameCount: frameCount)
         }
 
-        // #75: DX7 12-bit DAC companding — Mark I only, on the final all-voices-summed,
-        // native-rate mix (post-downsample), before the app FX chain.
-        if currentFMEngine == .markI && snapshot.vintageDAC12bit != 0 {
-            for s in 0..<frameCount {
-                bufferL[s] = dac12bitCompand(bufferL[s])
-                bufferR[s] = dac12bitCompand(bufferR[s])
-            }
-        }
     }
 
     // MARK: - LFO
@@ -1310,6 +1302,10 @@ public final class SynthEngine: @unchecked Sendable {
             let outBufR = bufferR + offset
             for s in 0..<blockSize { outBufL[s] = 0; outBufR[s] = 0 }
 
+            // #95: per-voice DX7 12-bit DAC companding — Mark I + vintage DAC only. Applied on the
+            // raw OPS sample (normalized by the OPS full scale) so the amplitude-dependent exponent
+            // engages; the old post-normalization summed-mix location always picked exp 8.
+            let dacOn = currentFMEngine == .markI && snapshot.vintageDAC12bit != 0
             for i in 0..<maxV {
                 guard voicesDX7[i].active else { continue }
                 for s in 0..<blockSize { blockBuf[s] = 0 }
@@ -1319,13 +1315,20 @@ public final class SynthEngine: @unchecked Sendable {
                 let pR = panGainR[i]
                 let slotGain = snapshot.config(at: voicesDX7[i].slotId).gain
                 // DEXED normalizes Q24 output as: >> 4, >> 9, / 32768 = / 2^28.
-                // Previous /2^25 was 8× too hot, clipping on multi-carrier algorithms.
                 let scale = vol * pL / 268435456.0 * slotGain
                 let scaleR = vol * pR / 268435456.0 * slotGain
-                for s in 0..<blockSize {
-                    let sample = Float(blockBuf[s])
-                    outBufL[s] += sample * scale
-                    outBufR[s] += sample * scaleR
+                if dacOn {
+                    for s in 0..<blockSize {
+                        let sample = dac12bitCompand(Float(blockBuf[s]) / kMarkIDACFullScale) * kMarkIDACFullScale
+                        outBufL[s] += sample * scale
+                        outBufR[s] += sample * scaleR
+                    }
+                } else {
+                    for s in 0..<blockSize {
+                        let sample = Float(blockBuf[s])
+                        outBufL[s] += sample * scale
+                        outBufR[s] += sample * scaleR
+                    }
                 }
             }
 
