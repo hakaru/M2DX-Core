@@ -11,7 +11,7 @@
 //     A/B listen compares TIMBRE, not loudness (loudness is a separate finding-1 axis,
 //     reported via the raw peak).
 //
-// Run: `swift test --filter renderMarkIDivisorAB`  (clean-room: no GPL Dexed consulted).
+// Run: `M2DX_MARKI_AB=1 swift test --filter renderMarkIDivisorAB`  (clean-room: no GPL Dexed).
 
 import Testing
 import Foundation
@@ -91,6 +91,15 @@ struct MarkIDivisorABTests {
 
     @Test("Render Mark I divisor A/B WAVs (BASS 1 + E.PIANO 1)")
     func renderMarkIDivisorAB() throws {
+        // Investigation harness: it mutates the process-global `markIModScaleQ12` (via
+        // setMarkIModDivisor), which races the Mark I parity suite under Swift Testing's parallel
+        // runner. Gate it behind an env var so a normal `swift test` is a no-op; render with:
+        //   M2DX_MARKI_AB=1 swift test --filter renderMarkIDivisorAB
+        guard ProcessInfo.processInfo.environment["M2DX_MARKI_AB"] != nil else {
+            print("MarkIDivisorABTests skipped — set M2DX_MARKI_AB=1 to render the A/B WAVs")
+            return
+        }
+        defer { SynthEngine().setMarkIModDivisor(8.0) }   // restore the global default (÷8)
         let dir = URL(fileURLWithPath: "/tmp/m2dx-marki-ab")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
 

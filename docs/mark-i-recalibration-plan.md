@@ -1,6 +1,6 @@
 # Mark I OPS recalibration — plan & A/B (markI-ops-dac findings 1–3)
 
-Status: **decision pending (by ear).** This doc frames the Mark I forward-modulation
+Status: **DECIDED 2026-06-30 — finding 2 closed (÷5 maintained); findings 1 & 3 deferred.** This doc frames the Mark I forward-modulation
 ("darkness") recalibration raised by the DX7 fidelity audit, with A/B render data, so the
 final divisor can be chosen by ear against a real DX7 / Dexed reference. No code that ships
 is changed yet. **Clean-room:** the project deliberately does not consult Dexed's GPL
@@ -8,7 +8,22 @@ is changed yet. **Clean-room:** the project deliberately does not consult Dexed'
 reasoning + public DX7 OPS docs.
 
 Parent: `dx7-fidelity-audit-2026-06-30.md` (`markI-ops-dac` dimension, findings 1–3).
-A/B harness: `Tests/M2DXCoreTests/MarkIDivisorABTests.swift` → `swift test --filter renderMarkIDivisorAB`.
+A/B harness: `Tests/M2DXCoreTests/MarkIDivisorABTests.swift` → `M2DX_MARKI_AB=1 swift test --filter renderMarkIDivisorAB` (env-gated: it mutates the process-global divisor, so it is a no-op in a normal `swift test`).
+
+## Decision (2026-06-30)
+
+**Finding 2 (forward-mod divisor) — CLOSED, ÷5 maintained.** An A/B by ear (BASS 1 + E.PIANO 1,
+peak-normalized) found ÷4 / ÷5 / ÷6 / ÷8 **nearly indistinguishable**, matching the data (BASS 1
+spans only ~12%, E.PIANO 1 is divisor-insensitive at sustain). The divisor's "darkness" is a
+low-impact calibration, so the shipping default stays **÷5** — changing it is not worth a
+recalibration of the default engine. `MarkICalibrationTests.darkerSustain` is weakened from the
+(pre-KLS-fix, over-bright-Modern) `÷0.6` threshold to assert only the surviving true property
+**`Mark I < Modern`**; `MarkIDivisorABTests` is kept as the living A/B record.
+
+**Findings 1 (4× / 12 dB hot output) & 3 (4× feedback) — DEFERRED.** These are the genuinely
+audible Mark I issues (the A/B normalized loudness away, so they were not evaluated): the 12 dB
+engine-switch level jump / clip-and-Maximizer reliance, and over-hot feedback. They are separate,
+more structural, and tracked in the audit (`markI-ops-dac` findings 1 & 3) for a future, measured pass.
 
 ## Why this is open
 
@@ -86,9 +101,9 @@ WAVs: `/tmp/m2dx-marki-ab/{bass1,epiano1}_{modern,mki_div4,mki_div5,mki_div6,mki
 
 ## Recommendation
 
-- **Divisor:** lean **÷4** (or ÷5 if you prefer the current voicing) — Mark I is the *shipping default
-  engine*, so matching a real DX7's modulation index matters for everyone, and ÷4 is still audibly
-  "OPS-dark" vs Modern. But this is your ear's call against a real DX7/Dexed; the WAVs are there for it.
+- **Divisor:** **÷5 maintained** (see the Decision at the top) — the A/B found ÷4…÷8 nearly
+  indistinguishable by ear, so the brightness knob is a low-impact calibration not worth changing
+  the shipping default. The bracketing data + WAVs remain for any future re-evaluation.
 - **Do the coordinated fix, not just the divisor:** also `<<13→<<11` (finding 1) + feedback scaling
   (finding 3), so loudness, brightness, and feedback are all faithful and the engine-switch level jump
   goes away. Treat as one reviewed, RT-careful change with a fresh on-device A/B.
