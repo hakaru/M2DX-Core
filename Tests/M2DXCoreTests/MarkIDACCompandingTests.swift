@@ -52,14 +52,15 @@ struct MarkIDACCompandingTests {
         #expect(gridError(quiet, 2048) > 1e-3)       // and NOT on the coarse grid -> companding engaged
     }
 
-    @Test("kMarkIDACFullScale is the OPS single-op full scale (2^26)")
+    @Test("kMarkIDACFullScale is the ear-A/B shipping default (2^25, #95)")
     func full_scale_reference_pinned() {
-        // R = 2^26 = mkiSin max mantissa (8192 << 13). Stage 0 measured a loud single carrier's raw
-        // OPS peak ~2^25 = 0.5*R, which dac12bitCompand maps into the engaged exponent region; the
-        // old summed-mix post-normalization peak (~0.08 < 0.125) was stuck at exponent 8. Pin R so
-        // any future change to it is a deliberate, reviewed edit. (Amplitude-dependent companding
-        // behavior itself is covered by `companding_is_amplitude_dependent`.)
-        #expect(kMarkIDACFullScale == Float(1 << 26))
+        // R = 2^25 — chosen by ear A/B (#95). At 2^26 (the OPS single-op theoretical max,
+        // `8192 << 13`), ~80% of samples stayed at exponent 8 (inaudible fine-grid region);
+        // 2^25 shifts engagement into exp 2/4 for an audible-but-not-crushed vintage character.
+        // Pin R so any future change to it is a deliberate, reviewed edit.
+        // (Amplitude-dependent companding behavior itself is covered by
+        // `companding_is_amplitude_dependent`.)
+        #expect(kMarkIDACFullScale == Float(1 << 25))
     }
 
     @Test("DAC-on output differs from DAC-off (companding is active per voice)")

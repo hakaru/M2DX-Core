@@ -52,13 +52,15 @@ func dac12bitCompand(_ sample: Float) -> Float {
     return q / exp
 }
 
-/// #95: full-scale reference for per-voice DAC companding — the OPS single-operator
-/// full scale (`mkiSin` max mantissa `8192 << 13` = 2^26). Per-voice raw OPS samples are
+/// #95: full-scale reference for per-voice DAC companding — per-voice raw OPS samples are
 /// divided by this before `dac12bitCompand` so its (−1,1)-normalized exponent selector
 /// (0.5/0.25/0.125) engages across the real dynamic range, then multiplied back.
-/// Runtime-settable for calibration A/B tests (like `markIModScaleQ12`); default 2^26 =
-/// unchanged shipping behavior. Read per-sample as an aligned Float (RT-safe on arm64/x86_64).
-nonisolated(unsafe) var kMarkIDACFullScale: Float = 67108864   // 2^26
+/// Runtime-settable for calibration A/B tests (like `markIModScaleQ12`); shipping default
+/// chosen by ear-A/B (#95): 2^25. At 2^26 (the OPS single-op theoretical max = `8192 << 13`),
+/// ~80% of samples stayed at exponent 8 (inaudible fine-grid region); 2^25 shifts engagement
+/// into exp 2/4 for an audible-but-not-crushed vintage character.
+/// Read per-sample as an aligned Float (RT-safe on arm64/x86_64).
+nonisolated(unsafe) var kMarkIDACFullScale: Float = 33554432   // 2^25
 
 /// Mark I silence threshold (attenuation ABOVE this = inaudible). Opposite sense
 /// to Modern's kGainThreshold. Do not alias the Modern constant.

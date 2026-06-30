@@ -262,7 +262,7 @@ struct MarkICalibrationCharacterizationTests {
             return
         }
         // Restore shipping default R regardless of how the test exits.
-        defer { kMarkIDACFullScale = Float(1 << 26) }
+        defer { kMarkIDACFullScale = Float(1 << 25) }
 
         let dir = URL(fileURLWithPath: "/tmp/m2dx-marki-dac")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
