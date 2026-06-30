@@ -67,6 +67,28 @@ struct DX7EnvelopeTests {
         #expect(finallyInactive, "Envelope should eventually become inactive after noteOff")
     }
 
+    @Test("Slow release rings past 2s — no wall-clock kill, runs to natural completion (#92)")
+    func slowReleaseNotKilledAtTwoSeconds() {
+        var env = DX7Envelope()
+        env.setSampleRate(44100)
+        env.setRates(99, 99, 99, 20)   // R4=20: a slow release (tens of seconds to the floor)
+        env.setLevels(99, 99, 99, 0)
+        env.setOutputLevel(99)
+        env.noteOn()
+        for _ in 0..<300 { _ = env.getsample() }   // settle into sustain
+        #expect(env.isActive, "should be sustaining before note-off")
+
+        env.noteOff()
+        // Run ~2.5 s of blocks — past the old fixed 2 s force-kill.
+        let blocks = Int(44100.0 * 2.5) / kBlockSize
+        for _ in 0..<blocks { _ = env.getsample() }
+        // R4=20 reaches the audibility floor in tens of seconds, so the release must still
+        // be ringing here. The old 2 s wall-clock kill (which truncated + clicked the tail,
+        // and which neither the real DX7 nor the DEXED C twin have) is gone.
+        #expect(env.isActive,
+                "Slow release (R4=20) should still be active ~2.5s after note-off, not killed at 2s")
+    }
+
     @Test("Envelope level never goes below 0")
     func levelNonNegative() {
         var env = DX7Envelope()
