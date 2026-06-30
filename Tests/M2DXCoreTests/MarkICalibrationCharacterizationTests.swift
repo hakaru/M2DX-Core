@@ -133,6 +133,94 @@ struct MarkICalibrationCharacterizationTests {
         return denom > 0 ? numer / denom : 0
     }
 
+    // MARK: - DAC A/B helpers
+
+    /// Render the given factory preset with Mark I engine, vintage DAC toggled.
+    /// The preset's own algorithm is kept intact (no alg-32 override).
+    /// Returns the full left channel buffer.
+    private func renderMarkI(_ preset: DX7Preset, dacOn: Bool) -> [Float] {
+        let synth = SynthEngine()
+        synth.setSampleRate(sampleRate)
+        synth.setMasterVolume(1.0)
+        synth.setFMEngine(.markI)
+        synth.setVintageDAC(dacOn)
+
+        synth.loadDX7Preset(preset)             // preset's own algorithm kept intact
+
+        let blk = 512
+        var pL = [Float](repeating: 0, count: blk), pR = [Float](repeating: 0, count: blk)
+        pL.withUnsafeMutableBufferPointer { lp in pR.withUnsafeMutableBufferPointer { rp in
+            synth.render(into: lp.baseAddress!, bufferR: rp.baseAddress!, frameCount: blk)
+        }}
+        synth.sendMIDI(MIDIEvent(kind: .noteOn, data1: 60, data2: UInt32(100) << 9))
+
+        var outL = [Float](repeating: 0, count: total)
+        var outR = [Float](repeating: 0, count: total)
+        outL.withUnsafeMutableBufferPointer { op in outR.withUnsafeMutableBufferPointer { rp in
+            var off = 0
+            while off < total {
+                let c = min(blk, total - off)
+                synth.render(into: op.baseAddress! + off, bufferR: rp.baseAddress! + off, frameCount: c)
+                off += c
+            }
+        }}
+        return outL
+    }
+
+    /// Minimal 16-bit mono PCM WAV writer (copied verbatim from MarkIDivisorABTests.swift).
+    private func writeWAV(_ samples: [Float], sampleRate: Int, to url: URL) throws {
+        var data = Data()
+        func le32(_ v: UInt32) { var x = v.littleEndian; withUnsafeBytes(of: &x) { data.append(contentsOf: $0) } }
+        func le16(_ v: UInt16) { var x = v.littleEndian; withUnsafeBytes(of: &x) { data.append(contentsOf: $0) } }
+        let dataSize = samples.count * 2
+        data.append(contentsOf: Array("RIFF".utf8)); le32(UInt32(36 + dataSize))
+        data.append(contentsOf: Array("WAVE".utf8))
+        data.append(contentsOf: Array("fmt ".utf8)); le32(16); le16(1); le16(1)
+        le32(UInt32(sampleRate)); le32(UInt32(sampleRate * 2)); le16(2); le16(16)
+        data.append(contentsOf: Array("data".utf8)); le32(UInt32(dataSize))
+        for s in samples {
+            let c = max(-1.0, min(1.0, s))
+            le16(UInt16(bitPattern: Int16(c * 32767.0)))
+        }
+        try data.write(to: url)
+    }
+
+    @Test("Render DAC on/off A/B WAVs + coarse render-time delta")
+    func renderDACAB() throws {
+        guard ProcessInfo.processInfo.environment["M2DX_MARKI_CHAR"] != nil else {
+            print("MarkICalibrationCharacterizationTests skipped — set M2DX_MARKI_CHAR=1")
+            return
+        }
+        let dir = URL(fileURLWithPath: "/tmp/m2dx-marki-dac")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        // A bright multi-carrier / feedback-bearing patch shows the DAC grit most.
+        let preset = DX7FactoryPresets.all.first(where: { $0.feedback > 0 }) ?? DX7FactoryPresets.all[11]
+        print("DAC A/B preset: \(preset.name) (feedback=\(preset.feedback), algorithm=\(preset.algorithm))")
+
+        var offElapsed: Double = 0
+        var onElapsed: Double = 0
+        for dacOn in [false, true] {
+            let start = Date()
+            let buf = renderMarkI(preset, dacOn: dacOn)
+            let elapsed = Date().timeIntervalSince(start)
+            if dacOn { onElapsed = elapsed } else { offElapsed = elapsed }
+            // Peak-normalize to −3 dBFS so the A/B compares grit/timbre, not loudness.
+            let peak = buf.map { abs($0) }.max() ?? 1
+            let g = peak > 0 ? (0.707 / peak) : 1
+            let norm = buf.map { $0 * g }
+            let name = "\(preset.name)_dac\(dacOn ? "on" : "off").wav"
+            try writeWAV(norm, sampleRate: Int(sampleRate), to: dir.appendingPathComponent(name))
+            print("  Wrote \(dir.appendingPathComponent(name).path)  rawPeak=\(String(format: "%.4f", peak))")
+        }
+        print(String(format: "Render-time delta (coarse wall-clock on host — NOT a benchmark; measure on-device for RT budget):"))
+        print(String(format: "  DAC-off: %.1f ms  DAC-on: %.1f ms  Δ(on−off): %+.1f ms  (%d samples @ %d Hz)",
+                     offElapsed * 1000, onElapsed * 1000, (onElapsed - offElapsed) * 1000,
+                     total, Int(sampleRate)))
+        print("DAC A/B WAVs written to \(dir.path) — on-device listen: does DAC-on add the intended grit, or is it filtered by downsampling?")
+    }
+
+    // MARK: - Feedback comparison
+
     @Test("Render Modern vs Mark I feedback comparison")
     func renderFeedbackComparison() {
         guard ProcessInfo.processInfo.environment["M2DX_MARKI_CHAR"] != nil else {
