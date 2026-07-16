@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.21.0] - 2026-07-16
+
+### Performance
+- **Render-thread voice allocation now scales to the 2048-voice pool.** Replaced the per-note
+  linear free-voice scan with a preallocated bitmap and rolling cursor, moved finished-voice
+  reaping to one bounded pass per render, and added an O(1) note map for the legacy single-copy
+  full-pool retrigger policy. Full-pool stealing now bypasses the bitmap entirely. The allocator
+  remains audio-thread-owned and allocation/lock-free.
+
+### Added
+- Atomic `debugActiveVoiceCount` publication and `debugVoiceAllocationProbeCount` diagnostics,
+  with deterministic 1024-voice burst and full-pool retrigger complexity regressions. 271 tests.
+
+### Changed
+- The CI clean-room guard now permits required MSFA provenance citations in attribution comments
+  while continuing to reject production identifiers; `NOTICE` records the cited upstream paths.
+
 ## [1.20.1] - 2026-06-30
 
 ### Fixed

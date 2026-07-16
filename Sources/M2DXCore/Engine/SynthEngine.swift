@@ -167,6 +167,33 @@ public final class SynthEngine: @unchecked Sendable {
     private var effectiveMaxVoices: Int = 16
     private var dx7VoiceStealIdx: Int = 0
 
+    // Render-thread-owned voice allocator. A set bit means the voice index is
+    // free. The old allocator linearly scanned every voice for every note-on,
+    // which became O(N²) for 512/1024-voice bursts and retriggers at a full pool.
+    private static let voiceBitmapWordCount = (kMaxVoices + 63) / 64
+    private let freeVoiceBits: UnsafeMutablePointer<UInt64> = {
+        let ptr = UnsafeMutablePointer<UInt64>.allocate(capacity: SynthEngine.voiceBitmapWordCount)
+        ptr.initialize(repeating: UInt64.max, count: SynthEngine.voiceBitmapWordCount)
+        return ptr
+    }()
+    private var nextFreeVoiceSearchIndex = 0
+    private var activeVoiceCountRT = 0
+
+    // Fast retrigger lookup for the legacy single-copy full-pool policy.
+    // slot (0...7) × original MIDI note (0...127) -> most recently allocated voice.
+    private static let noteVoiceMapCount = kMaxSlots * 128
+    private let noteVoiceMap: UnsafeMutablePointer<Int32> = {
+        let ptr = UnsafeMutablePointer<Int32>.allocate(capacity: SynthEngine.noteVoiceMapCount)
+        ptr.initialize(repeating: -1, count: SynthEngine.noteVoiceMapCount)
+        return ptr
+    }()
+
+    // Atomics publish render-owned diagnostics without making the hot allocator
+    // itself pay an atomic operation for every voice in a burst.
+    private let _activeVoiceCount = Atomic<Int>(0)
+    private let _voiceAllocationProbeCount = Atomic<Int>(0)
+    private var voiceAllocationProbeCountRT = 0
+
     /// #79 portamento: MIDI note of the most recent note-on, the glide START
     /// reference for the next note. Updated on EVERY note-on (even when off) so
     /// enabling mid-phrase glides from the right note. nil until the first note.
@@ -221,6 +248,10 @@ public final class SynthEngine: @unchecked Sendable {
         floatScratch.deallocate()
         slotModScratch.deinitialize(count: kMaxSlots)
         slotModScratch.deallocate()
+        freeVoiceBits.deinitialize(count: Self.voiceBitmapWordCount)
+        freeVoiceBits.deallocate()
+        noteVoiceMap.deinitialize(count: Self.noteVoiceMapCount)
+        noteVoiceMap.deallocate()
     }
 
     // MARK: - MIDI Event Queue
@@ -381,14 +412,17 @@ public final class SynthEngine: @unchecked Sendable {
     }
 
     /// Introspection for tests: number of currently-active voices.
-    internal var activeVoiceCount: Int {
-        var c = 0
-        for i in 0..<kMaxVoices where voicesDX7[i].active { c += 1 }
-        return c
-    }
+    internal var activeVoiceCount: Int { _activeVoiceCount.load(ordering: .relaxed) }
 
-    /// Public test accessor: number of currently-active voices (used by FMEngineSwitchTests).
-    public var debugActiveVoiceCount: Int { (0..<kMaxVoices).reduce(0) { $0 + (voicesDX7[$1].active ? 1 : 0) } }
+    /// Public diagnostic accessor. Atomic because the UI reads it while the audio
+    /// thread owns and mutates the voice pool.
+    public var debugActiveVoiceCount: Int { _activeVoiceCount.load(ordering: .relaxed) }
+
+    /// Number of 64-bit bitmap words inspected by voice allocation since init.
+    /// Full-pool allocation should not increase this counter.
+    public var debugVoiceAllocationProbeCount: Int {
+        _voiceAllocationProbeCount.load(ordering: .relaxed)
+    }
 
     /// #67: the render-thread parameter snapshot, so tests can observe doNRPN automation
     /// effects without reaching into the (private) voice array.
@@ -958,6 +992,129 @@ public final class SynthEngine: @unchecked Sendable {
         }
     }
 
+    // MARK: - Voice Allocation (audio thread)
+
+    @inline(__always)
+    private func noteVoiceMapOffset(slot: Int, note: UInt8) -> Int {
+        slot * 128 + Int(note)
+    }
+
+    @inline(__always)
+    private func clearNoteMapping(forVoice voiceIndex: Int) {
+        let slot = voicesDX7[voiceIndex].slotId
+        guard slot >= 0, slot < kMaxSlots else { return }
+        let offset = noteVoiceMapOffset(slot: slot, note: voicesDX7[voiceIndex].midiNote)
+        if noteVoiceMap[offset] == Int32(voiceIndex) {
+            noteVoiceMap[offset] = -1
+        }
+    }
+
+    @inline(__always)
+    private func bindNoteMapping(voiceIndex: Int, slot: Int, note: UInt8) {
+        noteVoiceMap[noteVoiceMapOffset(slot: slot, note: note)] = Int32(voiceIndex)
+    }
+
+    @inline(__always)
+    private func mappedRetriggerVoice(note: UInt8, slot: Int, limit: Int) -> Int? {
+        let offset = noteVoiceMapOffset(slot: slot, note: note)
+        let mapped = Int(noteVoiceMap[offset])
+        guard mapped >= 0, mapped < limit,
+              voicesDX7[mapped].active,
+              voicesDX7[mapped].midiNote == note,
+              voicesDX7[mapped].slotId == slot else {
+            noteVoiceMap[offset] = -1
+            return nil
+        }
+        return mapped
+    }
+
+    @inline(__always)
+    private func markVoiceFree(_ voiceIndex: Int) {
+        let wordIndex = voiceIndex >> 6
+        let mask = UInt64(1) << UInt64(voiceIndex & 63)
+        guard freeVoiceBits[wordIndex] & mask == 0 else { return }
+
+        clearNoteMapping(forVoice: voiceIndex)
+        freeVoiceBits[wordIndex] |= mask
+        if activeVoiceCountRT > 0 { activeVoiceCountRT -= 1 }
+        if voiceIndex < nextFreeVoiceSearchIndex {
+            nextFreeVoiceSearchIndex = voiceIndex
+        }
+    }
+
+    private func resetVoiceAllocator() {
+        for i in 0..<Self.voiceBitmapWordCount { freeVoiceBits[i] = UInt64.max }
+        let tailBits = kMaxVoices & 63
+        if tailBits != 0 {
+            freeVoiceBits[Self.voiceBitmapWordCount - 1] = (UInt64(1) << UInt64(tailBits)) - 1
+        }
+        for i in 0..<Self.noteVoiceMapCount { noteVoiceMap[i] = -1 }
+        nextFreeVoiceSearchIndex = 0
+        activeVoiceCountRT = 0
+    }
+
+    @inline(__always)
+    private func firstFreeVoice(from lowerBound: Int, to upperBound: Int) -> Int? {
+        guard lowerBound < upperBound else { return nil }
+        let firstWord = lowerBound >> 6
+        let lastWord = (upperBound - 1) >> 6
+        var wordIndex = firstWord
+
+        while wordIndex <= lastWord {
+            var bits = freeVoiceBits[wordIndex]
+            voiceAllocationProbeCountRT &+= 1
+
+            if wordIndex == firstWord {
+                let lowerBit = lowerBound & 63
+                if lowerBit != 0 { bits &= UInt64.max << UInt64(lowerBit) }
+            }
+            if wordIndex == lastWord {
+                let upperBit = upperBound & 63
+                if upperBit != 0 { bits &= (UInt64(1) << UInt64(upperBit)) - 1 }
+            }
+
+            if bits != 0 {
+                return (wordIndex << 6) + bits.trailingZeroBitCount
+            }
+            wordIndex += 1
+        }
+        return nil
+    }
+
+    /// Claims one free voice. The active-count guard is the full-pool fast path:
+    /// it avoids even the 32-word bitmap walk when every voice is already active.
+    @inline(__always)
+    private func takeFreeVoice(limit: Int) -> Int? {
+        guard limit > 0, activeVoiceCountRT < limit else { return nil }
+        let start = nextFreeVoiceSearchIndex < limit ? nextFreeVoiceSearchIndex : 0
+        let voiceIndex = firstFreeVoice(from: start, to: limit)
+            ?? (start > 0 ? firstFreeVoice(from: 0, to: start) : nil)
+        guard let voiceIndex else {
+            assertionFailure("voice allocator active count/bitmap invariant violated")
+            return nil
+        }
+
+        let wordIndex = voiceIndex >> 6
+        let mask = UInt64(1) << UInt64(voiceIndex & 63)
+        freeVoiceBits[wordIndex] &= ~mask
+        activeVoiceCountRT += 1
+        nextFreeVoiceSearchIndex = voiceIndex + 1 == limit ? 0 : voiceIndex + 1
+        return voiceIndex
+    }
+
+    private func reapFinishedVoices() {
+        for i in 0..<effectiveMaxVoices where voicesDX7[i].active {
+            voicesDX7[i].checkActive()
+            if !voicesDX7[i].active { markVoiceFree(i) }
+        }
+    }
+
+    @inline(__always)
+    private func publishVoiceAllocatorDiagnostics() {
+        _activeVoiceCount.store(activeVoiceCountRT, ordering: .relaxed)
+        _voiceAllocationProbeCount.store(voiceAllocationProbeCountRT, ordering: .relaxed)
+    }
+
     // MARK: - Render (audio thread)
 
     public func render(into bufferL: UnsafeMutablePointer<Float>,
@@ -974,6 +1131,10 @@ public final class SynthEngine: @unchecked Sendable {
             appliedCtrlResetCount = ctrlGen
             performControllerReset()
         }
+
+        // Reap envelope-complete voices before note-on allocation. This replaces
+        // the old per-note linear checkActive scan with one bounded pass per render.
+        reapFinishedVoices()
 
         // Drain MIDI before applyParams so allNotesOff is processed
         // before intermediate preset change snapshots corrupt active voices.
@@ -1022,6 +1183,7 @@ public final class SynthEngine: @unchecked Sendable {
                     voicesDX7[i].active = false
                     voicesDX7[i].engineMode = newFMEngine
                 }
+                resetVoiceAllocator()
             }
 
             algorithm = snapshot.algorithm
@@ -1053,7 +1215,11 @@ public final class SynthEngine: @unchecked Sendable {
                     voicesDX7[i].noteOff()
                     voicesDX7[i].active = false
                     voicesDX7[i].sustained = false
+                    markVoiceFree(i)
                 }
+            }
+            if nextFreeVoiceSearchIndex >= effectiveMaxVoices {
+                nextFreeVoiceSearchIndex = 0
             }
 
             // Apply per-voice params unconditionally.
@@ -1116,6 +1282,8 @@ public final class SynthEngine: @unchecked Sendable {
 
             downsampler.applyCrossfade(bufferL: bufferL, bufferR: bufferR, frameCount: frameCount)
         }
+
+        publishVoiceAllocatorDiagnostics()
 
     }
 
@@ -1197,8 +1365,6 @@ public final class SynthEngine: @unchecked Sendable {
         let vol = masterVolume * expression * ccVolume * unisonGain * layerGain * voiceStackGain
         let maxV = effectiveMaxVoices
         let slotCount = snapshot.activeSlotCount
-
-        for i in 0..<maxV { voicesDX7[i].checkActive() }
 
         // Per-slot modulation — uses pre-allocated slotModScratch (no heap alloc per render)
         let slotMods = slotModScratch
@@ -1434,23 +1600,24 @@ public final class SynthEngine: @unchecked Sendable {
                 let transposedNote = UInt8(clamping: Int(note) + Int(slot.transpose))
                 let maxV = effectiveMaxVoices
 
-                var target = 0
-                var foundFree = false
-                for i in 0..<maxV {
-                    voicesDX7[i].checkActive()
-                    if !voicesDX7[i].active { target = i; foundFree = true; break }
-                }
-                if !foundFree && unisonCount == 1 && voiceStack == 1 {   // #89: no retrigger-collapse while stacking — steal instead so N distinct voices survive a full pool
-                    for i in 0..<maxV {
-                        if voicesDX7[i].midiNote == note && voicesDX7[i].slotId == slotIdx {
-                            target = i; foundFree = true; break
-                        }
-                    }
-                }
-                if !foundFree {
+                let target: Int
+                if let freeVoice = takeFreeVoice(limit: maxV) {
+                    target = freeVoice
+                } else if unisonCount == 1, voiceStack == 1,
+                          let retrigger = mappedRetriggerVoice(note: note, slot: slotIdx, limit: maxV) {
+                    // Preserve the legacy full-pool retrigger-collapse policy in
+                    // O(1) instead of scanning the entire pool for every note.
+                    target = retrigger
+                } else {
+                    // Full pool: activeVoiceCountRT made takeFreeVoice return
+                    // without touching the bitmap. Round-robin steal is O(1).
                     target = dx7VoiceStealIdx % maxV
-                    dx7VoiceStealIdx += 1
+                    dx7VoiceStealIdx &+= 1
                 }
+
+                // A reused/stolen voice may still be the lookup target for its
+                // previous note. Remove that binding before overwriting its state.
+                clearNoteMapping(forVoice: target)
 
                 voicesDX7[target].algorithm = slot.algorithm
                 voicesDX7[target].engineMode = currentFMEngine
@@ -1469,6 +1636,7 @@ public final class SynthEngine: @unchecked Sendable {
                 voicesDX7[target].applyParams(slot.ops.5, opIndex: 5)
 
                 voicesDX7[target].noteOn(transposedNote, velocity16: stackVelocity16, midiNote: note, detuneFactor: detuneFactor)
+                bindNoteMapping(voiceIndex: target, slot: slotIdx, note: note)
                 // #79 portamento (Poly/Always): start at the previous note's pitch
                 // and glide to target. Slot transpose cancels (prev and note share
                 // it). Set explicitly every note-on so a reused voice never keeps a
