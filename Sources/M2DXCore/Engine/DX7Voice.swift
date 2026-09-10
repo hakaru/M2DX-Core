@@ -125,6 +125,10 @@ package struct DX7Voice {
     /// path at the portamento rate. 0 = arrived (no glide; default = no effect).
     var glideOffsetCents: Float = 0.0
     var detached: Bool = false
+    /// #116: render-rate samples left in a one-block fade-out; 0 = not fading. Only the Mono
+    /// paths (mode switch, a replaced Mono voice that cannot take a signal transfer) set it, so
+    /// Poly voices never take the fading mix branch.
+    var fadeSamplesRemaining: Int = 0
 
     // Pitch EG
     var pitchEG = PitchEG()
@@ -164,6 +168,7 @@ package struct DX7Voice {
         active = true
         releasing = false
         sustained = false   // a stolen/reused voice must not inherit pedal-hold
+        fadeSamplesRemaining = 0   // ...nor a pending fade-out (#116)
         resetPerNoteState()
         let freq: Float = kMIDIFreqLUT[Int(n & 0x7F)] * detuneFactor
         ops.0.noteOn(baseFreq: freq); ops.1.noteOn(baseFreq: freq); ops.2.noteOn(baseFreq: freq)
@@ -205,6 +210,27 @@ package struct DX7Voice {
         }
         // A fresh key owns per-note expression; channel controllers remain in force.
         resetPerNoteControllers()
+    }
+
+    /// #116: continue `src`'s signal in this freshly note-on'd voice (see
+    /// `DX7Operator.transferSignal`). Only meaningful when both voices share algorithm and
+    /// engine, so each operator keeps its carrier/modulator role across the handover.
+    mutating func transferSignal(from src: DX7Voice) {
+        ops.0.transferSignal(from: src.ops.0); ops.1.transferSignal(from: src.ops.1)
+        ops.2.transferSignal(from: src.ops.2); ops.3.transferSignal(from: src.ops.3)
+        ops.4.transferSignal(from: src.ops.4); ops.5.transferSignal(from: src.ops.5)
+    }
+
+    /// #116: end of a one-block fade-out. The voice goes idle; the Mark I ramp anchors return
+    /// to full attenuation so a later note-on on this slot does not ramp from the faded level.
+    mutating func finishFadeOut() {
+        active = false
+        releasing = false
+        sustained = false
+        fadeSamplesRemaining = 0
+        let silent = UInt16(kMarkIEnvMax)
+        ops.0.markIGainOut = silent; ops.1.markIGainOut = silent; ops.2.markIGainOut = silent
+        ops.3.markIGainOut = silent; ops.4.markIGainOut = silent; ops.5.markIGainOut = silent
     }
 
     mutating func noteOff(held: Bool = false) {

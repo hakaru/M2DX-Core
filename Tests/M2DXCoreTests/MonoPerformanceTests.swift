@@ -178,15 +178,17 @@ struct MonoPerformanceTests {
             on(e, 65); on(e, 70)
             #expect(e.monoVoiceForTesting.midiNote == 70)
         }
+        // #116: a mode switch fades the old mode's voices over one block instead of cutting
+        // them, so the pool is empty once that block has been rendered.
         let e = engine()
         on(e, 60); on(e, 72)
         e.setMonoPerformance(enabled: false, portamentoMode: .fingered, glissando: false)
-        render(e)
+        render(e, frames: 64)
         #expect(e.debugActiveVoiceCount == 0)
         off(e, 72); on(e, 60); on(e, 64)
         #expect(e.debugActiveVoiceCount == 2)
         e.setMonoPerformance(enabled: true, portamentoMode: .fingered, glissando: false)
-        render(e)
+        render(e, frames: 64)
         #expect(e.debugActiveVoiceCount == 0)
     }
 
@@ -330,7 +332,10 @@ struct MonoPerformanceTests {
         e.setSlotEnabled(1, enabled: false)
         render(e)
         on(e, 72)
-        #expect(e.debugActiveVoiceCount == 0)
+        // #116: the gap key sounds nothing, so the held note releases naturally (no cut).
+        #expect(e.debugActiveVoiceCount == 1)
+        #expect(e.monoVoiceForTesting.releasing)
+        #expect(e.monoVoiceForTesting.midiNote == 48)
         off(e, 72)
         #expect(e.monoVoiceForTesting.midiNote == 48)
         #expect(e.debugActiveVoiceCount == 1)
@@ -386,7 +391,7 @@ struct MonoPerformanceTests {
         on(e, 60); on(e, 72)
         e.setMonoPerformance(enabled: false, portamentoMode: .fingered, glissando: false)
         e.setMonoPerformance(enabled: true, portamentoMode: .fingered, glissando: false)
-        render(e)
+        render(e, frames: 64)                 // #116: the switch fades over one block
         #expect(e.debugActiveVoiceCount == 0)
         off(e, 72)
         #expect(e.debugActiveVoiceCount == 0)

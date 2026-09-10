@@ -52,6 +52,17 @@ package struct DX7Operator {
         phase = 0; fbBuf = (0, 0); gainOut = 0
     }
 
+    /// #116 Mono attack (Dexed-style signal transfer): continue the replaced voice's signal.
+    /// Copies only the per-block gain-ramp anchors (both engines), the phase and the feedback
+    /// history, so the new note's first block ramps from the old level instead of from 0.
+    /// EG, frequency and scaling stay those of the new note.
+    mutating func transferSignal(from src: DX7Operator) {
+        gainOut = src.gainOut
+        markIGainOut = src.markIGainOut
+        phase = src.phase
+        fbBuf = src.fbBuf
+    }
+
     mutating func applyPitchBend(_ factor: Float) {
         frequency = baseFrequency * ratio * detune * factor
         updateFreq()
