@@ -405,6 +405,25 @@ struct MonoPerformanceTests {
         #expect(afterReset == afterPedalUp)
     }
 
+    @Test("A preset load can skip the controller reset, so a pedal-held Mono note keeps ringing (#118)",
+          arguments: engines)
+    func presetLoadWithoutControllerReset(fm: FMEngine) throws {
+        let preset = try #require(DX7FactoryPresets.all.first { $0.name == "STRINGS" })
+        for reset in [false, true] {
+            let e = engine(fm)
+            e.sendMIDI(.init(kind: .controlChange, data1: 64, data2: .max))
+            on(e, 60); render(e, frames: 256); off(e, 60)
+            #expect(e.monoVoiceForTesting.sustained)
+            if reset { e.loadDX7Preset(preset) } else { e.loadDX7Preset(preset, resetControllers: false) }
+            render(e, frames: 256)
+            #expect(e.monoVoiceForTesting.sustained == !reset, "reset=\(reset)")
+            #expect(e.monoVoiceForTesting.releasing == reset, "reset=\(reset)")
+            on(e, 62); render(e, frames: 256); off(e, 62)   // the pedal is still down only without a reset
+            #expect(e.monoVoiceForTesting.midiNote == 62)
+            #expect(e.monoVoiceForTesting.sustained == !reset, "reset=\(reset)")
+        }
+    }
+
     @Test("requestAllNotesOff ends notes and held keys without the MIDI ring (#118)", arguments: engines)
     func requestAllNotesOff(fm: FMEngine) {
         let e = engine(fm)

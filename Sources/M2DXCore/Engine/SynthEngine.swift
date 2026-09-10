@@ -890,7 +890,10 @@ public final class SynthEngine: @unchecked Sendable {
     /// Load a DX7 preset into slot 0 atomically.
     /// Directly writes all parameters to the shadow snapshot and pushes once.
     /// This avoids intermediate snapshot races that occur with individual setters.
-    public func loadDX7Preset(_ preset: DX7Preset, slotIdx: Int = 0) {
+    /// `resetControllers: false` skips the controller reset (as in `loadSlotParams`), for a
+    /// re-apply that is not a new preset, such as rewriting an unchanged layer configuration: the
+    /// reset turns the sustain pedal off, which releases pedal-held Mono notes (#118).
+    public func loadDX7Preset(_ preset: DX7Preset, slotIdx: Int = 0, resetControllers: Bool = true) {
         guard slotIdx >= 0, slotIdx < shadowSnapshot.activeSlotCount else { return }
 
         // Build operator snapshots
@@ -971,7 +974,7 @@ public final class SynthEngine: @unchecked Sendable {
 
         // Write to shadow snapshot and push atomically
         shadowSnapshot.setSlot(at: slotIdx, slot)
-        resetControllers()
+        if resetControllers { self.resetControllers() }
         shadowSnapshot.version &+= 1
         // Honor an open batch: don't publish a partial snapshot mid-batch.
         if batchDepth == 0 {
