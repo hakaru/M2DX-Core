@@ -444,6 +444,8 @@ struct MonoPerformanceTests {
     func splitCoverage() {
         let e = engine()
         e.setTimbreMode(.split, splitPoint: 60)
+        e.setPitchEGRates(60, 50, 40, 30)      // non-default, so `pitchEG.down` is meaningful
+        e.setPitchEGLevels(70, 60, 50, 40)
         render(e)
         on(e, 48); on(e, 72)
         #expect(e.monoVoiceForTesting.slotId == 1)
@@ -452,12 +454,37 @@ struct MonoPerformanceTests {
         e.setSlotEnabled(1, enabled: false)
         render(e)
         on(e, 72)
-        // #116: the gap key sounds nothing, so the held note releases naturally (no cut).
+        // #116: the gap key sounds nothing, so the held note releases naturally (no cut),
+        // pitch EG included.
         #expect(e.debugActiveVoiceCount == 1)
         #expect(e.monoVoiceForTesting.releasing)
         #expect(e.monoVoiceForTesting.midiNote == 48)
+        #expect(e.monoVoiceForTesting.pitchEG.enabled)
+        #expect(!e.monoVoiceForTesting.pitchEG.down)
         off(e, 72)
         #expect(e.monoVoiceForTesting.midiNote == 48)
+        #expect(e.debugActiveVoiceCount == 1)
+    }
+
+    @Test("An attack into a coverage gap releases a pedal-held note, pitch EG included (#116)")
+    func attackIntoGapReleasesPedalHeldNote() {
+        let e = engine()
+        e.setTimbreMode(.split, splitPoint: 60)
+        e.setSlotEnabled(1, enabled: false)
+        e.setPitchEGRates(60, 50, 40, 30)
+        e.setPitchEGLevels(70, 60, 50, 40)
+        render(e)
+        e.sendMIDI(.init(kind: .controlChange, data1: 64, data2: .max))
+        on(e, 48)
+        render(e, frames: 256)
+        off(e, 48)
+        #expect(e.monoVoiceForTesting.sustained)
+        #expect(e.monoVoiceForTesting.pitchEG.enabled)
+        #expect(e.monoVoiceForTesting.pitchEG.down)     // the pedal holds the pitch EG too
+        on(e, 72)                                       // the disabled upper zone: sounds nothing
+        #expect(e.monoVoiceForTesting.midiNote == 48)
+        #expect(e.monoVoiceForTesting.releasing)
+        #expect(!e.monoVoiceForTesting.pitchEG.down)
         #expect(e.debugActiveVoiceCount == 1)
     }
 
