@@ -225,9 +225,14 @@ struct MonoBoundaryTests {
         t.e.setMonoPerformance(enabled: false, portamentoMode: .fingered, glissando: false)
         t.render(256)
         t.on(60); t.render(256); t.off(60); t.render(256)
-        #expect(t.e.debugActiveVoiceCount == 1)     // still sustained by the held pedal
+        // The only voice is held by the pedal, not releasing. STRINGS' long tail would count as
+        // active either way, so the count alone cannot tell a held note from a released one.
+        #expect(t.e.debugActiveVoiceCount == 1)
+        #expect(t.e.monoVoiceForTesting.sustained)
+        #expect(!t.e.monoVoiceForTesting.releasing)
         t.pedal(false); t.render(256)
-        #expect(t.e.debugActiveVoiceCount == 1)     // now releasing (long STRINGS tail)
+        #expect(t.e.debugActiveVoiceCount == 1)
+        #expect(t.e.monoVoiceForTesting.releasing)  // the pedal-up releases it
         t.render(48000 * 4)
         #expect(t.e.debugActiveVoiceCount == 0)
     }
