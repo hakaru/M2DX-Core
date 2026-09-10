@@ -240,15 +240,64 @@ struct MonoPerformanceTests {
         #expect(e.monoVoiceForTesting.note == 0)
     }
 
-    @Test("Controller reset starts a fresh phrase without phantom fallback")
+    @Test("Controller reset leaves notes and held keys alone, exactly as in Poly (#118)")
     func controllerReset() {
         let e = engine()
-        on(e, 72); on(e, 60)
+        on(e, 72); on(e, 60)                  // LOW latch, 60 sounds
         e.resetControllers()
-        off(e, 60)
+        render(e)
+        #expect(e.monoVoiceForTesting.midiNote == 60)
+        #expect(!e.monoVoiceForTesting.releasing)
+        off(e, 60)                            // the still-held 72 takes over: no phrase reset
+        #expect(e.monoVoiceForTesting.midiNote == 72)
+        #expect(!e.monoVoiceForTesting.releasing)
+        on(e, 55)                             // the LOW latch survived the reset
+        #expect(e.monoVoiceForTesting.midiNote == 55)
+        on(e, 67)
+        #expect(e.monoVoiceForTesting.midiNote == 55)
+    }
+
+    @Test("requestAllNotesOff ends notes and held keys without the MIDI ring (#118)")
+    func requestAllNotesOff() {
+        let e = engine()
+        on(e, 60); on(e, 72)                  // HIGH latch, 60 still held
+        e.requestAllNotesOff()
+        render(e)
         #expect(e.monoVoiceForTesting.releasing)
-        on(e, 55); on(e, 67)
-        #expect(e.monoVoiceForTesting.midiNote == 67)
+        off(e, 72)                            // no phantom fallback to 60
+        #expect(e.monoVoiceForTesting.releasing)
+        on(e, 65); on(e, 62)                  // a fresh phrase latches LOW, not the stale HIGH
+        #expect(e.monoVoiceForTesting.midiNote == 62)
+    }
+
+    @Test("requestAllNotesOff renders exactly like CC123 in Poly and Mono (#118)")
+    func requestAllNotesOffMatchesCC123() {
+        for mono in [false, true] {
+            func take(_ useRequest: Bool) -> [Float] {
+                let e = SynthEngine()
+                e.setSampleRate(48000)
+                e.setMonoPerformance(enabled: mono, portamentoMode: .fingered, glissando: false)
+                render(e)
+                e.sendMIDI(.init(kind: .controlChange, data1: 64, data2: .max))
+                on(e, 60); on(e, 64)
+                var out: [Float] = []
+                func chunk(_ n: Int) {
+                    var l = [Float](repeating: 0, count: n), r = l
+                    l.withUnsafeMutableBufferPointer { lp in r.withUnsafeMutableBufferPointer { rp in
+                        e.render(into: lp.baseAddress!, bufferR: rp.baseAddress!, frameCount: n)
+                    }}
+                    out += l
+                }
+                chunk(512)
+                if useRequest { e.requestAllNotesOff() }
+                else { e.sendMIDI(.init(kind: .controlChange, data1: 123, data2: 0)) }
+                for _ in 0..<8 { chunk(256) }
+                return out
+            }
+            let viaCC = take(false)
+            #expect(viaCC.contains { $0 != 0 })
+            #expect(take(true) == viaCC)
+        }
     }
 
     @Test("Both synthesis engines preserve operator EG levels on overlap")

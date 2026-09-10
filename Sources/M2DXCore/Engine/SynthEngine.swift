@@ -232,6 +232,11 @@ public final class SynthEngine: @unchecked Sendable {
     private let _ctrlResetRequest = Atomic<Int>(0)
     private var appliedCtrlResetCount = 0
 
+    /// All-notes-off request counter (#118): bumped by requestAllNotesOff() from any thread,
+    /// consumed by render() — the same lock-free handshake as the controller reset.
+    private let _allNotesOffRequest = Atomic<Int>(0)
+    private var appliedAllNotesOffCount = 0
+
     /// Number of MIDI events dropped due to ring buffer overflow since engine creation.
     /// Check this periodically from the UI thread for diagnostics.
     public var droppedMIDICount: Int {
@@ -964,6 +969,8 @@ public final class SynthEngine: @unchecked Sendable {
 
     /// Reset all MIDI controller state to defaults.
     /// Call when switching presets to clear stale CC values.
+    /// Controllers only: sounding notes and (in Mono) the held keys and priority latch are left
+    /// alone, identically in Poly and Mono (#118). Use `requestAllNotesOff()` to end notes.
     public func resetControllers() {
         // Defer to the render thread: this resets render-owned voice/controller
         // state (voicesDX7, modWheelDepth, etc.), which must not be mutated from
@@ -972,9 +979,21 @@ public final class SynthEngine: @unchecked Sendable {
         _ctrlResetRequest.wrappingAdd(1, ordering: .relaxed)
     }
 
+    /// Release every sounding note and forget every held key — the same effect as CC123, in
+    /// Poly and Mono alike (Mono also clears its held-key set and priority latch, so no phantom
+    /// key survives). Lock-free and safe from any thread, like `resetControllers()`: the render
+    /// thread performs it at the start of the next `render()`, before a pending controller reset
+    /// and before that render's queued MIDI.
+    ///
+    /// Use this instead of `sendMIDI` from any thread that is not the MIDI ring's single
+    /// producer — e.g. an AUv3 `deallocateRenderResources`, whose MIDI producer is the render
+    /// thread (#118).
+    public func requestAllNotesOff() {
+        _allNotesOffRequest.wrappingAdd(1, ordering: .relaxed)
+    }
+
     /// Actual controller reset — render thread only.
     private func performControllerReset() {
-        if monoEnabledRT { doAllNotesOff() }
         modWheelDepth = 0
         footDepth = 0
         breathDepth = 0
@@ -1158,6 +1177,14 @@ public final class SynthEngine: @unchecked Sendable {
             previousNoteForGlide = nil
             sustainPedalOn = false
             monoEnabledRT = currentSnapshot.monoPerformance.enabled
+        }
+
+        // Consume a pending all-notes-off request first (#118): running it before the
+        // controller reset releases pedal-held voices instead of orphaning them.
+        let allNotesOffGen = _allNotesOffRequest.load(ordering: .relaxed)
+        if allNotesOffGen != appliedAllNotesOffCount {
+            appliedAllNotesOffCount = allNotesOffGen
+            doAllNotesOff()
         }
 
         // Consume any pending controller-reset request on the render thread.
