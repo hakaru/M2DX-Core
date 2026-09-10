@@ -3,9 +3,11 @@ import Darwin
 @testable import M2DXCore
 
 /// #116: Mono handovers must not click. Each case renders in 256-frame host buffers, fires the
-/// event at a buffer boundary `b`, and compares the one-sample step across `b` with the largest
-/// sample-to-sample step of the same tone in the 256 samples before it. A hard cut (the old
-/// behavior) measured 6–56× on these patches; Poly's natural overlap measures under 1×.
+/// event at a buffer boundary `b`, and compares the largest sample-to-sample step in the 64
+/// samples from `b` with the largest step of the same tone in the 256 samples before it. The
+/// window matters: under 2x oversampling the downsampler moves a cut a few samples past `b`.
+/// A hard cut (the old behavior) measured 6–56× on these patches; Mono now measures up to 1.73×
+/// and Poly's natural overlap up to 1.31× on the same sequences.
 /// Long-release patches are used on purpose: on short releases the tail is already silent.
 @Suite("Mono boundary continuity (#116)")
 struct MonoBoundaryTests {
@@ -49,12 +51,14 @@ struct MonoBoundaryTests {
             e.sendMIDI(.init(kind: .controlChange, data1: 64, data2: down ? .max : 0))
         }
 
-        /// Step across `b` relative to the tone's own largest step just before it.
-        func ratio(at b: Int) -> Float {
-            let step = abs(out[b] - out[b - 1])
+        /// Largest step in the 64 samples from `b`, relative to the tone's own largest step in
+        /// the 256 samples before `b`.
+        func ratio(at b: Int, minimumPre: Float = 1e-4) -> Float {
+            var step: Float = 0
+            for i in b..<(b + 64) { step = max(step, abs(out[i] - out[i - 1])) }
             var pre: Float = 0
             for i in (b - 256)..<b { pre = max(pre, abs(out[i] - out[i - 1])) }
-            #expect(pre > 1e-4, "the tone before the boundary must be audible for the ratio to mean anything")
+            #expect(pre > minimumPre, "the tone before the boundary must be audible for the ratio to mean anything")
             return step / pre
         }
     }
