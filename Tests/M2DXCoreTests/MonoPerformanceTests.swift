@@ -48,6 +48,68 @@ struct MonoPerformanceTests {
         #expect(e.monoVoiceForTesting.releasing)
     }
 
+    private enum Key: CustomStringConvertible {
+        case on(UInt8), off(UInt8)
+        var description: String {
+            switch self { case .on(let n): return "\(n) on"; case .off(let n): return "\(n) off" }
+        }
+    }
+
+    /// Plays `steps` one event at a time and checks the sounding note after every event:
+    /// a note number means that note sounds (one live voice, not releasing); nil means silence.
+    private func play(_ e: SynthEngine, _ steps: [(Key, UInt8?)]) {
+        for (i, (key, expected)) in steps.enumerated() {
+            switch key {
+            case .on(let n): on(e, n)
+            case .off(let n): off(e, n)
+            }
+            let v = e.monoVoiceForTesting
+            if let expected {
+                #expect(v.active && !v.releasing && v.midiNote == expected,
+                        "step \(i) (\(key)): expected \(expected), got \(v.midiNote) releasing=\(v.releasing)")
+                #expect(e.debugActiveVoiceCount == 1, "step \(i) (\(key))")
+            } else {
+                #expect(v.releasing, "step \(i) (\(key)): expected silence (release)")
+            }
+        }
+    }
+
+    // #115 "推奨テストケース", verbatim: C4=60 D4=62 E4=64 G4=67, E3=52 A3=57 B3=59.
+    @Test("#115 HIGH latch sequence, checked after every event")
+    func issueHighLatchSequence() {
+        play(engine(), [
+            (.on(60), 60), (.on(64), 64), (.on(62), 64), (.on(67), 67),
+            (.off(67), 64), (.off(64), 62), (.off(62), 60), (.off(60), nil),
+        ])
+    }
+
+    @Test("#115 LOW latch sequence, checked after every event")
+    func issueLowLatchSequence() {
+        play(engine(), [
+            (.on(60), 60), (.on(57), 57), (.on(59), 57), (.on(52), 52),
+            (.off(52), 57), (.off(57), 59), (.off(59), 60), (.off(60), nil),
+        ])
+    }
+
+    @Test("#115 Reset sequence: releasing every key clears the latch in both directions")
+    func issueResetSequence() {
+        let e = engine()
+        // HIGH phrase, all keys off, then a LOW phrase. D4 probes the latch: a stale HIGH
+        // latch would move to it; a fresh LOW latch stays on A3.
+        play(e, [
+            (.on(60), 60), (.on(64), 64),
+            (.off(64), 60), (.off(60), nil),
+            (.on(60), 60), (.on(57), 57), (.on(62), 57),
+            (.off(62), 57), (.off(57), 60), (.off(60), nil),
+        ])
+        // ...and back: LOW phrase done, a HIGH phrase must latch HIGH. D4 probes again: a
+        // stale LOW latch would fall to C4; a fresh HIGH latch stays on E4.
+        play(e, [
+            (.on(60), 60), (.on(64), 64), (.on(62), 64),
+            (.off(62), 64), (.off(64), 60), (.off(60), nil),
+        ])
+    }
+
     @Test("LOW remains latched until all physical keys are released")
     func lowPriorityAndReset() {
         let e = engine()
@@ -127,16 +189,25 @@ struct MonoPerformanceTests {
     @Test("Sustain holds just one voice; a new physical phrase attacks and resets priority")
     func sustain() {
         let e = engine()
+        // A non-default pitch EG, so `pitchEG.down` really tracks key/pedal state
+        // (with the default flat EG it is disabled and `down` is always false).
+        e.setPitchEGRates(60, 50, 40, 30)
+        e.setPitchEGLevels(70, 60, 50, 40)
+        render(e)
         e.sendMIDI(.init(kind: .controlChange, data1: 64, data2: .max))
         on(e, 72); on(e, 60); off(e, 60); off(e, 72)
+        #expect(e.monoVoiceForTesting.pitchEG.enabled)
         #expect(e.monoVoiceForTesting.sustained)
+        #expect(e.monoVoiceForTesting.pitchEG.down)     // the pedal holds the pitch EG too
         on(e, 55); on(e, 67)
         #expect(e.monoVoiceForTesting.midiNote == 67)
         #expect(!e.monoVoiceForTesting.sustained)
+        #expect(e.monoVoiceForTesting.pitchEG.down)
         #expect(e.debugActiveVoiceCount == 1)
         e.sendMIDI(.init(kind: .controlChange, data1: 64, data2: 0))
         render(e)
         #expect(!e.monoVoiceForTesting.releasing)
+        #expect(e.monoVoiceForTesting.pitchEG.down)     // keys still held
         off(e, 67); off(e, 55)
         #expect(e.monoVoiceForTesting.releasing)
         #expect(!e.monoVoiceForTesting.pitchEG.down)
@@ -171,12 +242,24 @@ struct MonoPerformanceTests {
     func reset() {
         for cc: UInt8 in [120, 123] {
             let e = engine()
-            on(e, 60); on(e, 72)
+            on(e, 60); on(e, 72)                      // HIGH latch, 60 still held
             e.sendMIDI(.init(kind: .controlChange, data1: cc, data2: 0))
-            off(e, 72)
-            #expect(e.monoVoiceForTesting.midiNote != 60)
-            on(e, 65); on(e, 70)
-            #expect(e.monoVoiceForTesting.midiNote == 70)
+            render(e)
+            if cc == 123 {
+                // All Notes Off: the note releases with its natural tail.
+                #expect(e.monoVoiceForTesting.active)
+                #expect(e.monoVoiceForTesting.releasing)
+            } else {
+                // All Sound Off: silent at once.
+                #expect(!e.monoVoiceForTesting.active)
+                #expect(e.debugActiveVoiceCount == 0)
+            }
+            off(e, 72)                                // no phantom fallback to the forgotten 60
+            #expect(e.monoVoiceForTesting.midiNote == 72)
+            #expect(cc == 123 ? e.monoVoiceForTesting.releasing : !e.monoVoiceForTesting.active)
+            on(e, 65); on(e, 62)                      // a fresh phrase latches LOW, not stale HIGH
+            #expect(e.monoVoiceForTesting.midiNote == 62)
+            #expect(!e.monoVoiceForTesting.releasing)
         }
         // #116: a mode switch fades the old mode's voices over one block instead of cutting
         // them, so the pool is empty once that block has been rendered.
