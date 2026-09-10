@@ -148,6 +148,33 @@ struct MonoBoundaryTests {
         #expect(t.e.debugActiveVoiceCount == 1)       // the faded copy is gone after one block
     }
 
+    /// Full-level staccato: the note-off and the next note-on arrive in the same buffer, so the
+    /// old note is still at its sustain level when the new one attacks. Low notes are the hardest
+    /// case for a one-block (64-sample) handover, because the ramp is steep next to a 65 Hz
+    /// tone's own slope. The limit is the larger of `staccatoLimit` and 1.5× what Poly measures
+    /// on the same sequence: patches with a sharp attack step that much in Poly too, from the new
+    /// note's own attack. Measured at C2, Mono / Poly: TROMBONE 4.63× / 0.35× (Modern) and
+    /// 3.53× / 0.57× (Mark I); SUB BASS 13.8× / 13.9× and 47.6× / 45.0×; SYN BASS 5.35× / 9.73×
+    /// and 35.5× / 33.8×; BRASS 2.63× / 1.00× and 1.66× / 0.79×. The hard cut (447e17a)
+    /// measured 287× / 210× on TROMBONE and 370× / 243× on SUB BASS.
+    static let staccatoLimit: Float = 6.0
+
+    @Test("Full-level staccato on low bass and brass notes stays close to Poly",
+          arguments: engines, ["TROMBONE", "BRASS", "SUB BASS", "SYN BASS"])
+    func fullLevelStaccato(engine: FMEngine, preset: String) throws {
+        for (first, next) in [(UInt8(36), UInt8(38)), (36, 36)] {
+            func take(mono: Bool) throws -> Float {
+                let t = try Tape(preset: preset, engine: engine, mono: mono)
+                t.on(first); t.render(Self.hold)
+                let b = t.mark
+                t.off(first); t.on(next); t.render(Self.after)   // one buffer: off, then on
+                return t.ratio(at: b, minimumPre: 1e-5)          // quiet C2 tones: ~-50 dBFS
+            }
+            let mono = try take(mono: true), poly = try take(mono: false)
+            #expect(mono <= max(Self.staccatoLimit, 1.5 * poly), "\(first)→\(next): mono \(mono)×, poly \(poly)×")
+        }
+    }
+
     @Test("(d) Poly→Mono with a chord and Mono→Poly with a held note fade instead of cutting",
           arguments: engines, presets)
     func modeSwitch(engine: FMEngine, preset: String) throws {
