@@ -73,4 +73,70 @@ struct PolyIsolationTests {
         #expect(a.contains { $0 != 0 })
         #expect(a == b)
     }
+
+    /// A Mark I Mono attack relocates the replaced voice and fades it for one block. When that
+    /// copy's release ends before the fade does, the reap must still leave the slot as a finished
+    /// fade would (silent Mark I ramp anchors, no fade left), or a later Poly note on that slot
+    /// ramps from a stale level (#116).
+    @Test("Poly is unchanged after a Mark I fade copy's tail ends mid-fade")
+    func fadeCopyReapedMidFade() throws {
+        func rig() throws -> SynthEngine {
+            let e = SynthEngine()
+            e.setSampleRate(48000)
+            e.loadDX7Preset(try #require(DX7FactoryPresets.all.first { $0.name == "E.PIANO 1" }))
+            e.setFMEngine(.markI)
+            return e
+        }
+        func render(_ e: SynthEngine, _ n: Int) -> [Float] {
+            var l = [Float](repeating: 0, count: max(1, n)), r = l
+            l.withUnsafeMutableBufferPointer { lp in r.withUnsafeMutableBufferPointer { rp in
+                e.render(into: lp.baseAddress!, bufferR: rp.baseAddress!, frameCount: n)
+            }}
+            return Array(l.prefix(n))
+        }
+        func on(_ e: SynthEngine, _ n: UInt8) { e.sendMIDI(.init(kind: .noteOn, data1: n, data2: 0x6000)) }
+        func off(_ e: SynthEngine, _ n: UInt8) { e.sendMIDI(.init(kind: .noteOff, data1: n, data2: 0)) }
+        func mono(_ e: SynthEngine, _ on: Bool) {
+            e.setMonoPerformance(enabled: on, portamentoMode: .fingered, glissando: false)
+        }
+
+        // One-frame renders after the note-off, so the release tail can be timed exactly: find
+        // how many it takes for the tail to end, then attack a few frames before that.
+        let probe = try rig()
+        mono(probe, true); _ = render(probe, 0)
+        on(probe, 60); for _ in 0..<16 { _ = render(probe, 256) }
+        off(probe, 60)
+        var tailFrames = 0
+        while probe.monoVoiceForTesting.active, tailFrames < 100_000 { _ = render(probe, 1); tailFrames += 1 }
+        try #require(tailFrames > 8 && tailFrames < 100_000)
+
+        let plain = try rig(), visited = try rig()
+        mono(visited, true)
+        _ = render(plain, 0); _ = render(visited, 0)
+        on(visited, 60)
+        for _ in 0..<16 { _ = render(plain, 256); _ = render(visited, 256) }
+        off(visited, 60)
+        for _ in 0..<(tailFrames - 5) { _ = render(plain, 1); _ = render(visited, 1) }
+        on(visited, 62)
+        _ = render(plain, 0); _ = render(visited, 0)
+        let copy = visited.voiceForTesting(1)
+        #expect(copy.active && copy.fadeSamplesRemaining == Int(kBlockSize), "the old voice moved to slot 1 and fades")
+        for _ in 0..<16 { _ = render(plain, 1); _ = render(visited, 1) }
+        let reaped = visited.voiceForTesting(1)
+        #expect(!reaped.active, "the copy's tail ended well before its 64-sample fade")
+        #expect(reaped.fadeSamplesRemaining == 0)
+        let silent = UInt16(kMarkIEnvMax)
+        #expect(reaped.ops.0.markIGainOut == silent && reaped.ops.1.markIGainOut == silent
+                && reaped.ops.2.markIGainOut == silent && reaped.ops.3.markIGainOut == silent
+                && reaped.ops.4.markIGainOut == silent && reaped.ops.5.markIGainOut == silent)
+
+        off(visited, 62); mono(visited, false)
+        for _ in 0..<400 { _ = render(plain, 256); _ = render(visited, 256) }
+        #expect(visited.debugActiveVoiceCount == 0)
+        var a: [Float] = [], b: [Float] = []
+        for n: UInt8 in [48, 52, 55, 60, 64] { on(plain, n); on(visited, n) }
+        for _ in 0..<8 { a += render(plain, 256); b += render(visited, 256) }
+        #expect(a.contains { $0 != 0 })
+        #expect(a == b)
+    }
 }

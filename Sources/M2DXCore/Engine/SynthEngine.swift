@@ -206,6 +206,8 @@ public final class SynthEngine: @unchecked Sendable {
 
     /// Tests only, on the serial render owner. Not a concurrent UI diagnostic.
     var monoVoiceForTesting: DX7Voice { voicesDX7[0] }
+    /// Test introspection: any voice slot (e.g. a #116 fade copy relocated out of voice 0).
+    func voiceForTesting(_ i: Int) -> DX7Voice { voicesDX7[i] }
 
     // Pan gains
     private var panGainL: UnsafeMutablePointer<Float> = .allocate(capacity: kMaxVoices)
@@ -1149,7 +1151,12 @@ public final class SynthEngine: @unchecked Sendable {
     private func reapFinishedVoices() {
         for i in 0..<effectiveMaxVoices where voicesDX7[i].active {
             voicesDX7[i].checkActive()
-            if !voicesDX7[i].active { markVoiceFree(i) }
+            if !voicesDX7[i].active {
+                // #116: a fade copy whose EG ends mid-fade must still leave silent Mark I
+                // ramp anchors. Only Mono fade copies carry a fade, so Poly never takes this.
+                if voicesDX7[i].fadeSamplesRemaining > 0 { voicesDX7[i].finishFadeOut() }
+                markVoiceFree(i)
+            }
         }
     }
 
@@ -1244,6 +1251,7 @@ public final class SynthEngine: @unchecked Sendable {
                 // rather than letting them release through the old engine's path.
                 doAllNotesOff()
                 for i in 0..<kMaxVoices {
+                    if voicesDX7[i].fadeSamplesRemaining > 0 { voicesDX7[i].finishFadeOut() }   // #116
                     voicesDX7[i].active = false
                     voicesDX7[i].engineMode = newFMEngine
                 }
@@ -1276,6 +1284,7 @@ public final class SynthEngine: @unchecked Sendable {
             // its `active` flag set forever (and could resurrect on a later grow).
             if effectiveMaxVoices < kMaxVoices {
                 for i in effectiveMaxVoices..<kMaxVoices where voicesDX7[i].active {
+                    if voicesDX7[i].fadeSamplesRemaining > 0 { voicesDX7[i].finishFadeOut() }   // #116
                     voicesDX7[i].noteOff()
                     voicesDX7[i].active = false
                     voicesDX7[i].sustained = false
@@ -1939,6 +1948,7 @@ public final class SynthEngine: @unchecked Sendable {
     /// Render thread only. Mono CC120 (All Sound Off): immediate silence of every voice.
     private func silenceMonoVoices() {
         for i in 0..<kMaxVoices where voicesDX7[i].active {
+            if voicesDX7[i].fadeSamplesRemaining > 0 { voicesDX7[i].finishFadeOut() }   // #116
             voicesDX7[i].noteOff()
             voicesDX7[i].active = false
             voicesDX7[i].sustained = false
