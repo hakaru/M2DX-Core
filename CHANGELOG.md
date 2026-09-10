@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Mono performance mode (M2DX #115).** `setMonoPerformance(enabled:portamentoMode:glissando:)`
+  publishes through the parameter snapshot (no extra MIDI producer), and a mode-generation counter
+  keeps a Poly→Mono→Poly round trip visible through `popLatest` coalescing. Mono plays at most
+  one live voice, and it follows the DX7 dynamic priority latch. The first overlapping key's
+  direction latches HIGH or LOW, the latch clears when every physical key is up, and releasing
+  the winner returns to the highest (HIGH) or lowest (LOW) key still held. A 0→1 key press
+  attacks. Overlaps are legato: the voice is retargeted without resetting phase, feedback, amp
+  or pitch EG, or the phrase's first velocity, while KLS and rate scaling follow the new pitch.
+  Fingered portamento glides only on overlap, and Full Time portamento also glides across gaps.
+  Glissando quantizes the rendered glide to semitones. Unison, Voice Stack and layer
+  normalization are bypassed. In dual and layer modes the first enabled part plays, and split
+  coverage also applies to legato. Main-thread readers: `monoPerformanceSettings`,
+  `portamentoSettings`.
+- **`requestAllNotesOff()` (#118).** Lock-free, callable from any thread, with the same effect as
+  CC123 in both modes (Mono also clears its held keys and latch). `render()` consumes it before a
+  pending controller reset and before queued MIDI. Use it where `sendMIDI` is not allowed, e.g.
+  an AUv3 `deallocateRenderResources`, where the render thread is the MIDI ring's producer.
+
+### Fixed
+- **Mono handovers no longer cut the sound for one sample (#116).** A Mono attack continues the
+  replaced voice through a Dexed-style signal transfer (Modern, same part and algorithm:
+  per-operator gain, phase and feedback carry over, and the EG still attacks from 0). Otherwise
+  (Mark I's log-domain ramp, another part or algorithm) the old voice fades out linearly over one
+  block (64 render-rate samples). A key that sounds nothing (a split or disabled-part gap)
+  releases the old note naturally. A Poly↔Mono switch fades every sounding voice over one block,
+  and the sustain pedal state now survives the switch. Measured boundary step against the tone's
+  own max slope (STRINGS / PAD WARM): release-tail attack 8.9×/18.7× → 0.84×/0.42×, pedal-held
+  8.8×/18.8× → 0.85×/0.42×, split gap 56.6×/55.0× → 0.10×/0.17×, Poly→Mono chord 13.4×/19.6× →
+  0.51×/0.04×. Poly output is bit-identical to before (92 scenario hashes). Only a completely full
+  voice pool still falls back to a cut.
+- **A controller reset no longer ends Mono notes (#118).** `resetControllers()` resets controllers
+  only, in both modes, so held keys, the latch and the sounding note survive (previously Mono ran
+  all-notes-off).
+- **One note-off always releases a Mono key (#124).** The held-key tracker is a 128-bit set: a
+  duplicate note-on no longer stacks, so a dropped note-off is recovered by pressing and releasing
+  the key once more, as in Poly. Trade-off: when two sources hold the same pitch, the first
+  note-off releases it.
+
+### Notes
+- Mono CC120 is an immediate All Sound Off that also clears held keys. Poly CC120 remains
+  unhandled, as it has always been. CC124–127 (Omni and Mono/Poly mode messages) are not
+  supported. Play mode is set only through `setMonoPerformance`.
+- KLS on legato: `legatoTo` recomputes each operator's `outlevel` and current EG target for the
+  new pitch. The EG only moves toward that target while it is still in its R1–R3 segments. Once
+  it has reached L3 and holds there with the key down (`ix == 3`), `DX7Envelope` does not move
+  the level, so the sustained level keeps the old note's scaling. The release then decays toward
+  the recomputed L4 target, which means the change is never heard when L4 is 0. Fixing this in
+  the EG would also change Poly, so it is documented rather than changed.
+
 ## [1.21.0] - 2026-07-16
 
 ### Performance
