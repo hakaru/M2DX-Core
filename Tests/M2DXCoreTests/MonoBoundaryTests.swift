@@ -262,6 +262,35 @@ struct MonoBoundaryTests {
         #expect(t.e.debugActiveVoiceCount == 1)
     }
 
+    @Test("A note-off and the pedal still reach a fading copy, but cannot stop or lengthen its fade",
+          arguments: engines)
+    func noteOffReachesFadingCopy(engine: FMEngine) throws {
+        let t = try Tape(preset: "STRINGS", engine: engine, mono: true)
+        t.pedal(true); t.on(60); t.render(Self.hold); t.off(60); t.render(Self.gap)
+        t.on(60); t.render(0)                         // restrike: the pedal-held 60 moves out to fade
+        var fading: [Int] = []
+        for i in 1..<16 where t.e.voiceForTesting(i).active && t.e.voiceForTesting(i).fadeSamplesRemaining > 0 {
+            fading.append(i)
+        }
+        try #require(fading.count == 1)
+        let j = fading[0]
+        #expect(!t.e.voiceForTesting(j).sustained && t.e.voiceForTesting(j).midiNote == 60)
+        t.off(60); t.render(0)                        // matches the copy by midiNote as well
+        #expect(t.e.voiceForTesting(j).sustained, "the note-off reaches the copy while the pedal is down")
+        #expect(t.e.voiceForTesting(j).fadeSamplesRemaining == SynthEngine.voiceFadeSamples)
+        #expect(t.e.monoVoiceForTesting.sustained)
+        t.pedal(false); t.render(0)
+        #expect(t.e.voiceForTesting(j).releasing)
+        #expect(t.e.voiceForTesting(j).fadeSamplesRemaining == SynthEngine.voiceFadeSamples)
+        t.render(SynthEngine.voiceFadeSamples - 1)
+        #expect(t.e.voiceForTesting(j).active && t.e.voiceForTesting(j).fadeSamplesRemaining == 1)
+        t.render(1)                                   // the fade still ends on time
+        #expect(!t.e.voiceForTesting(j).active && !t.e.voiceForTesting(j).sustained)
+        // Only the new note can be left (released at once, its short tail may already be over).
+        #expect(t.e.liveVoiceCountForTesting == t.e.debugActiveVoiceCount)
+        #expect(t.e.debugActiveVoiceCount <= 1)
+    }
+
     @Test("(d) Poly→Mono with a chord and Mono→Poly with a held note fade instead of cutting",
           arguments: engines, presets)
     func modeSwitch(engine: FMEngine, preset: String) throws {

@@ -1993,6 +1993,8 @@ public final class SynthEngine: @unchecked Sendable {
 
     /// #116: put voice `i` into a fade-out. It keeps its allocator slot until
     /// `mixFadingVoice` frees it, and loses its note binding so a retrigger never adopts it.
+    /// A note-off, the pedal and per-note messages still match the copy by `midiNote`, as for any
+    /// voice; none of them can stop or lengthen the fade, which always runs to its end.
     /// The length is taken from the current render rate once, here, so a fade in progress never
     /// changes length.
     private func startFade(_ i: Int) {
