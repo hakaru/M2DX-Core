@@ -143,6 +143,29 @@ struct MonoBoundaryTests {
         #expect(held.e.debugActiveVoiceCount == 0)
     }
 
+    @Test("Oversampled Mark I with the vintage DAC: fades complete, free their slots and do not click")
+    func oversampledMarkIVintageDAC() throws {
+        // The fade runs at the render rate (2x here, so 64 samples ≈ 0.67 ms), through the DAC
+        // companding branch, and relocation allocates from the halved oversampled voice budget.
+        let t = try Tape(preset: "STRINGS", engine: .markI, mono: false)
+        t.e.setVintageDAC(true)
+        t.e.setOversamplingMode(.highQuality)
+        t.render(4096)                                 // let the oversampling transition settle
+        t.on(60); t.on(64); t.on(67); t.render(Self.hold)
+        let chord = t.mark
+        t.e.setMonoPerformance(enabled: true, portamentoMode: .fingered, glissando: false)
+        t.render(Self.after)
+        #expect(t.ratio(at: chord) <= Self.limit)
+        #expect(t.e.debugActiveVoiceCount == 0)
+        t.off(60); t.off(64); t.off(67)               // keys were forgotten at the switch: no-ops
+        t.on(60); t.render(Self.hold); t.off(60); t.render(Self.gap)
+        let attack = t.mark
+        t.on(62); t.render(Self.after)                 // Mark I: relocate + fade, oversampled
+        #expect(t.ratio(at: attack) <= Self.limit)
+        #expect(t.e.debugActiveVoiceCount == 1)
+        #expect(t.e.monoVoiceForTesting.midiNote == 62)
+    }
+
     @Test("The sustain pedal survives a mode switch")
     func pedalSurvivesModeSwitch() throws {
         let t = try Tape(preset: "STRINGS", engine: .modern, mono: true)
