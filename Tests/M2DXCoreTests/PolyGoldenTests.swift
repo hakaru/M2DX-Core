@@ -5,10 +5,12 @@ import Darwin
 /// Engine-level Poly output pinned to the pre-Mono baseline (M2DX-Core 447e17a = v1.21.0 plus
 /// the verbatim Mono import; Poly there is v1.21.0's). `PolyIsolationTests` compares Poly with
 /// itself, so a change that hits every Poly render equally would pass it; this suite would not.
-/// The golden values are per-block RMS (512 frames, left then right) that 447e17a rendered.
-/// They are compared with a relative tolerance instead of bit for bit: the DSP tables are built
-/// at runtime from libm, whose last bit may differ between toolchains, while a real change to
-/// the Poly path (a 0.999 gain slip is 1e-3) is far outside the tolerance (#116).
+/// The golden values are per-block RMS and per-block signed mean (512 frames, left then right)
+/// that 447e17a rendered: RMS pins the level, the signed mean pins polarity and phase (an
+/// inverted or shifted output keeps its RMS). Both are compared with a tolerance relative to the
+/// block's golden RMS instead of bit for bit: the DSP tables are built at runtime from libm,
+/// whose last bit may differ between toolchains, while a real change to the Poly path (a 0.999
+/// gain slip is 1e-3; an inversion moves the mean by 2–20% of the RMS) is far outside it (#116).
 @Suite("Poly golden output (#116)")
 struct PolyGoldenTests {
     static let blockFrames = 512
@@ -107,9 +109,17 @@ struct PolyGoldenTests {
         }
     }
 
-    static func measure(_ name: String) -> [Double] {
+    static func blockMean(_ x: [Float]) -> [Double] {
+        stride(from: 0, to: x.count, by: blockFrames).map { start in
+            var sum = 0.0
+            for i in start..<min(start + blockFrames, x.count) { sum += Double(x[i]) }
+            return sum / Double(blockFrames)
+        }
+    }
+
+    static func measure(_ name: String) -> (rms: [Double], mean: [Double]) {
         let g = render(name)
-        return blockRMS(g.left) + blockRMS(g.right)
+        return (blockRMS(g.left) + blockRMS(g.right), blockMean(g.left) + blockMean(g.right))
     }
 
     static let scenarios = ["modern-brass", "markI-brass", "markI-dac-2x", "modern-layer-portamento"]
@@ -150,16 +160,62 @@ struct PolyGoldenTests {
         ],
     ]
 
+    /// Per-block signed mean (512 frames, left then right) from the same 447e17a renders. RMS is
+    /// blind to polarity and phase (an inverted output has the same RMS); the signed mean is not.
+    /// In most blocks it is 2–20% of the block RMS, far above the 1e-4 tolerance.
+    static let goldenMean: [String: [Double]] = [
+        "modern-brass": [
+            0.0001860234869, -0.0002614557586, 0.001767613924, 0.000524146946, -0.006858089143,
+            0.01130232648, 0.002348870199, -0.008076840482, 0.008900955466, -0.01377322653,
+            0.01182343992, -0.00245801924, -0.002540086541, 0.004713213782, -0.005089740181,
+            0.009388239202, 0.0001860234869, -0.0002614557586, 0.001767613924, 0.000524146946,
+            -0.006858089143, 0.01130232648, 0.002348870199, -0.008076840482, 0.008900955466,
+            -0.01377322653, 0.01182343992, -0.00245801924, -0.002540086541, 0.004713213782,
+            -0.005089740181, 0.009388239202,
+        ],
+        "markI-brass": [
+            -5.015466797e-07, -0.0004052208861, 0.001621296492, 0.0004005299829, -0.006841815732,
+            0.01053527006, 0.001693607719, -0.009189588737, 0.008368024857, -0.01482291144,
+            0.01069623758, -0.003705226247, -0.003773849515, 0.003789840114, -0.006142275071,
+            0.008455795559, -5.015466797e-07, -0.0004052208861, 0.001621296492, 0.0004005299829,
+            -0.006841815732, 0.01053527006, 0.001693607719, -0.009189588737, 0.008368024857,
+            -0.01482291144, 0.01069623758, -0.003705226247, -0.003773849515, 0.003789840114,
+            -0.006142275071, 0.008455795559,
+        ],
+        "markI-dac-2x": [
+            0.004543989508, -0.0001213609947, -0.003100345768, 0.00193371727, -0.0008925709213,
+            0.001553923383, -0.004771953257, 0.004082285311, -0.0003418594392, -4.55836656e-05,
+            1.821351462e-05, -7.736387793e-05, -4.156134976e-05, -2.33146152e-05, -8.629533161e-06,
+            0, 0.004543989508, -0.0001213609947, -0.003100345768, 0.00193371727, -0.0008925709213,
+            0.001553923383, -0.004771953257, 0.004082285311, -0.0003418594392, -4.55836656e-05,
+            1.821351462e-05, -7.736387793e-05, -4.156134976e-05, -2.33146152e-05, -8.629533161e-06,
+            0,
+        ],
+        "modern-layer-portamento": [
+            3.743003988e-05, 0.0006021381415, 0.0002602828508, -0.00146706852, -0.0007582368678,
+            0.002024589669, -0.0003690479481, -0.002608780931, 0.0009106818156, 0.003472106688,
+            0.000731499335, -0.003452068588, 0.002127030041, 0.0009370037301, -0.00150507218,
+            0.0012162312, 3.743003988e-05, 0.0006021381415, 0.0002602828508, -0.00146706852,
+            -0.0007582368678, 0.002024589669, -0.0003690479481, -0.002608780931, 0.0009106818156,
+            0.003472106688, 0.000731499335, -0.003452068588, 0.002127030041, 0.0009370037301,
+            -0.00150507218, 0.0012162312,
+        ],
+    ]
+
     @Test("Poly output matches the pre-Mono baseline", arguments: scenarios)
     func matchesBaseline(scenario: String) throws {
         let expected = try #require(Self.golden[scenario])
+        let expectedMean = try #require(Self.goldenMean[scenario])
         let actual = Self.measure(scenario)
         #expect(expected.contains { $0 > 0.01 }, "the scenario must be audible")
-        try #require(actual.count == expected.count)
-        for i in 0..<actual.count {
-            let a = actual[i], g = expected[i]
-            #expect(abs(a - g) <= Self.relativeTolerance * g + Self.absoluteFloor,
-                    "\(scenario) block \(i): \(a) vs golden \(g)")
+        try #require(actual.rms.count == expected.count && actual.mean.count == expected.count)
+        try #require(expectedMean.count == expected.count)
+        for i in 0..<expected.count {
+            let a = actual.rms[i], g = expected[i]
+            let tolerance = Self.relativeTolerance * g + Self.absoluteFloor
+            #expect(abs(a - g) <= tolerance, "\(scenario) block \(i): RMS \(a) vs golden \(g)")
+            let am = actual.mean[i], gm = expectedMean[i]
+            #expect(abs(am - gm) <= tolerance, "\(scenario) block \(i): mean \(am) vs golden \(gm)")
         }
     }
 }
