@@ -231,6 +231,37 @@ struct MonoBoundaryTests {
         #expect(t.e.liveVoiceCountForTesting == 1)
     }
 
+    @Test("A full voice pool falls back to cutting voice 0, and the allocator keeps working",
+          arguments: engines, [OversamplingMode.off, .highQuality])
+    func fullPoolFallback(engine: FMEngine, oversampling: OversamplingMode) throws {
+        // Every slot is still fading when the Mono attack arrives: the replaced note has nowhere
+        // to fade, so voice 0 is cut. The next attack must relocate again as usual.
+        let t = try Tape(preset: "STRINGS", engine: engine, mono: false)
+        if oversampling != .off { t.e.setOversamplingMode(oversampling); t.render(4096) }
+        let pool = oversampling == .off ? 16 : 8
+        // One note more than the pool, so the Poly steal pointer has moved past voice 0: an attack
+        // that fell through to a Poly steal instead of the fallback would not land in voice 0.
+        for k in 0...pool { t.on(UInt8(48 + k)) }
+        t.render(Self.hold)
+        #expect(t.e.debugActiveVoiceCount == pool, "the Poly chord fills the pool")
+        t.e.setMonoPerformance(enabled: true, portamentoMode: .fingered, glissando: false)
+        t.on(72); t.render(0)                         // the switch fades all; the attack follows
+        #expect(t.e.debugActiveVoiceCount == pool, "pool - 1 fading copies plus the new note")
+        #expect(t.e.liveVoiceCountForTesting == 1)
+        #expect(t.e.monoVoiceForTesting.midiNote == 72)
+        #expect(t.e.monoVoiceForTesting.active && !t.e.monoVoiceForTesting.releasing)
+        #expect(t.e.monoVoiceForTesting.fadeSamplesRemaining == 0)
+        t.render(Self.after)
+        #expect(t.e.debugActiveVoiceCount == 1, "every fading copy freed its slot")
+        #expect(t.e.monoVoiceForTesting.midiNote == 72)
+        t.off(72); t.on(74); t.render(0)              // staccato: relocate + fade as usual
+        #expect(t.e.debugActiveVoiceCount == 2)
+        #expect(t.e.liveVoiceCountForTesting == 1)
+        #expect(t.e.monoVoiceForTesting.midiNote == 74)
+        t.render(Self.after)
+        #expect(t.e.debugActiveVoiceCount == 1)
+    }
+
     @Test("(d) Poly→Mono with a chord and Mono→Poly with a held note fade instead of cutting",
           arguments: engines, presets)
     func modeSwitch(engine: FMEngine, preset: String) throws {
