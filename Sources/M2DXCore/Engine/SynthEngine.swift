@@ -1976,20 +1976,32 @@ public final class SynthEngine: @unchecked Sendable {
         resetVoiceAllocator()
     }
 
-    /// #116: length of a voice fade-out, in render-rate samples: 8 blocks, 10.7 ms at 48 kHz
-    /// (5.3 ms under 2x oversampling). One block (1.3 ms) stepped 3.5x the tone's own slope on
-    /// full-level staccato at C2 (TROMBONE, Mark I) and 8x under oversampling, where Poly steps
-    /// under 2x; 8 blocks keep every measured case within ~1.2x of Poly. Fixed in render-rate
-    /// samples on purpose, so a fade in progress never changes length.
+    /// #116: shortest voice fade-out, in render-rate samples: 8 blocks, 10.7 ms at 48 kHz and
+    /// 11.6 ms at 44.1 kHz. One block (1.3 ms) stepped 3.5x the tone's own slope on full-level
+    /// staccato at C2 (TROMBONE, Mark I, 48 kHz) and 8x under oversampling, where Poly steps under
+    /// 2x. Above 48 kHz the fade scales with the render rate (`voiceFadeSamples(renderRate:)`) so it
+    /// keeps its 10.7 ms: a fixed 512 samples lasted only 2.7 ms at 96 kHz with 2x oversampling
+    /// and stepped 1.6x what Poly does there.
     static let voiceFadeSamples = 8 * kBlockSize
+
+    /// #116: fade-out length at `renderRate`, in render-rate samples: `voiceFadeSamples` at 48 kHz
+    /// and below, and the same 10.7 ms above it (1024 samples at 96 kHz, or at 48 kHz with 2x
+    /// oversampling; 4096 at 192 kHz with 2x oversampling).
+    static func voiceFadeSamples(renderRate: Float) -> Int {
+        max(voiceFadeSamples, Int((Float(voiceFadeSamples) * renderRate / 48000).rounded()))
+    }
 
     /// #116: put voice `i` into a fade-out. It keeps its allocator slot until
     /// `mixFadingVoice` frees it, and loses its note binding so a retrigger never adopts it.
+    /// The length is taken from the current render rate once, here, so a fade in progress never
+    /// changes length.
     private func startFade(_ i: Int) {
         clearNoteMapping(forVoice: i)
         voicesDX7[i].sustained = false
         if voicesDX7[i].fadeSamplesRemaining == 0 {
-            voicesDX7[i].fadeSamplesRemaining = Self.voiceFadeSamples
+            let n = Self.voiceFadeSamples(renderRate: sampleRate)
+            voicesDX7[i].fadeSamplesRemaining = n
+            voicesDX7[i].fadeStep = 1 / Float(n)
         }
     }
 
@@ -1999,14 +2011,14 @@ public final class SynthEngine: @unchecked Sendable {
     }
 
     /// #116: mix one block of a fading voice (linear gain from (N-1)/N down to 0 over the
-    /// N = voiceFadeSamples samples of the fade, across blocks), then free it once the fade
+    /// N samples of the fade that `startFade` set, across blocks), then free it once the fade
     /// completes. Render thread only; reached only by voices the Mono paths
     /// flagged, so the Poly mix branches are untouched.
     private func mixFadingVoice(_ i: Int, _ block: UnsafeMutablePointer<Int32>,
                                 _ outL: UnsafeMutablePointer<Float>, _ outR: UnsafeMutablePointer<Float>,
                                 _ blockSize: Int, _ scale: Float, _ scaleR: Float, _ dacOn: Bool) {
         var remaining = voicesDX7[i].fadeSamplesRemaining
-        let step = 1 / Float(Self.voiceFadeSamples)
+        let step = voicesDX7[i].fadeStep
         for s in 0..<blockSize where remaining > 0 {
             remaining -= 1
             let g = Float(remaining) * step

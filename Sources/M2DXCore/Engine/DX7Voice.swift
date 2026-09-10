@@ -129,6 +129,10 @@ package struct DX7Voice {
     /// Poly↔Mono switch, a Mono voice replaced by an attack) set it, so Poly voices never take
     /// the fading mix branch.
     var fadeSamplesRemaining: Int = 0
+    /// #116: gain step per sample of the current fade, 1 / (its total length). Set together with
+    /// `fadeSamplesRemaining` when the fade starts and read only while that is > 0, so a fade in
+    /// progress keeps its length even if the render rate changes.
+    var fadeStep: Float = 0
 
     // Pitch EG
     var pitchEG = PitchEG()

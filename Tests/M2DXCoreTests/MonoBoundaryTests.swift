@@ -8,19 +8,26 @@ import Darwin
 /// same tone before it. The window matters: a shorter one sees only the start of the fade, and
 /// under 2x oversampling the downsampler moves a cut a few samples past `b`.
 /// A hard cut (the old behavior) measured 6–56× on these patches; Mono now measures up to
-/// 1.2× and Poly's natural overlap up to 1.5× on the same sequences.
+/// 1.2× and Poly's natural overlap up to 1.5× on the same sequences (48 kHz).
 /// Long-release patches are used on purpose: on short releases the tail is already silent.
 @Suite("Mono boundary continuity (#116)")
 struct MonoBoundaryTests {
     static let limit: Float = 2.0
     static let hold = 14400, gap = 2400, after = 4800   // 300 ms, 50 ms, 100 ms at 48 kHz
-    static let window = SynthEngine.voiceFadeSamples + 64
+    /// Host frames that cover the whole fade plus one block. The fade keeps its duration in host
+    /// time at every render rate, 512 host frames up to 48 kHz, so the host rate alone sets this.
+    static func fadeWindow(hostRate: Float) -> Int {
+        SynthEngine.voiceFadeSamples(renderRate: hostRate) + 64
+    }
+    static let window = fadeWindow(hostRate: 48000)
 
     final class Tape {
         let e = SynthEngine()
+        let hostRate: Float
         var out: [Float] = []
-        init(preset: String, engine: FMEngine, mono: Bool) throws {
-            e.setSampleRate(48000)
+        init(preset: String, engine: FMEngine, mono: Bool, sampleRate: Float = 48000) throws {
+            hostRate = sampleRate
+            e.setSampleRate(sampleRate)
             let p = try #require(DX7FactoryPresets.all.first { $0.name == preset })
             e.loadDX7Preset(p)
             e.setFMEngine(engine)
@@ -57,7 +64,9 @@ struct MonoBoundaryTests {
         /// in the `preWindow` samples before `b`.
         func ratio(at b: Int, preWindow: Int = 256, minimumPre: Float = 1e-4) -> Float {
             var step: Float = 0
-            for i in b..<(b + MonoBoundaryTests.window) { step = max(step, abs(out[i] - out[i - 1])) }
+            for i in b..<(b + MonoBoundaryTests.fadeWindow(hostRate: hostRate)) {
+                step = max(step, abs(out[i] - out[i - 1]))
+            }
             var pre: Float = 0
             for i in (b - preWindow)..<b { pre = max(pre, abs(out[i] - out[i - 1])) }
             #expect(pre > minimumPre, "the tone before the boundary must be audible for the ratio to mean anything")
@@ -153,40 +162,73 @@ struct MonoBoundaryTests {
     /// Full-level staccato: the note-off and the next note-on arrive in the same buffer, so the
     /// old note is still at its sustain level when the new one attacks. Low notes are the hardest
     /// case, because a 65 Hz tone's own slope is small next to any handover ramp; this case sets
-    /// the fade length. The tone's slope is taken over 1024 samples, more than one C2 period.
-    /// Under 2x oversampling the render-rate fade is half as long in host time, so both rates
-    /// are checked. The limit is the larger of `staccatoLimit` and 1.25× what Poly measures on
-    /// the same sequence: sharp-attack bass patches step that much in Poly too, from the new
-    /// note's own attack.
-    /// Measured at C2, Mono / Poly (1x rate; 2x oversampled): TROMBONE 1.38/1.97 (1.51/1.96)
-    /// on Modern, 1.90/1.71 (1.95/1.64) on Mark I; BRASS 0.50/0.97 (0.30/0.97) and 0.57/0.97
-    /// (0.52/1.01); FAT BASS 3.08/2.82 (3.82/3.41) and 11.9/11.7 (10.5/10.2); SUB BASS and
-    /// SYN BASS 9.3–34/9.0–34, within 1.08× of Poly.
+    /// the fade length. The tone's slope is taken over more than one C2 period (1024 samples at
+    /// 48 kHz, 2048 at 96 kHz). Oversampling and a 96 kHz host both raise the render rate, which
+    /// shortened the old fixed 512-sample fade in host time, so both are checked (96 kHz for the
+    /// smooth-sustain brass patches, whose own slope is small enough to show a short fade).
+    /// The limit is relative to what Poly measures on the same sequence, with a floor of
+    /// `staccatoFloor` (a step barely above the tone's own slope is no click); sharp-attack bass
+    /// patches step as much in Poly, from the new note's own attack.
+    /// Measured at C2, Mono / Poly, 48 kHz (2x oversampled): TROMBONE 1.38/1.97 (1.37/1.96) on
+    /// Modern, 1.90/1.71 (1.54/1.64) on Mark I; BRASS 0.50/0.97 and 0.53–0.58/0.91–1.01; FAT BASS,
+    /// SUB BASS and SYN BASS 2.9–34, within 1.1× of Poly. At 96 kHz (2x oversampled) TROMBONE
+    /// measures 1.61/1.74 (1.67/1.81) on Modern and 1.49/1.40 (1.72/1.54) on Mark I. The worst
+    /// case is 1.11× Poly. With the fade fixed at 512 render samples, 96 kHz 2x oversampled
+    /// TROMBONE measured 2.89/1.81 on Modern and 2.30/1.54 on Mark I.
     /// A one-block fade measured up to 3.5× (8.1× oversampled) on TROMBONE, a one-block signal
     /// transfer 4.6× (9.3×), and the hard cut of 447e17a 287× on TROMBONE and 370× on SUB BASS.
-    static let staccatoLimit: Float = 2.5
+    static let staccatoFloor: Float = 1.2
+    static let staccatoPolyFactor: Float = 1.3
 
     @Test("Full-level staccato on low bass and brass notes stays close to Poly",
           arguments: engines, ["TROMBONE", "BRASS", "SUB BASS", "SYN BASS", "FAT BASS"])
     func fullLevelStaccato(engine: FMEngine, preset: String) throws {
-        for oversampling in [OversamplingMode.off, .highQuality] {
-            for (first, next) in [(UInt8(36), UInt8(38)), (36, 36)] {
-                func take(mono: Bool) throws -> Float {
-                    let t = try Tape(preset: preset, engine: engine, mono: mono)
-                    if oversampling != .off {
-                        t.e.setOversamplingMode(oversampling)
-                        t.render(4096)                                 // let the transition settle
+        let rates: [Float] = ["TROMBONE", "BRASS"].contains(preset) ? [48000, 96000] : [48000]
+        for rate in rates {
+            for oversampling in [OversamplingMode.off, .highQuality] {
+                for (first, next) in [(UInt8(36), UInt8(38)), (36, 36)] {
+                    func take(mono: Bool) throws -> Float {
+                        let t = try Tape(preset: preset, engine: engine, mono: mono, sampleRate: rate)
+                        if oversampling != .off {
+                            t.e.setOversamplingMode(oversampling)
+                            t.render(4096)                             // let the transition settle
+                        }
+                        t.on(first); t.render(Self.hold)
+                        let b = t.mark
+                        t.off(first); t.on(next); t.render(Self.after) // one buffer: off, then on
+                        return t.ratio(at: b, preWindow: Int(1024 * rate / 48000),
+                                       minimumPre: 1e-5)               // quiet C2: ~-50 dBFS
                     }
-                    t.on(first); t.render(Self.hold)
-                    let b = t.mark
-                    t.off(first); t.on(next); t.render(Self.after)     // one buffer: off, then on
-                    return t.ratio(at: b, preWindow: 1024, minimumPre: 1e-5)   // quiet C2: ~-50 dBFS
+                    let mono = try take(mono: true), poly = try take(mono: false)
+                    #expect(mono <= max(Self.staccatoFloor, Self.staccatoPolyFactor * poly),
+                            "\(rate) Hz \(oversampling) \(first)→\(next): mono \(mono)×, poly \(poly)×")
                 }
-                let mono = try take(mono: true), poly = try take(mono: false)
-                #expect(mono <= max(Self.staccatoLimit, 1.25 * poly),
-                        "\(oversampling) \(first)→\(next): mono \(mono)×, poly \(poly)×")
             }
         }
+    }
+
+    @Test("The fade keeps its duration in host time at every sample rate and oversampling mode",
+          arguments: [(Float(44100), OversamplingMode.off, 512), (48000, .off, 512),
+                      (48000, .highQuality, 1024), (96000, .off, 1024), (96000, .highQuality, 2048)])
+    func fadeLengthFollowsRenderRate(rate: Float, oversampling: OversamplingMode, renderSamples: Int) throws {
+        let factor = oversampling == .off ? 1 : 2
+        #expect(SynthEngine.voiceFadeSamples(renderRate: rate * Float(factor)) == renderSamples)
+        let t = try Tape(preset: "STRINGS", engine: .markI, mono: true, sampleRate: rate)
+        if oversampling != .off { t.e.setOversamplingMode(oversampling); t.render(4096) }
+        t.on(60); t.render(Self.hold); t.off(60); t.render(Self.gap)
+        t.on(62); t.render(0)
+        var fading: [Int] = []
+        for i in 0..<16 where t.e.voiceForTesting(i).active && t.e.voiceForTesting(i).fadeSamplesRemaining > 0 {
+            fading.append(i)
+        }
+        try #require(fading.count == 1, "the replaced note moved to one fading slot")
+        #expect(t.e.voiceForTesting(fading[0]).fadeSamplesRemaining == renderSamples)
+        let hostFrames = renderSamples / factor
+        t.render(hostFrames - 1)
+        #expect(t.e.debugActiveVoiceCount == 2, "still fading one host frame before the end")
+        t.render(1)
+        #expect(t.e.debugActiveVoiceCount == 1, "freed once the whole fade has been rendered")
+        #expect(t.e.liveVoiceCountForTesting == 1)
     }
 
     @Test("(d) Poly→Mono with a chord and Mono→Poly with a held note fade instead of cutting",
@@ -211,7 +253,7 @@ struct MonoBoundaryTests {
 
     @Test("Oversampled Mark I with the vintage DAC: fades complete, free their slots and do not click")
     func oversampledMarkIVintageDAC() throws {
-        // The fade runs at the render rate (2x here, so 512 samples ≈ 5.3 ms), through the DAC
+        // The fade runs at the render rate (2x here, so 1024 samples = 10.7 ms), through the DAC
         // companding branch, and relocation allocates from the halved oversampled voice budget.
         let t = try Tape(preset: "STRINGS", engine: .markI, mono: false)
         t.e.setVintageDAC(true)
