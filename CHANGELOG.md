@@ -25,34 +25,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   CC123 in both modes (Mono also clears its held keys and latch). `render()` consumes it before a
   pending controller reset and before queued MIDI. Use it where `sendMIDI` is not allowed, e.g.
   an AUv3 `deallocateRenderResources`, where the render thread is the MIDI ring's producer.
+- **`loadDX7Preset(_:slotIdx:resetControllers:)` (#118).** `resetControllers: false` loads the
+  voice without the controller reset, like `loadSlotParams`. Use it to re-apply a configuration
+  that is not a new preset (e.g. an unchanged layer setup): the reset turns the sustain pedal off,
+  which releases pedal-held Mono notes and leaves later notes unsustained until the pedal is
+  pressed again. The default (`true`) keeps existing calls unchanged.
 
 ### Fixed
 - **Mono handovers no longer cut the sound for one sample (#116).** A Mono attack over a
   sounding or releasing note (a release tail, a pedal-held note, a note in another part) moves
-  that note to a free voice slot and fades it out linearly over 512 render-rate samples (8
-  blocks: 10.7 ms at 48 kHz, 5.3 ms under 2x oversampling), while the new note attacks from
-  silence in voice 0, on both engines. A key that sounds nothing (a split or disabled-part gap)
-  releases the old note naturally. A Poly↔Mono switch fades every sounding voice over the same
-  length, and the sustain pedal state now survives the switch. Measured as the largest step
-  through the whole fade against the tone's own max slope: STRINGS / PAD WARM around C4 went from
-  6–56× with the hard cut to at most 1.2×, where Poly's own overlap measures up to 1.5× on the
-  same sequences. Full-level staccato at C2 (the note-off and the next note-on in one buffer),
-  the hardest case, stays within 1.19× of what Poly measures on the same sequence, at 1x and 2x
-  oversampling: TROMBONE 1.4× / 1.9× (Modern / Mark I) where Poly measures 2.0× / 1.7×.
-  Sharp-attack bass patches (FAT BASS, SUB BASS, SYN BASS) step about as much as their own Poly
-  attack does (3–34×). The hard cut measured 210–370× on these cases, and a one-block fade still
-  3.5× (8× oversampled). Poly output is bit-identical to before (92 scenario hashes, plus a
-  stored golden suite). Only a completely full voice pool still falls back to a cut.
+  that note to a free voice slot and fades it out linearly, while the new note attacks from
+  silence in voice 0, on both engines. The fade lasts 10.7 ms at every render rate from 48 kHz
+  up (512 samples at 48 kHz, 1024 at 96 kHz or at 48 kHz with 2x oversampling) and 512 samples
+  below 48 kHz (11.6 ms at 44.1 kHz); its length is fixed when it starts. A key that sounds
+  nothing (a split or disabled-part gap) releases the old note naturally. A Poly↔Mono switch
+  fades every sounding voice over the same length, and the sustain pedal state now survives the
+  switch. Measured as the largest step through the whole fade against the tone's own max slope:
+  STRINGS / PAD WARM around C4 (48 kHz) went from 6–56× with the hard cut to at most 1.2×, where
+  Poly's own overlap measures up to 1.5× on the same sequences. Full-level staccato at C2 (the
+  note-off and the next note-on in one buffer), the hardest case, stays within 1.11× of what Poly
+  measures on the same sequence at 48 and 96 kHz, with and without 2x oversampling: TROMBONE at
+  48 kHz 1.4× / 1.9× (Modern / Mark I) where Poly measures 2.0× / 1.7×, and at 96 kHz with 2x
+  oversampling 1.7× / 1.7× where Poly measures 1.8× / 1.5×. Sharp-attack bass patches (FAT BASS,
+  SUB BASS, SYN BASS) step about as much as their own Poly attack does (3–34×). The hard cut
+  measured 210–370× on these cases, a one-block fade still 3.5× (8× oversampled), and a fade
+  fixed at 512 render-rate samples 2.9× / 2.3× at 96 kHz with 2x oversampling. Poly output is
+  bit-identical to before (92 scenario hashes, plus a stored golden suite of per-block RMS and
+  signed mean). Only a completely full voice pool still falls back to a cut.
   `debugActiveVoiceCount` counts a fading copy until its fade has been rendered, so it reads 2
-  for up to 512 render-rate samples after a Mono attack over a sounding or releasing note. A
-  fading copy whose tail ends first still idles cleanly, so a later Poly note on its slot does
-  not ramp from a stale Mark I level.
+  for up to one fade length after a Mono attack over a sounding or releasing note. A fading copy
+  keeps its note number, so a note-off, the pedal and per-note messages still reach it like any
+  voice; none of them stops or lengthens the fade. A fading copy whose tail ends first still
+  idles cleanly, so a later Poly note on its slot does not ramp from a stale Mark I level.
 - **A controller reset no longer ends Mono notes (#118).** `resetControllers()` resets controllers
   only, in both modes, so held keys, the latch and the sounding note survive (previously Mono ran
   all-notes-off). The reset also turns the pedal off, so in Mono a note held only by the pedal
   releases as on a pedal-up instead of droning at its sustain level. In Poly the reset still
   clears the pedal hold without releasing pedal-held notes, as in v1.21.0; `requestAllNotesOff()`
-  releases them.
+  releases them. `loadDX7Preset` runs this reset unless called with `resetControllers: false`.
 - **One note-off always releases a Mono key (#124).** The held-key tracker is a 128-bit set: a
   duplicate note-on no longer stacks, so a dropped note-off is recovered by pressing and releasing
   the key once more, as in Poly. Trade-off: when two sources hold the same pitch, the first
