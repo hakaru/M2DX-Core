@@ -14,12 +14,22 @@ struct MonoPerformanceTests {
         }
     }
 
-    private func engine(portamento: MonoPortamentoMode = .fingered) -> SynthEngine {
+    static let engines: [FMEngine] = [.modern, .markI]
+
+    private func engine(_ fm: FMEngine = .modern, portamento: MonoPortamentoMode = .fingered) -> SynthEngine {
         let engine = SynthEngine()
         engine.setSampleRate(48000)
+        engine.setFMEngine(fm)
         engine.setMonoPerformance(enabled: true, portamentoMode: portamento, glissando: false)
         render(engine)
         return engine
+    }
+
+    /// Renders one fade length. An attack over a sounding or releasing note moves that note to
+    /// another slot and fades it out there (#116); the copy counts in `debugActiveVoiceCount`
+    /// until the fade has been rendered, although it is no longer a playing note.
+    private func settle(_ engine: SynthEngine) {
+        render(engine, frames: SynthEngine.voiceFadeSamples)
     }
 
     private func on(_ engine: SynthEngine, _ note: UInt8, velocity: UInt32 = 50000) {
@@ -32,9 +42,9 @@ struct MonoPerformanceTests {
         render(engine)
     }
 
-    @Test("First overlap latches HIGH, non-winning keys do not interrupt, release returns")
-    func highPriorityTrill() {
-        let e = engine()
+    @Test("First overlap latches HIGH, non-winning keys do not interrupt, release returns", arguments: engines)
+    func highPriorityTrill(fm: FMEngine) {
+        let e = engine(fm)
         on(e, 60); on(e, 72); on(e, 55)
         #expect(e.monoVoiceForTesting.midiNote == 72)
         #expect(e.debugActiveVoiceCount == 1)
@@ -56,7 +66,10 @@ struct MonoPerformanceTests {
     }
 
     /// Plays `steps` one event at a time and checks the sounding note after every event:
-    /// a note number means that note sounds (one live voice, not releasing); nil means silence.
+    /// a note number means that note sounds (voice 0, not releasing); nil means silence.
+    /// Voice count (#116): right after the event there is exactly one live voice, plus at most
+    /// one fading copy of the note an attack replaced; once one fade length has been rendered,
+    /// the playing note is the only voice left.
     private func play(_ e: SynthEngine, _ steps: [(Key, UInt8?)]) {
         for (i, (key, expected)) in steps.enumerated() {
             switch key {
@@ -67,33 +80,40 @@ struct MonoPerformanceTests {
             if let expected {
                 #expect(v.active && !v.releasing && v.midiNote == expected,
                         "step \(i) (\(key)): expected \(expected), got \(v.midiNote) releasing=\(v.releasing)")
-                #expect(e.debugActiveVoiceCount == 1, "step \(i) (\(key))")
+                #expect(e.liveVoiceCountForTesting == 1, "step \(i) (\(key)): one live voice")
+                #expect(e.debugActiveVoiceCount <= 2, "step \(i) (\(key)): at most one fading copy")
+                settle(e)
+                #expect(e.debugActiveVoiceCount == 1, "step \(i) (\(key)): the fading copy is gone")
+                #expect(e.monoVoiceForTesting.midiNote == expected && !e.monoVoiceForTesting.releasing)
             } else {
                 #expect(v.releasing, "step \(i) (\(key)): expected silence (release)")
+                #expect(e.liveVoiceCountForTesting <= 1, "step \(i) (\(key))")
+                settle(e)
+                #expect(e.debugActiveVoiceCount <= 1, "step \(i) (\(key))")
             }
         }
     }
 
     // #115 "推奨テストケース", verbatim: C4=60 D4=62 E4=64 G4=67, E3=52 A3=57 B3=59.
-    @Test("#115 HIGH latch sequence, checked after every event")
-    func issueHighLatchSequence() {
-        play(engine(), [
+    @Test("#115 HIGH latch sequence, checked after every event", arguments: engines)
+    func issueHighLatchSequence(fm: FMEngine) {
+        play(engine(fm), [
             (.on(60), 60), (.on(64), 64), (.on(62), 64), (.on(67), 67),
             (.off(67), 64), (.off(64), 62), (.off(62), 60), (.off(60), nil),
         ])
     }
 
-    @Test("#115 LOW latch sequence, checked after every event")
-    func issueLowLatchSequence() {
-        play(engine(), [
+    @Test("#115 LOW latch sequence, checked after every event", arguments: engines)
+    func issueLowLatchSequence(fm: FMEngine) {
+        play(engine(fm), [
             (.on(60), 60), (.on(57), 57), (.on(59), 57), (.on(52), 52),
             (.off(52), 57), (.off(57), 59), (.off(59), 60), (.off(60), nil),
         ])
     }
 
-    @Test("#115 Reset sequence: releasing every key clears the latch in both directions")
-    func issueResetSequence() {
-        let e = engine()
+    @Test("#115 Reset sequence: releasing every key clears the latch in both directions", arguments: engines)
+    func issueResetSequence(fm: FMEngine) {
+        let e = engine(fm)
         // HIGH phrase, all keys off, then a LOW phrase. D4 probes the latch: a stale HIGH
         // latch would move to it; a fresh LOW latch stays on A3.
         play(e, [
@@ -110,9 +130,9 @@ struct MonoPerformanceTests {
         ])
     }
 
-    @Test("LOW remains latched until all physical keys are released")
-    func lowPriorityAndReset() {
-        let e = engine()
+    @Test("LOW remains latched until all physical keys are released", arguments: engines)
+    func lowPriorityAndReset(fm: FMEngine) {
+        let e = engine(fm)
         on(e, 72); on(e, 60); on(e, 80)
         #expect(e.monoVoiceForTesting.midiNote == 60)
         off(e, 60); off(e, 72)
@@ -124,9 +144,9 @@ struct MonoPerformanceTests {
         #expect(e.monoVoiceForTesting.midiNote == 72)
     }
 
-    @Test("Legato preserves operator phase, feedback, amp/pitch EG and first velocity")
-    func noRetrigger() {
-        let e = engine()
+    @Test("Legato preserves operator phase, feedback, amp/pitch EG and first velocity", arguments: engines)
+    func noRetrigger(fm: FMEngine) {
+        let e = engine(fm)
         e.setPitchEGRates(60, 50, 40, 30)
         e.setPitchEGLevels(70, 60, 50, 40)
         on(e, 60)
@@ -146,14 +166,16 @@ struct MonoPerformanceTests {
         #expect(after.ops.0.baseFrequency > before.ops.0.baseFrequency)
         off(e, 72)
         #expect(e.monoVoiceForTesting.ops.0.env.level == before.ops.0.env.level)
-        off(e, 60); on(e, 67)
+        off(e, 60); on(e, 67)                  // an attack: the new note starts its EG from 0
         #expect(e.monoVoiceForTesting.ops.0.env.level == 0)
+        #expect(e.liveVoiceCountForTesting == 1)   // the released 60 fades out in another slot
+        settle(e)
         #expect(e.debugActiveVoiceCount == 1)
     }
 
-    @Test("A duplicate note-on does not stack: one note-off releases the key, like Poly (#124)")
-    func duplicateNotes() {
-        let e = engine()
+    @Test("A duplicate note-on does not stack: one note-off releases the key, like Poly (#124)", arguments: engines)
+    func duplicateNotes(fm: FMEngine) {
+        let e = engine(fm)
         on(e, 60); on(e, 60); on(e, 72)
         #expect(e.monoVoiceForTesting.midiNote == 72)
         off(e, 60)
@@ -172,9 +194,9 @@ struct MonoPerformanceTests {
         #expect(e.monoVoiceForTesting.releasing)
     }
 
-    @Test("A dropped note-off is recovered by pressing and releasing the key once more (#124)")
-    func droppedNoteOffRecovery() {
-        let e = engine()
+    @Test("A dropped note-off is recovered by pressing and releasing the key once more (#124)", arguments: engines)
+    func droppedNoteOffRecovery(fm: FMEngine) {
+        let e = engine(fm)
         on(e, 60); on(e, 72)          // HIGH latch; the note-off for 60 is "lost"
         off(e, 72)
         #expect(e.monoVoiceForTesting.midiNote == 60)   // phantom fallback to the stuck key
@@ -186,9 +208,9 @@ struct MonoPerformanceTests {
         #expect(e.monoVoiceForTesting.midiNote == 50)
     }
 
-    @Test("Sustain holds just one voice; a new physical phrase attacks and resets priority")
-    func sustain() {
-        let e = engine()
+    @Test("Sustain holds just one voice; a new physical phrase attacks and resets priority", arguments: engines)
+    func sustain(fm: FMEngine) {
+        let e = engine(fm)
         // A non-default pitch EG, so `pitchEG.down` really tracks key/pedal state
         // (with the default flat EG it is disabled and `down` is always false).
         e.setPitchEGRates(60, 50, 40, 30)
@@ -203,6 +225,8 @@ struct MonoPerformanceTests {
         #expect(e.monoVoiceForTesting.midiNote == 67)
         #expect(!e.monoVoiceForTesting.sustained)
         #expect(e.monoVoiceForTesting.pitchEG.down)
+        #expect(e.liveVoiceCountForTesting == 1)   // the pedal-held 60 fades out in another slot
+        settle(e)
         #expect(e.debugActiveVoiceCount == 1)
         e.sendMIDI(.init(kind: .controlChange, data1: 64, data2: 0))
         render(e)
@@ -238,10 +262,10 @@ struct MonoPerformanceTests {
         #expect(e.debugGlideOffsetCents(voice: 0) == 0)
     }
 
-    @Test("Mode change and all-notes/sound-off clear held state and prevent resurrection")
-    func reset() {
+    @Test("Mode change and all-notes/sound-off clear held state and prevent resurrection", arguments: engines)
+    func reset(fm: FMEngine) {
         for cc: UInt8 in [120, 123] {
-            let e = engine()
+            let e = engine(fm)
             on(e, 60); on(e, 72)                      // HIGH latch, 60 still held
             e.sendMIDI(.init(kind: .controlChange, data1: cc, data2: 0))
             render(e)
@@ -261,23 +285,26 @@ struct MonoPerformanceTests {
             #expect(e.monoVoiceForTesting.midiNote == 62)
             #expect(!e.monoVoiceForTesting.releasing)
         }
-        // #116: a mode switch fades the old mode's voices over one block instead of cutting
-        // them, so the pool is empty once that block has been rendered.
-        let e = engine()
+        // #116: a mode switch fades the old mode's voices out instead of cutting them, so the
+        // pool is empty once one fade length has been rendered (and not before).
+        let e = engine(fm)
         on(e, 60); on(e, 72)
         e.setMonoPerformance(enabled: false, portamentoMode: .fingered, glissando: false)
-        render(e, frames: 64)
+        render(e, frames: SynthEngine.voiceFadeSamples - kBlockSize)
+        #expect(e.debugActiveVoiceCount == 1)
+        #expect(e.liveVoiceCountForTesting == 0)
+        render(e, frames: kBlockSize)
         #expect(e.debugActiveVoiceCount == 0)
         off(e, 72); on(e, 60); on(e, 64)
         #expect(e.debugActiveVoiceCount == 2)
         e.setMonoPerformance(enabled: true, portamentoMode: .fingered, glissando: false)
-        render(e, frames: 64)
+        settle(e)
         #expect(e.debugActiveVoiceCount == 0)
     }
 
-    @Test("Mono has one physical voice even with unison and Voice Stack enabled")
-    func oneVoice() {
-        let e = engine()
+    @Test("Mono has one physical voice even with unison and Voice Stack enabled", arguments: engines)
+    func oneVoice(fm: FMEngine) {
+        let e = engine(fm)
         e.setUnison(count: 8, detuneCents: 10)
         e.setVoiceStackMultiplier(16)
         on(e, 60); on(e, 72); off(e, 60)
@@ -325,9 +352,9 @@ struct MonoPerformanceTests {
         #expect(e.monoVoiceForTesting.note == 0)
     }
 
-    @Test("Controller reset leaves notes and held keys alone, exactly as in Poly (#118)")
-    func controllerReset() {
-        let e = engine()
+    @Test("Controller reset leaves notes and held keys alone, exactly as in Poly (#118)", arguments: engines)
+    func controllerReset(fm: FMEngine) {
+        let e = engine(fm)
         on(e, 72); on(e, 60)                  // LOW latch, 60 sounds
         e.resetControllers()
         render(e)
@@ -347,8 +374,7 @@ struct MonoPerformanceTests {
     func controllerResetReleasesPedalHeldNote(fm: FMEngine) {
         // The reset turns the pedal off, so it must render exactly like a CC64-off.
         func take(reset: Bool) -> (SynthEngine, [Float]) {
-            let e = engine()
-            e.setFMEngine(fm)
+            let e = engine(fm)
             e.setPitchEGRates(60, 50, 40, 30)      // non-default, so `pitchEG.down` is meaningful
             e.setPitchEGLevels(70, 60, 50, 40)
             render(e)
@@ -379,9 +405,9 @@ struct MonoPerformanceTests {
         #expect(afterReset == afterPedalUp)
     }
 
-    @Test("requestAllNotesOff ends notes and held keys without the MIDI ring (#118)")
-    func requestAllNotesOff() {
-        let e = engine()
+    @Test("requestAllNotesOff ends notes and held keys without the MIDI ring (#118)", arguments: engines)
+    func requestAllNotesOff(fm: FMEngine) {
+        let e = engine(fm)
         on(e, 60); on(e, 72)                  // HIGH latch, 60 still held
         e.requestAllNotesOff()
         render(e)
@@ -440,9 +466,9 @@ struct MonoPerformanceTests {
         }
     }
 
-    @Test("Split coverage applies to legato too, including silent gaps and fallback")
-    func splitCoverage() {
-        let e = engine()
+    @Test("Split coverage applies to legato too, including silent gaps and fallback", arguments: engines)
+    func splitCoverage(fm: FMEngine) {
+        let e = engine(fm)
         e.setTimbreMode(.split, splitPoint: 60)
         e.setPitchEGRates(60, 50, 40, 30)      // non-default, so `pitchEG.down` is meaningful
         e.setPitchEGLevels(70, 60, 50, 40)
@@ -461,14 +487,17 @@ struct MonoPerformanceTests {
         #expect(e.monoVoiceForTesting.midiNote == 48)
         #expect(e.monoVoiceForTesting.pitchEG.enabled)
         #expect(!e.monoVoiceForTesting.pitchEG.down)
-        off(e, 72)
+        off(e, 72)                                     // back to the held 48: an attack over the tail
         #expect(e.monoVoiceForTesting.midiNote == 48)
+        #expect(!e.monoVoiceForTesting.releasing)
+        #expect(e.liveVoiceCountForTesting == 1)
+        settle(e)
         #expect(e.debugActiveVoiceCount == 1)
     }
 
-    @Test("An attack into a coverage gap releases a pedal-held note, pitch EG included (#116)")
-    func attackIntoGapReleasesPedalHeldNote() {
-        let e = engine()
+    @Test("An attack into a coverage gap releases a pedal-held note, pitch EG included (#116)", arguments: engines)
+    func attackIntoGapReleasesPedalHeldNote(fm: FMEngine) {
+        let e = engine(fm)
         e.setTimbreMode(.split, splitPoint: 60)
         e.setSlotEnabled(1, enabled: false)
         e.setPitchEGRates(60, 50, 40, 30)
@@ -499,9 +528,9 @@ struct MonoPerformanceTests {
         #expect(original == kMIDIFreqLUT[60])
     }
 
-    @Test("Dual with part zero disabled selects the first enabled part")
-    func disabledFirstPart() {
-        let e = engine()
+    @Test("Dual with part zero disabled selects the first enabled part", arguments: engines)
+    func disabledFirstPart(fm: FMEngine) {
+        let e = engine(fm)
         e.setTimbreMode(.dual)
         e.setSlotEnabled(0, enabled: false)
         render(e)
@@ -532,13 +561,13 @@ struct MonoPerformanceTests {
         #expect(audio(stacked) == expected)
     }
 
-    @Test("Snapshot coalescing cannot hide a round-trip mode switch")
-    func collapsedModeSwitch() {
-        let e = engine()
+    @Test("Snapshot coalescing cannot hide a round-trip mode switch", arguments: engines)
+    func collapsedModeSwitch(fm: FMEngine) {
+        let e = engine(fm)
         on(e, 60); on(e, 72)
         e.setMonoPerformance(enabled: false, portamentoMode: .fingered, glissando: false)
         e.setMonoPerformance(enabled: true, portamentoMode: .fingered, glissando: false)
-        render(e, frames: 64)                 // #116: the switch fades over one block
+        settle(e)                             // #116: the switch fades the voices out
         #expect(e.debugActiveVoiceCount == 0)
         off(e, 72)
         #expect(e.debugActiveVoiceCount == 0)

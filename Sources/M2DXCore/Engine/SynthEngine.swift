@@ -208,6 +208,13 @@ public final class SynthEngine: @unchecked Sendable {
     var monoVoiceForTesting: DX7Voice { voicesDX7[0] }
     /// Test introspection: any voice slot (e.g. a #116 fade copy relocated out of voice 0).
     func voiceForTesting(_ i: Int) -> DX7Voice { voicesDX7[i] }
+    /// Tests only: active voices that are not fading out. A #116 fade copy occupies a slot (and
+    /// counts in `debugActiveVoiceCount`) until its fade ends, but it is no longer a playing note.
+    var liveVoiceCountForTesting: Int {
+        var n = 0
+        for i in 0..<kMaxVoices where voicesDX7[i].active && voicesDX7[i].fadeSamplesRemaining == 0 { n += 1 }
+        return n
+    }
 
     // Pan gains
     private var panGainL: UnsafeMutablePointer<Float> = .allocate(capacity: kMaxVoices)
@@ -447,6 +454,9 @@ public final class SynthEngine: @unchecked Sendable {
 
     /// Public diagnostic accessor. Atomic because the UI reads it while the audio
     /// thread owns and mutates the voice pool.
+    /// Counts every occupied voice slot, including a voice that is fading out (#116): after a
+    /// Mono attack moves the note it replaces out to fade, and after a Poly↔Mono switch, those
+    /// voices stay counted until `voiceFadeSamples` render-rate samples have been rendered.
     public var debugActiveVoiceCount: Int { _activeVoiceCount.load(ordering: .relaxed) }
 
     /// Number of 64-bit bitmap words inspected by voice allocation since init.
@@ -1967,7 +1977,7 @@ public final class SynthEngine: @unchecked Sendable {
     }
 
     /// #116: length of a voice fade-out, in render-rate samples (one block).
-    private static let voiceFadeSamples = kBlockSize
+    static let voiceFadeSamples = kBlockSize
 
     /// #116: put voice `i` into a one-block fade-out. It keeps its allocator slot until
     /// `mixFadingVoice` frees it, and loses its note binding so a retrigger never adopts it.
