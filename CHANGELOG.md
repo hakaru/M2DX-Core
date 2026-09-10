@@ -52,8 +52,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fixed at 512 render-rate samples 2.9× / 2.3× at 96 kHz with 2x oversampling. Poly output is
   bit-identical to before (92 scenario hashes, plus a stored golden suite of per-block RMS and
   signed mean). Only a completely full voice pool still falls back to a cut.
-  `debugActiveVoiceCount` counts a fading copy until its fade has been rendered, so it reads 2
-  for up to one fade length after a Mono attack over a sounding or releasing note. A fading copy
+  `debugActiveVoiceCount` counts a fading copy until its fade has been rendered, so it reads at
+  least 2 for up to one fade length after a Mono attack over a sounding or releasing note. Each
+  handover adds one fading copy, so fast repeated attacks or a Poly→Mono switch can count more. A fading copy
   keeps its note number, so a note-off, the pedal and per-note messages still reach it like any
   voice; none of them stops or lengthens the fade. A fading copy whose tail ends first still
   idles cleanly, so a later Poly note on its slot does not ramp from a stale Mark I level.

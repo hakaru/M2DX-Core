@@ -456,7 +456,8 @@ public final class SynthEngine: @unchecked Sendable {
     /// thread owns and mutates the voice pool.
     /// Counts every occupied voice slot, including a voice that is fading out (#116): after a
     /// Mono attack moves the note it replaces out to fade, and after a Poly↔Mono switch, those
-    /// voices stay counted until `voiceFadeSamples` render-rate samples have been rendered.
+    /// voices stay counted until the fade length fixed when they started has been rendered
+    /// (`voiceFadeSamples(renderRate:)`: about 10.7 ms, at least 512 render-rate samples).
     public var debugActiveVoiceCount: Int { _activeVoiceCount.load(ordering: .relaxed) }
 
     /// Number of 64-bit bitmap words inspected by voice allocation since init.
@@ -1201,7 +1202,7 @@ public final class SynthEngine: @unchecked Sendable {
 
         if monoModeGenerationRT != currentSnapshot.monoModeGeneration {
             monoModeGenerationRT = currentSnapshot.monoModeGeneration
-            // #116: voices of the old mode fade out (voiceFadeSamples) instead of being cut, so
+            // #116: voices of the old mode fade out (voiceFadeSamples(renderRate:)) instead of being cut, so
             // Mono still starts from an empty pool once the fade has been rendered. The pedal is a physical controller: its
             // state survives the switch (a held pedal keeps sustaining new notes).
             fadeOutAllVoices()
