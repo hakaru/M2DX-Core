@@ -342,6 +342,43 @@ struct MonoPerformanceTests {
         #expect(e.monoVoiceForTesting.midiNote == 55)
     }
 
+    @Test("Controller reset releases a Mono note held only by the pedal, like a pedal-up (#118)",
+          arguments: [FMEngine.modern, .markI])
+    func controllerResetReleasesPedalHeldNote(fm: FMEngine) {
+        // The reset turns the pedal off, so it must render exactly like a CC64-off.
+        func take(reset: Bool) -> (SynthEngine, [Float]) {
+            let e = engine()
+            e.setFMEngine(fm)
+            e.setPitchEGRates(60, 50, 40, 30)      // non-default, so `pitchEG.down` is meaningful
+            e.setPitchEGLevels(70, 60, 50, 40)
+            render(e)
+            e.sendMIDI(.init(kind: .controlChange, data1: 64, data2: .max))
+            on(e, 60)
+            render(e, frames: 256)
+            off(e, 60)
+            #expect(e.monoVoiceForTesting.sustained)
+            #expect(!e.monoVoiceForTesting.releasing)
+            if reset { e.resetControllers() }
+            else { e.sendMIDI(.init(kind: .controlChange, data1: 64, data2: 0)) }
+            var out: [Float] = []
+            for _ in 0..<16 {
+                var l = [Float](repeating: 0, count: 256), r = l
+                l.withUnsafeMutableBufferPointer { lp in r.withUnsafeMutableBufferPointer { rp in
+                    e.render(into: lp.baseAddress!, bufferR: rp.baseAddress!, frameCount: 256)
+                }}
+                out += l
+            }
+            return (e, out)
+        }
+        let (e, afterReset) = take(reset: true)
+        #expect(e.monoVoiceForTesting.releasing)       // not left droning at its sustain level
+        #expect(!e.monoVoiceForTesting.sustained)
+        #expect(!e.monoVoiceForTesting.pitchEG.down)
+        let (_, afterPedalUp) = take(reset: false)
+        #expect(afterPedalUp.contains { $0 != 0 })
+        #expect(afterReset == afterPedalUp)
+    }
+
     @Test("requestAllNotesOff ends notes and held keys without the MIDI ring (#118)")
     func requestAllNotesOff() {
         let e = engine()

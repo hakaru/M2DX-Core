@@ -996,6 +996,16 @@ public final class SynthEngine: @unchecked Sendable {
 
     /// Actual controller reset — render thread only.
     private func performControllerReset() {
+        // #118: the reset turns the pedal off. In Mono, a note held only by the pedal releases
+        // as on a pedal-up (pitch EG too); clearing `sustained` alone would leave it droning,
+        // because a later CC64-off only releases voices still flagged as sustained. Poly keeps
+        // its v1.21.0 behavior.
+        if monoEnabledRT {
+            for i in 0..<kMaxVoices where voicesDX7[i].sustained {
+                voicesDX7[i].pitchEG.noteOff(sampleRate: sampleRate)
+                voicesDX7[i].releaseSustain()
+            }
+        }
         modWheelDepth = 0
         footDepth = 0
         breathDepth = 0
