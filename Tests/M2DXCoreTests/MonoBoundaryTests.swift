@@ -111,6 +111,27 @@ struct MonoBoundaryTests {
         #expect(t.e.debugActiveVoiceCount == 1)
     }
 
+    @Test("(c2) An attack into a split gap lets the old tail ring, or releases a pedal-held note",
+          arguments: engines, presets)
+    func attackIntoSplitGap(engine: FMEngine, preset: String) throws {
+        for pedal in [false, true] {
+            let t = try Tape(preset: preset, engine: engine, mono: false)
+            t.e.setTimbreMode(.split, splitPoint: 60)
+            t.e.setSlotEnabled(1, enabled: false)
+            t.e.setMonoPerformance(enabled: true, portamentoMode: .fingered, glissando: false)
+            t.render(0)
+            if pedal { t.pedal(true) }
+            t.on(48); t.render(Self.hold); t.off(48); t.render(Self.gap)
+            #expect(t.e.monoVoiceForTesting.sustained == pedal)
+            let b = t.mark
+            t.on(72); t.render(Self.after)                 // the upper zone is disabled: a gap
+            #expect(t.ratio(at: b) <= Self.limit, "pedal=\(pedal)")
+            #expect(t.e.monoVoiceForTesting.releasing, "pedal=\(pedal)")
+            #expect(t.e.monoVoiceForTesting.midiNote == 48)
+            #expect(t.e.debugActiveVoiceCount == 1)
+        }
+    }
+
     @Test("A new attack in the other split part fades the old part's tail", arguments: engines)
     func attackAcrossSplitParts(engine: FMEngine) throws {
         let t = try Tape(preset: "STRINGS", engine: engine, mono: false)
