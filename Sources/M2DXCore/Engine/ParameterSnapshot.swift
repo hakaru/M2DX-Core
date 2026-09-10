@@ -173,6 +173,11 @@ public struct SynthParamSnapshot: Sendable {
     /// UI Time via `SynthEngine.portamentoRate(fromTime:)`.
     public var portamentoRateCentsPerSec: Float = 1200
 
+    /// Performance setting, independent of the loaded DX7 patch; copied through the SPSC snapshot.
+    public var monoPerformance = MonoPerformanceSettings()
+    /// Mode transition identity survives popLatest coalescing (Mono→Poly→Mono within one block).
+    public var monoModeGeneration: UInt64 = 0
+
     public init() {
         slots = (SlotSnapshot(), SlotSnapshot(), SlotSnapshot(), SlotSnapshot(),
                  SlotSnapshot(), SlotSnapshot(), SlotSnapshot(), SlotSnapshot())

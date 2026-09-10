@@ -170,6 +170,43 @@ package struct DX7Voice {
         ops.3.noteOn(baseFreq: freq); ops.4.noteOn(baseFreq: freq); ops.5.noteOn(baseFreq: freq)
     }
 
+    /// Retarget one sounding voice without touching phase, feedback, gain ramps or EG stage/level.
+    /// Velocity belongs to the start of the phrase; keyboard scaling follows the new pitch.
+    mutating func legatoTo(_ n: UInt8, midiNote originalNote: UInt8, slot: SlotSnapshot) {
+        note = n
+        midiNote = originalNote
+        sustained = false
+        for i in 0..<6 {
+            let snapshot: OperatorSnapshot
+            switch i {
+            case 0: snapshot = slot.ops.0; case 1: snapshot = slot.ops.1
+            case 2: snapshot = slot.ops.2; case 3: snapshot = slot.ops.3
+            case 4: snapshot = slot.ops.4; default: snapshot = slot.ops.5
+            }
+            applyParams(snapshot, opIndex: i)
+            withOp(i) { op in
+                op.isFixedFreq = snapshot.fixedFrequency != 0
+                op.amsDepth = kAMSDepthQ24[Int(min(snapshot.ampModSensitivity, 3))]
+                if op.isFixedFreq {
+                    let hz = fixedFreqHz(coarse: snapshot.fixedFreqCoarse, fine: snapshot.fixedFreqFine)
+                    op.baseFrequency = hz / (op.ratio * op.detune)
+                } else {
+                    op.baseFrequency = kMIDIFreqLUT[Int(n)]
+                    op.detune = dexedDetuneFactor(op.baseFrequency, detuneCents: op.detuneCents)
+                }
+                op.klsOffset = scaleKeyboardLevel(n, breakPoint: snapshot.klsBreakPoint,
+                    leftDepth: snapshot.klsLeftDepth, rightDepth: snapshot.klsRightDepth,
+                    leftCurve: snapshot.klsLeftCurve, rightCurve: snapshot.klsRightCurve)
+                op.env.outlevel = max(0, (min(127, scaleOutputLevel(op.outputLevel) + op.klsOffset) << 5) + op.velocityOffset)
+                op.env.recalcTargetLevel()
+                op.env.rateScaling = keyboardRateScaling(note: n, scaling: snapshot.keyboardRateScaling)
+                op.env.recalcCurrentInc()
+            }
+        }
+        // A fresh key owns per-note expression; channel controllers remain in force.
+        resetPerNoteControllers()
+    }
+
     mutating func noteOff(held: Bool = false) {
         if held { sustained = true; return }
         sustained = false

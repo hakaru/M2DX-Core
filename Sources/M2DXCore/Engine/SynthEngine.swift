@@ -198,6 +198,14 @@ public final class SynthEngine: @unchecked Sendable {
     /// reference for the next note. Updated on EVERY note-on (even when off) so
     /// enabling mid-phrase glides from the right note. nil until the first note.
     private var previousNoteForGlide: UInt8?
+    private let monoNotes = MonoNoteTracker()
+    private var monoEnabledRT = false
+    private var monoPhraseVelocity: UInt16 = 0
+    private var monoModeGenerationRT: UInt64 = 0
+    private var monoHasGlideAnchor = false
+
+    /// Tests only, on the serial render owner. Not a concurrent UI diagnostic.
+    var monoVoiceForTesting: DX7Voice { voicesDX7[0] }
 
     // Pan gains
     private var panGainL: UnsafeMutablePointer<Float> = .allocate(capacity: kMaxVoices)
@@ -393,6 +401,22 @@ public final class SynthEngine: @unchecked Sendable {
         shadowSnapshot.portamentoEnabled = enabled ? 1 : 0
         shadowSnapshot.portamentoRateCentsPerSec = Self.portamentoRate(fromTime: max(0, min(1, time)))
         bumpVersion()
+    }
+
+    /// Main-thread snapshot lane shared by standalone and AUv3. No MIDI producer is added.
+    public func setMonoPerformance(enabled: Bool, portamentoMode: MonoPortamentoMode, glissando: Bool) {
+        if enabled != shadowSnapshot.monoPerformance.enabled { shadowSnapshot.monoModeGeneration &+= 1 }
+        shadowSnapshot.monoPerformance = .init(enabled: enabled, portamentoMode: portamentoMode, glissando: glissando)
+        bumpVersion()
+    }
+
+    /// Main-thread editor/state-save lane, like debugShadowFMEngine (never read from render).
+    public var monoPerformanceSettings: MonoPerformanceSettings { shadowSnapshot.monoPerformance }
+
+    /// Main-thread editor/state-save lane. The render path continues to use the rate directly.
+    public var portamentoSettings: (enabled: Bool, time: Float) {
+        (shadowSnapshot.portamentoEnabled != 0,
+         max(0, min(1, logf(shadowSnapshot.portamentoRateCentsPerSec / 24000) / logf(60 / 24000))))
     }
 
     /// Glide Time (0…1) → constant rate in cents/second. Exponential so the
@@ -950,6 +974,7 @@ public final class SynthEngine: @unchecked Sendable {
 
     /// Actual controller reset — render thread only.
     private func performControllerReset() {
+        if monoEnabledRT { doAllNotesOff() }
         modWheelDepth = 0
         footDepth = 0
         breathDepth = 0
@@ -1123,6 +1148,16 @@ public final class SynthEngine: @unchecked Sendable {
         // Pop latest snapshot first so MIDI handlers see current params
         if let newSnapshot = snapshotRing.popLatest() {
             currentSnapshot = newSnapshot
+        }
+
+        if monoModeGenerationRT != currentSnapshot.monoModeGeneration {
+            monoModeGenerationRT = currentSnapshot.monoModeGeneration
+            silenceMonoVoices()
+            monoNotes.reset()
+            monoHasGlideAnchor = false
+            previousNoteForGlide = nil
+            sustainPedalOn = false
+            monoEnabledRT = currentSnapshot.monoPerformance.enabled
         }
 
         // Consume any pending controller-reset request on the render thread.
@@ -1349,19 +1384,19 @@ public final class SynthEngine: @unchecked Sendable {
         // Unison loudness compensation: N detuned copies sum incoherently (~√N
         // louder), so attenuate by 1/√N to keep a unison note ≈ a single note's
         // loudness and avoid clipping on dense chords.
-        let unisonGain = 1.0 / sqrtf(Float(max(1, snapshot.unisonCount)))
+        let unisonGain: Float = snapshot.monoPerformance.enabled ? 1 : 1.0 / sqrtf(Float(max(1, snapshot.unisonCount)))
         // Layer auto-gain: stacking P enabled slots sums ~√P louder, so attenuate
         // by 1/√P (mirrors the unison law) to preserve headroom. Only in .layer
         // mode — other modes are byte-for-byte unchanged (layerGain stays 1.0).
         var layerGain: Float = 1.0
-        if currentTimbreMode == .layer {
+        if currentTimbreMode == .layer && !snapshot.monoPerformance.enabled {
             var enabled = 0
             for i in 0..<snapshot.activeSlotCount where snapshot.config(at: i).enabled { enabled += 1 }
             layerGain = 1.0 / sqrtf(Float(max(1, enabled)))
         }
         // #89-detune: 1/N when phase-locked (detune 0), crossfading to 1/√N as the
         // stacked copies decorrelate, so a detuned supersaw stays ≈ a single note's loudness.
-        let voiceStackGain = voiceStackGainFactor(multiplier: snapshot.voiceStackMultiplier, detuneCents: snapshot.voiceStackDetune)
+        let voiceStackGain: Float = snapshot.monoPerformance.enabled ? 1 : voiceStackGainFactor(multiplier: snapshot.voiceStackMultiplier, detuneCents: snapshot.voiceStackDetune)
         let vol = masterVolume * expression * ccVolume * unisonGain * layerGain * voiceStackGain
         let maxV = effectiveMaxVoices
         let slotCount = snapshot.activeSlotCount
@@ -1456,7 +1491,10 @@ public final class SynthEngine: @unchecked Sendable {
                     } else {
                         voicesDX7[i].glideOffsetCents = 0   // portamento turned off mid-glide → snap to target
                     }
-                    glideFactor = exp2f(voicesDX7[i].glideOffsetCents / 1200.0)
+                    let offset = voicesDX7[i].glideOffsetCents
+                    let cents = snapshot.monoPerformance.enabled && snapshot.monoPerformance.glissando
+                        ? (offset / 100).rounded() * 100 : offset
+                    glideFactor = exp2f(cents / 1200.0)
                 }
 
                 // Compute combined pitch factor including per-note pitch bend and global tuning
@@ -1543,6 +1581,14 @@ public final class SynthEngine: @unchecked Sendable {
     // MARK: - MIDI Handling
 
     private func doNoteOn(_ note: UInt8, velocity16: UInt16) {
+        if currentSnapshot.monoPerformance.enabled {
+            handleMonoChange(monoNotes.press(note), velocity16: velocity16)
+        } else {
+            doPolyNoteOn(note, velocity16: velocity16)
+        }
+    }
+
+    private func doPolyNoteOn(_ note: UInt8, velocity16: UInt16) {
         let snapshot = currentSnapshot
         voiceStackNoteOnCounter &+= 1   // #89-detune: re-roll random spread each note-on
         // #79: capture the previous note BEFORE this note-on overwrites it, so
@@ -1553,7 +1599,15 @@ public final class SynthEngine: @unchecked Sendable {
         // Fixed-size slot target buffer — no heap allocation
         var targetSlots: (Int, Int, Int, Int, Int, Int, Int, Int) = (0, 0, 0, 0, 0, 0, 0, 0)
         var targetCount = 0
-        determineTargetSlots(note: note, snapshot: snapshot, result: &targetSlots, count: &targetCount)
+        // Mono is strictly one physical voice. In layered modes use the first eligible slot;
+        // unison/Voice Stack remain configured but are bypassed until returning to Poly.
+        if snapshot.monoPerformance.enabled {
+            if let slot = monoTargetSlot(note: note, snapshot: snapshot) {
+                targetSlots.0 = slot; targetCount = 1
+            }
+        } else {
+            determineTargetSlots(note: note, snapshot: snapshot, result: &targetSlots, count: &targetCount)
+        }
 
         for ti in 0..<targetCount {
             let slotIdx: Int
@@ -1573,9 +1627,9 @@ public final class SynthEngine: @unchecked Sendable {
                 lfoPhase[slotIdx] = 0; lfoDelayFadeIn[slotIdx] = 0
             }
 
-            let unisonCount = max(1, snapshot.unisonCount)
+            let unisonCount = snapshot.monoPerformance.enabled ? 1 : max(1, snapshot.unisonCount)
             let unisonDetune = snapshot.unisonDetune
-            let voiceStack = max(1, snapshot.voiceStackMultiplier)   // #89
+            let voiceStack = snapshot.monoPerformance.enabled ? 1 : max(1, snapshot.voiceStackMultiplier)   // #89
             let stackDetune = snapshot.voiceStackDetune              // #89-detune
             let stackMode = snapshot.voiceStackDetuneMode            // 0 even, 1 random
             let stackVelocityRange = snapshot.voiceStackVelocityRandomRange
@@ -1592,12 +1646,13 @@ public final class SynthEngine: @unchecked Sendable {
                     : voiceStackVelocityRandomized(velocity16, range7: stackVelocityRange, noteOnIndex: stackNote, copyIndex: s)
                 for u in 0..<unisonCount {
                 // #83: even spread (default, bit-identical) or deterministic random.
-                let unisonFactor = snapshot.unisonDetuneMode == 0
+                let unisonFactor: Float = snapshot.monoPerformance.enabled ? 1 : snapshot.unisonDetuneMode == 0
                     ? unisonDetuneFactor(index: u, count: unisonCount, detuneCents: unisonDetune)
                     : unisonDetuneFactorRandom(slotIndex: slotIdx, voiceIndex: u, detuneCents: unisonDetune)
                 let detuneFactor = unisonFactor * stackFactor        // #89-detune: combine unison × stack
 
-                let transposedNote = UInt8(clamping: Int(note) + Int(slot.transpose))
+                let transposed = Int(note) + Int(slot.transpose)
+                let transposedNote = UInt8(clamping: snapshot.monoPerformance.enabled ? min(127, transposed) : transposed)
                 let maxV = effectiveMaxVoices
 
                 let target: Int
@@ -1766,6 +1821,14 @@ public final class SynthEngine: @unchecked Sendable {
     }
 
     private func doNoteOff(_ note: UInt8) {
+        if currentSnapshot.monoPerformance.enabled {
+            handleMonoChange(monoNotes.release(note), velocity16: 0)
+            return
+        }
+        doPolyNoteOff(note)
+    }
+
+    private func doPolyNoteOff(_ note: UInt8) {
         for i in 0..<kMaxVoices {
             if voicesDX7[i].active && voicesDX7[i].midiNote == note {
                 voicesDX7[i].noteOff(held: sustainPedalOn)
@@ -1797,6 +1860,12 @@ public final class SynthEngine: @unchecked Sendable {
                     voicesDX7[i].releaseSustain()
                 }
             }
+        case 120:
+            if monoEnabledRT {
+                silenceMonoVoices(); monoNotes.reset(); previousNoteForGlide = nil
+                monoHasGlideAnchor = false
+                sustainPedalOn = false
+            }
         case 123: doAllNotesOff()
         default: break
         }
@@ -1825,11 +1894,98 @@ public final class SynthEngine: @unchecked Sendable {
     }
 
     private func doAllNotesOff() {
+        monoNotes.reset()
+        if monoEnabledRT { previousNoteForGlide = nil; monoHasGlideAnchor = false }
         sustainPedalOn = false
         for i in 0..<kMaxVoices {
             voicesDX7[i].sustained = false
             voicesDX7[i].noteOff()
+            if monoEnabledRT { voicesDX7[i].pitchEG.noteOff(sampleRate: sampleRate) }
         }
+    }
+
+    /// Render thread only. Also removes release tails, so 0→1 can never create a second voice.
+    private func silenceMonoVoices() {
+        for i in 0..<kMaxVoices where voicesDX7[i].active {
+            voicesDX7[i].noteOff()
+            voicesDX7[i].active = false
+            voicesDX7[i].sustained = false
+        }
+        resetVoiceAllocator()
+    }
+
+    private func monoTargetSlot(note: UInt8, snapshot: SynthParamSnapshot) -> Int? {
+        var targets = (0, 0, 0, 0, 0, 0, 0, 0)
+        var count = 0
+        determineTargetSlots(note: note, snapshot: snapshot, result: &targets, count: &count)
+        for i in 0..<count {
+            let slot: Int
+            switch i {
+            case 0: slot = targets.0; case 1: slot = targets.1
+            case 2: slot = targets.2; case 3: slot = targets.3
+            case 4: slot = targets.4; case 5: slot = targets.5
+            case 6: slot = targets.6; default: slot = targets.7
+            }
+            if slot < snapshot.activeSlotCount, snapshot.config(at: slot).enabled { return slot }
+        }
+        return nil
+    }
+
+    private func handleMonoChange(_ change: MonoNoteTracker.Change, velocity16: UInt16) {
+        let settings = currentSnapshot.monoPerformance
+        switch change {
+        case .none: return
+        case .release(let note): doPolyNoteOff(note)
+        case .attack(let note):
+            monoPhraseVelocity = velocity16
+            triggerMonoVoice(note, legato: false)
+        case .legato(let note):
+            let voiceIndex = 0 // Every mono attack resets the allocator and takes voice 0.
+            guard let slotIndex = monoTargetSlot(note: note, snapshot: currentSnapshot) else {
+                silenceMonoVoices()
+                return
+            }
+            guard voicesDX7[voiceIndex].active, !voicesDX7[voiceIndex].releasing else {
+                // A silent patch/disabled slot may leave no voice to retune.
+                triggerMonoVoice(note, legato: true)
+                return
+            }
+            let oldNote = voicesDX7[voiceIndex].note
+            let slot = currentSnapshot.slot(at: slotIndex)
+            let target = UInt8(clamping: max(0, min(127, Int(note) + Int(slot.transpose))))
+            let oldOffset = voicesDX7[voiceIndex].glideOffsetCents
+            let audibleOffset = settings.glissando ? (oldOffset / 100).rounded() * 100 : oldOffset
+            clearNoteMapping(forVoice: voiceIndex)
+            voicesDX7[voiceIndex].slotId = slotIndex
+            voicesDX7[voiceIndex].algorithm = slot.algorithm
+            voicesDX7[voiceIndex].feedbackShiftValue = feedbackShift(Int(slot.ops.0.feedback * 7 + 0.5))
+            voicesDX7[voiceIndex].legatoTo(target, midiNote: note, slot: slot)
+            bindNoteMapping(voiceIndex: voiceIndex, slot: slotIndex, note: note)
+            let offset = currentSnapshot.portamentoEnabled != 0
+                ? Float(Int(oldNote) - Int(target)) * 100 + audibleOffset : 0
+            voicesDX7[voiceIndex].glideOffsetCents = offset
+            // Apply the new pitch immediately even when render(frameCount: 0) only drains MIDI.
+            let cents = settings.glissando ? (offset / 100).rounded() * 100 : offset
+            voicesDX7[voiceIndex].applyPitchBend(pitchBendValueBySlot[slotIndex] * exp2f(cents / 1200))
+            previousNoteForGlide = note
+        }
+    }
+
+    private func triggerMonoVoice(_ note: UInt8, legato: Bool) {
+        let settings = currentSnapshot.monoPerformance
+        let oldOffset = voicesDX7[0].glideOffsetCents
+        let audibleOffset = settings.glissando ? (oldOffset / 100).rounded() * 100 : oldOffset
+        let previousPitch: Float? = monoHasGlideAnchor ? Float(voicesDX7[0].note) + audibleOffset / 100 : nil
+        silenceMonoVoices()
+        doPolyNoteOn(note, velocity16: monoPhraseVelocity)
+        guard voicesDX7[0].active else { return }
+        let shouldGlide = currentSnapshot.portamentoEnabled != 0 && (legato || settings.portamentoMode == .fullTime)
+        let target = Float(voicesDX7[0].note)
+        let offset = shouldGlide ? ((previousPitch ?? target) - target) * 100 : 0
+        voicesDX7[0].glideOffsetCents = offset
+        let cents = settings.glissando ? (offset / 100).rounded() * 100 : offset
+        voicesDX7[0].applyPitchBend(pitchBendValueBySlot[voicesDX7[0].slotId] * exp2f(cents / 1200))
+        monoHasGlideAnchor = true
     }
 
     // MARK: - MIDI 2.0 Handlers
