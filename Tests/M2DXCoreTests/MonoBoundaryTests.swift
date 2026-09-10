@@ -3,16 +3,18 @@ import Darwin
 @testable import M2DXCore
 
 /// #116: Mono handovers must not click. Each case renders in 256-frame host buffers, fires the
-/// event at a buffer boundary `b`, and compares the largest sample-to-sample step in the 64
-/// samples from `b` with the largest step of the same tone in the 256 samples before it. The
-/// window matters: under 2x oversampling the downsampler moves a cut a few samples past `b`.
-/// A hard cut (the old behavior) measured 6–56× on these patches; Mono now measures up to 1.73×
-/// and Poly's natural overlap up to 1.31× on the same sequences.
+/// event at a buffer boundary `b`, and compares the largest sample-to-sample step in the
+/// `window` samples from `b` (the whole fade-out plus one block) with the largest step of the
+/// same tone before it. The window matters: a shorter one sees only the start of the fade, and
+/// under 2x oversampling the downsampler moves a cut a few samples past `b`.
+/// A hard cut (the old behavior) measured 6–56× on these patches; Mono now measures up to
+/// 1.2× and Poly's natural overlap up to 1.5× on the same sequences.
 /// Long-release patches are used on purpose: on short releases the tail is already silent.
 @Suite("Mono boundary continuity (#116)")
 struct MonoBoundaryTests {
     static let limit: Float = 2.0
     static let hold = 14400, gap = 2400, after = 4800   // 300 ms, 50 ms, 100 ms at 48 kHz
+    static let window = SynthEngine.voiceFadeSamples + 64
 
     final class Tape {
         let e = SynthEngine()
@@ -51,13 +53,13 @@ struct MonoBoundaryTests {
             e.sendMIDI(.init(kind: .controlChange, data1: 64, data2: down ? .max : 0))
         }
 
-        /// Largest step in the 64 samples from `b`, relative to the tone's own largest step in
-        /// the 256 samples before `b`.
-        func ratio(at b: Int, minimumPre: Float = 1e-4) -> Float {
+        /// Largest step in the `window` samples from `b`, relative to the tone's own largest step
+        /// in the `preWindow` samples before `b`.
+        func ratio(at b: Int, preWindow: Int = 256, minimumPre: Float = 1e-4) -> Float {
             var step: Float = 0
-            for i in b..<(b + 64) { step = max(step, abs(out[i] - out[i - 1])) }
+            for i in b..<(b + MonoBoundaryTests.window) { step = max(step, abs(out[i] - out[i - 1])) }
             var pre: Float = 0
-            for i in (b - 256)..<b { pre = max(pre, abs(out[i] - out[i - 1])) }
+            for i in (b - preWindow)..<b { pre = max(pre, abs(out[i] - out[i - 1])) }
             #expect(pre > minimumPre, "the tone before the boundary must be audible for the ratio to mean anything")
             return step / pre
         }
@@ -145,33 +147,45 @@ struct MonoBoundaryTests {
         t.on(72); t.render(Self.after)
         #expect(t.ratio(at: b) <= Self.limit)
         #expect(t.e.monoVoiceForTesting.slotId == 1)
-        #expect(t.e.debugActiveVoiceCount == 1)       // the faded copy is gone after one block
+        #expect(t.e.debugActiveVoiceCount == 1)       // the faded copy is gone after its fade
     }
 
     /// Full-level staccato: the note-off and the next note-on arrive in the same buffer, so the
     /// old note is still at its sustain level when the new one attacks. Low notes are the hardest
-    /// case for a one-block (64-sample) handover, because the ramp is steep next to a 65 Hz
-    /// tone's own slope. The limit is the larger of `staccatoLimit` and 1.5× what Poly measures
-    /// on the same sequence: patches with a sharp attack step that much in Poly too, from the new
-    /// note's own attack. Measured at C2, Mono / Poly: TROMBONE 4.63× / 0.35× (Modern) and
-    /// 3.53× / 0.57× (Mark I); SUB BASS 13.8× / 13.9× and 47.6× / 45.0×; SYN BASS 5.35× / 9.73×
-    /// and 35.5× / 33.8×; BRASS 2.63× / 1.00× and 1.66× / 0.79×. The hard cut (447e17a)
-    /// measured 287× / 210× on TROMBONE and 370× / 243× on SUB BASS.
-    static let staccatoLimit: Float = 6.0
+    /// case, because a 65 Hz tone's own slope is small next to any handover ramp; this case sets
+    /// the fade length. The tone's slope is taken over 1024 samples, more than one C2 period.
+    /// Under 2x oversampling the render-rate fade is half as long in host time, so both rates
+    /// are checked. The limit is the larger of `staccatoLimit` and 1.25× what Poly measures on
+    /// the same sequence: sharp-attack bass patches step that much in Poly too, from the new
+    /// note's own attack.
+    /// Measured at C2, Mono / Poly (1x rate; 2x oversampled): TROMBONE 1.38/1.97 (1.51/1.96)
+    /// on Modern, 1.90/1.71 (1.95/1.64) on Mark I; BRASS 0.50/0.97 (0.30/0.97) and 0.57/0.97
+    /// (0.52/1.01); FAT BASS 3.08/2.82 (3.82/3.41) and 11.9/11.7 (10.5/10.2); SUB BASS and
+    /// SYN BASS 9.3–34/9.0–34, within 1.08× of Poly.
+    /// A one-block fade measured up to 3.5× (8.1× oversampled) on TROMBONE, a one-block signal
+    /// transfer 4.6× (9.3×), and the hard cut of 447e17a 287× on TROMBONE and 370× on SUB BASS.
+    static let staccatoLimit: Float = 2.5
 
     @Test("Full-level staccato on low bass and brass notes stays close to Poly",
-          arguments: engines, ["TROMBONE", "BRASS", "SUB BASS", "SYN BASS"])
+          arguments: engines, ["TROMBONE", "BRASS", "SUB BASS", "SYN BASS", "FAT BASS"])
     func fullLevelStaccato(engine: FMEngine, preset: String) throws {
-        for (first, next) in [(UInt8(36), UInt8(38)), (36, 36)] {
-            func take(mono: Bool) throws -> Float {
-                let t = try Tape(preset: preset, engine: engine, mono: mono)
-                t.on(first); t.render(Self.hold)
-                let b = t.mark
-                t.off(first); t.on(next); t.render(Self.after)   // one buffer: off, then on
-                return t.ratio(at: b, minimumPre: 1e-5)          // quiet C2 tones: ~-50 dBFS
+        for oversampling in [OversamplingMode.off, .highQuality] {
+            for (first, next) in [(UInt8(36), UInt8(38)), (36, 36)] {
+                func take(mono: Bool) throws -> Float {
+                    let t = try Tape(preset: preset, engine: engine, mono: mono)
+                    if oversampling != .off {
+                        t.e.setOversamplingMode(oversampling)
+                        t.render(4096)                                 // let the transition settle
+                    }
+                    t.on(first); t.render(Self.hold)
+                    let b = t.mark
+                    t.off(first); t.on(next); t.render(Self.after)     // one buffer: off, then on
+                    return t.ratio(at: b, preWindow: 1024, minimumPre: 1e-5)   // quiet C2: ~-50 dBFS
+                }
+                let mono = try take(mono: true), poly = try take(mono: false)
+                #expect(mono <= max(Self.staccatoLimit, 1.25 * poly),
+                        "\(oversampling) \(first)→\(next): mono \(mono)×, poly \(poly)×")
             }
-            let mono = try take(mono: true), poly = try take(mono: false)
-            #expect(mono <= max(Self.staccatoLimit, 1.5 * poly), "\(first)→\(next): mono \(mono)×, poly \(poly)×")
         }
     }
 
@@ -197,7 +211,7 @@ struct MonoBoundaryTests {
 
     @Test("Oversampled Mark I with the vintage DAC: fades complete, free their slots and do not click")
     func oversampledMarkIVintageDAC() throws {
-        // The fade runs at the render rate (2x here, so 64 samples ≈ 0.67 ms), through the DAC
+        // The fade runs at the render rate (2x here, so 512 samples ≈ 5.3 ms), through the DAC
         // companding branch, and relocation allocates from the halved oversampled voice budget.
         let t = try Tape(preset: "STRINGS", engine: .markI, mono: false)
         t.e.setVintageDAC(true)

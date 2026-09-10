@@ -1198,8 +1198,8 @@ public final class SynthEngine: @unchecked Sendable {
 
         if monoModeGenerationRT != currentSnapshot.monoModeGeneration {
             monoModeGenerationRT = currentSnapshot.monoModeGeneration
-            // #116: voices of the old mode fade out over one block instead of being cut, so
-            // Mono still starts from an empty pool. The pedal is a physical controller: its
+            // #116: voices of the old mode fade out (voiceFadeSamples) instead of being cut, so
+            // Mono still starts from an empty pool once the fade has been rendered. The pedal is a physical controller: its
             // state survives the switch (a held pedal keeps sustaining new notes).
             fadeOutAllVoices()
             monoNotes.reset()
@@ -1976,10 +1976,14 @@ public final class SynthEngine: @unchecked Sendable {
         resetVoiceAllocator()
     }
 
-    /// #116: length of a voice fade-out, in render-rate samples (one block).
-    static let voiceFadeSamples = kBlockSize
+    /// #116: length of a voice fade-out, in render-rate samples: 8 blocks, 10.7 ms at 48 kHz
+    /// (5.3 ms under 2x oversampling). One block (1.3 ms) stepped 3.5x the tone's own slope on
+    /// full-level staccato at C2 (TROMBONE, Mark I) and 8x under oversampling, where Poly steps
+    /// under 2x; 8 blocks keep every measured case within ~1.2x of Poly. Fixed in render-rate
+    /// samples on purpose, so a fade in progress never changes length.
+    static let voiceFadeSamples = 8 * kBlockSize
 
-    /// #116: put voice `i` into a one-block fade-out. It keeps its allocator slot until
+    /// #116: put voice `i` into a fade-out. It keeps its allocator slot until
     /// `mixFadingVoice` frees it, and loses its note binding so a retrigger never adopts it.
     private func startFade(_ i: Int) {
         clearNoteMapping(forVoice: i)
@@ -1989,13 +1993,14 @@ public final class SynthEngine: @unchecked Sendable {
         }
     }
 
-    /// #116 mode switch: every sounding voice fades over one block instead of being cut.
+    /// #116 mode switch: every sounding voice fades out instead of being cut.
     private func fadeOutAllVoices() {
         for i in 0..<kMaxVoices where voicesDX7[i].active { startFade(i) }
     }
 
-    /// #116: mix one block of a fading voice (linear gain from (N-1)/N down to 0), then free
-    /// it once the fade completes. Render thread only; reached only by voices the Mono paths
+    /// #116: mix one block of a fading voice (linear gain from (N-1)/N down to 0 over the
+    /// N = voiceFadeSamples samples of the fade, across blocks), then free it once the fade
+    /// completes. Render thread only; reached only by voices the Mono paths
     /// flagged, so the Poly mix branches are untouched.
     private func mixFadingVoice(_ i: Int, _ block: UnsafeMutablePointer<Int32>,
                                 _ outL: UnsafeMutablePointer<Float>, _ outR: UnsafeMutablePointer<Float>,
@@ -2018,21 +2023,21 @@ public final class SynthEngine: @unchecked Sendable {
     }
 
     /// #116: free voice 0 for a Mono attack without a hard cut. Any other sounding voice (left
-    /// over from Poly) fades. Voice 0 either hands its signal to the new note (the caller
-    /// transfers it) or, when it cannot — already fading, another part, another algorithm —
-    /// moves to a free slot and fades there. Only a completely full pool falls back to a cut.
-    private func vacateMonoVoice(fadeOut: Bool) {
+    /// over from Poly) fades. A sounding voice 0 moves to a free slot and fades there (keeping
+    /// what is left of a fade already in progress), so the new note attacks from silence in
+    /// voice 0. Only a completely full pool falls back to a cut.
+    private func vacateMonoVoice() {
         let limit = effectiveMaxVoices
         for i in 1..<limit where voicesDX7[i].active && voicesDX7[i].fadeSamplesRemaining == 0 {
             startFade(i)
         }
         if voicesDX7[0].active {
-            if fadeOut, let j = takeFreeVoice(limit: limit) {
+            if let j = takeFreeVoice(limit: limit) {
                 voicesDX7[j] = voicesDX7[0]
                 startFade(j)
             }
-            // Idle voice 0 with silent Mark I ramp anchors: without a transfer, the new note
-            // must ramp from silence, not from the level that just moved to the fading copy.
+            // Idle voice 0 with silent Mark I ramp anchors: the new note must ramp from silence,
+            // not from the level that just moved to the fading copy.
             voicesDX7[0].finishFadeOut()
             markVoiceFree(0)
         }
@@ -2116,21 +2121,14 @@ public final class SynthEngine: @unchecked Sendable {
             releaseMonoVoice()
             return
         }
-        // Dexed-style transfer (Modern): when the sounding voice plays the same part with the
-        // same algorithm, the new note continues its per-operator gain, phase and feedback, so
-        // the first block's linear gain ramp starts from the old level. Mark I ramps in the log
-        // (attenuation) domain, where the same handover drops ~0.5 dB on the very first sample
-        // into a slow attack, so Mark I — like any other mismatch — fades the old voice out
-        // over one block instead.
-        let source = voicesDX7[0]
-        let transfer = source.active && source.fadeSamplesRemaining == 0
-            && source.slotId == slotIndex
-            && source.algorithm == currentSnapshot.slot(at: slotIndex).algorithm
-            && source.engineMode == .modern && currentFMEngine == .modern
-        vacateMonoVoice(fadeOut: !transfer)
+        // The replaced voice fades out in another slot while the new note attacks from silence,
+        // on both engines. A Dexed-style signal transfer (the new note continuing the old
+        // per-operator gain) was tried and dropped: its gain ramp is one block long, which
+        // stepped 4.6x the tone's slope on full-level staccato at C2 (TROMBONE, Modern) where
+        // Poly steps 2.0x and the fade steps 1.4x.
+        vacateMonoVoice()
         doPolyNoteOn(note, velocity16: monoPhraseVelocity)
         guard voicesDX7[0].active else { return }
-        if transfer { voicesDX7[0].transferSignal(from: source) }
         let shouldGlide = currentSnapshot.portamentoEnabled != 0 && (legato || settings.portamentoMode == .fullTime)
         let target = Float(voicesDX7[0].note)
         let offset = shouldGlide ? ((previousPitch ?? target) - target) * 100 : 0

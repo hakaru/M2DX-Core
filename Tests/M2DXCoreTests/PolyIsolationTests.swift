@@ -29,8 +29,9 @@ struct PolyIsolationTests {
     }
 
     /// The same render calls on both engines; only `mono` sends the Mono excursion's events.
-    /// The excursion exercises transfer attacks, legato, a pedal-held handover, a mode-switch fade
-    /// with a note sounding, requestAllNotesOff and a controller reset, and ends idle.
+    /// The excursion exercises attacks that fade the replaced voice out in another slot, legato,
+    /// a pedal-held handover, a mode-switch fade with a note sounding, requestAllNotesOff and a
+    /// controller reset, and ends idle (the last render outlasts the fade).
     private func excursion(_ g: Rig, mono: Bool) {
         if mono { g.e.setMonoPerformance(enabled: true, portamentoMode: .fullTime, glissando: true) }
         g.render(0)
@@ -44,7 +45,7 @@ struct PolyIsolationTests {
         if mono { g.e.setMonoPerformance(enabled: false, portamentoMode: .fullTime, glissando: true) }
         g.render(128)                                 // the switch fades the held note out
         if mono { g.off(65); g.e.requestAllNotesOff(); g.e.resetControllers() }
-        g.render(256)
+        g.render(SynthEngine.voiceFadeSamples)
     }
 
     private func polyScript(_ g: Rig) {
@@ -74,8 +75,8 @@ struct PolyIsolationTests {
         #expect(a == b)
     }
 
-    /// A Mark I Mono attack relocates the replaced voice and fades it for one block. When that
-    /// copy's release ends before the fade does, the reap must still leave the slot as a finished
+    /// A Mono attack relocates the replaced voice and fades it out. When that copy's release
+    /// ends before the fade does (on Mark I), the reap must still leave the slot as a finished
     /// fade would (silent Mark I ramp anchors, no fade left), or a later Poly note on that slot
     /// ramps from a stale level (#116).
     @Test("Poly is unchanged after a Mark I fade copy's tail ends mid-fade")
@@ -120,10 +121,11 @@ struct PolyIsolationTests {
         on(visited, 62)
         _ = render(plain, 0); _ = render(visited, 0)
         let copy = visited.voiceForTesting(1)
-        #expect(copy.active && copy.fadeSamplesRemaining == Int(kBlockSize), "the old voice moved to slot 1 and fades")
+        #expect(copy.active && copy.fadeSamplesRemaining == SynthEngine.voiceFadeSamples,
+                "the old voice moved to slot 1 and fades")
         for _ in 0..<16 { _ = render(plain, 1); _ = render(visited, 1) }
         let reaped = visited.voiceForTesting(1)
-        #expect(!reaped.active, "the copy's tail ended well before its 64-sample fade")
+        #expect(!reaped.active, "the copy's tail ended well before its fade")
         #expect(reaped.fadeSamplesRemaining == 0)
         let silent = UInt16(kMarkIEnvMax)
         #expect(reaped.ops.0.markIGainOut == silent && reaped.ops.1.markIGainOut == silent

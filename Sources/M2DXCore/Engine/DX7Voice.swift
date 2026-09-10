@@ -125,9 +125,9 @@ package struct DX7Voice {
     /// path at the portamento rate. 0 = arrived (no glide; default = no effect).
     var glideOffsetCents: Float = 0.0
     var detached: Bool = false
-    /// #116: render-rate samples left in a one-block fade-out; 0 = not fading. Only the Mono
-    /// paths (mode switch, a replaced Mono voice that cannot take a signal transfer) set it, so
-    /// Poly voices never take the fading mix branch.
+    /// #116: render-rate samples left in a fade-out; 0 = not fading. Only the Mono paths (a
+    /// Poly↔Mono switch, a Mono voice replaced by an attack) set it, so Poly voices never take
+    /// the fading mix branch.
     var fadeSamplesRemaining: Int = 0
 
     // Pitch EG
@@ -212,16 +212,7 @@ package struct DX7Voice {
         resetPerNoteControllers()
     }
 
-    /// #116: continue `src`'s signal in this freshly note-on'd voice (see
-    /// `DX7Operator.transferSignal`). Only meaningful when both voices share algorithm and
-    /// engine, so each operator keeps its carrier/modulator role across the handover.
-    mutating func transferSignal(from src: DX7Voice) {
-        ops.0.transferSignal(from: src.ops.0); ops.1.transferSignal(from: src.ops.1)
-        ops.2.transferSignal(from: src.ops.2); ops.3.transferSignal(from: src.ops.3)
-        ops.4.transferSignal(from: src.ops.4); ops.5.transferSignal(from: src.ops.5)
-    }
-
-    /// #116: end of a one-block fade-out. The voice goes idle; the Mark I ramp anchors return
+    /// #116: end of a fade-out. The voice goes idle; the Mark I ramp anchors return
     /// to full attenuation so a later note-on on this slot does not ramp from the faded level.
     mutating func finishFadeOut() {
         active = false
