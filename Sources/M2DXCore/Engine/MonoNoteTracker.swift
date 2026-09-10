@@ -17,36 +17,28 @@ public struct MonoPerformanceSettings: Codable, Equatable, Sendable {
     }
 }
 
-/// The MIDI lane currently merges channels. Reference counts balance duplicate pitches
-/// from different sources without allocating a collection or inferring channel identity.
+/// The MIDI lane currently merges channels, so a pitch is either held or not (a 128-bit set).
+/// A duplicate note-on for a held pitch does not stack, and a single note-off always releases
+/// the pitch (#124) — the same as Poly, where one note-off releases every voice on that pitch.
+/// This keeps a dropped note-off recoverable by pressing and releasing the key once more.
+/// Trade-off: when two sources hold the same pitch, the first note-off releases it.
 /// Sustain is deliberately NOT a physical key: releasing all keys resets the latch.
 final class MonoNoteTracker {
     enum Change: Equatable { case none, attack(UInt8), legato(UInt8), release(UInt8) }
     enum Priority { case unset, high, low }
-    private let counts: UnsafeMutablePointer<UInt16>
     private var lowBits: UInt64 = 0
     private var highBits: UInt64 = 0
     private(set) var priority: Priority = .unset
     private(set) var selected: UInt8?
 
-    init() {
-        counts = .allocate(capacity: 128)
-        counts.initialize(repeating: 0, count: 128)
-    }
-
-    deinit { counts.deinitialize(count: 128); counts.deallocate() }
-
     func reset() {
-        for i in 0..<128 { counts[i] = 0 }
         lowBits = 0; highBits = 0; priority = .unset; selected = nil
     }
 
     func press(_ note: UInt8) -> Change {
         guard note < 128 else { return .none }
-        let i = Int(note)
-        if counts[i] < .max { counts[i] += 1 }
-        let mask = UInt64(1) << UInt64(i & 63)
-        if i < 64 { lowBits |= mask } else { highBits |= mask }
+        let mask = UInt64(1) << UInt64(note & 63)
+        if note < 64 { lowBits |= mask } else { highBits |= mask }
         guard let previous = selected else {
             selected = note
             return .attack(note)
@@ -58,11 +50,15 @@ final class MonoNoteTracker {
     }
 
     func release(_ note: UInt8) -> Change {
-        guard note < 128, counts[Int(note)] > 0, let previous = selected else { return .none }
-        counts[Int(note)] -= 1
-        guard counts[Int(note)] == 0 else { return .none }
-        let mask = UInt64(1) << UInt64(Int(note) & 63)
-        if note < 64 { lowBits &= ~mask } else { highBits &= ~mask }
+        guard note < 128, let previous = selected else { return .none }
+        let mask = UInt64(1) << UInt64(note & 63)
+        if note < 64 {
+            guard lowBits & mask != 0 else { return .none }
+            lowBits &= ~mask
+        } else {
+            guard highBits & mask != 0 else { return .none }
+            highBits &= ~mask
+        }
         if lowBits == 0, highBits == 0 {
             selected = nil; priority = .unset
             return .release(previous)

@@ -89,17 +89,39 @@ struct MonoPerformanceTests {
         #expect(e.debugActiveVoiceCount == 1)
     }
 
-    @Test("Duplicate pitch note-offs are balanced; unknown releases and invalid notes are harmless")
+    @Test("A duplicate note-on does not stack: one note-off releases the key, like Poly (#124)")
     func duplicateNotes() {
         let e = engine()
         on(e, 60); on(e, 60); on(e, 72)
-        off(e, 60); off(e, 72)
-        #expect(e.monoVoiceForTesting.midiNote == 60)
+        #expect(e.monoVoiceForTesting.midiNote == 72)
+        off(e, 60)
+        #expect(e.monoVoiceForTesting.midiNote == 72)
         #expect(!e.monoVoiceForTesting.releasing)
-        off(e, 99); on(e, 200)
-        #expect(e.monoVoiceForTesting.midiNote == 60)
-        on(e, 60, velocity: 0)
+        off(e, 72)
+        // 60 was pressed twice but released once: it is no longer held, so there is no fallback.
+        #expect(e.monoVoiceForTesting.midiNote == 72)
         #expect(e.monoVoiceForTesting.releasing)
+
+        on(e, 65)
+        off(e, 99); on(e, 200)   // unknown release and invalid note are harmless
+        #expect(e.monoVoiceForTesting.midiNote == 65)
+        #expect(!e.monoVoiceForTesting.releasing)
+        on(e, 65, velocity: 0)   // velocity-0 note-on is a note-off
+        #expect(e.monoVoiceForTesting.releasing)
+    }
+
+    @Test("A dropped note-off is recovered by pressing and releasing the key once more (#124)")
+    func droppedNoteOffRecovery() {
+        let e = engine()
+        on(e, 60); on(e, 72)          // HIGH latch; the note-off for 60 is "lost"
+        off(e, 72)
+        #expect(e.monoVoiceForTesting.midiNote == 60)   // phantom fallback to the stuck key
+        on(e, 60)                     // the player presses the stuck key again...
+        #expect(e.monoVoiceForTesting.midiNote == 60)
+        off(e, 60)                    // ...and one release clears it
+        #expect(e.monoVoiceForTesting.releasing)
+        on(e, 55); on(e, 50)          // a new phrase latches fresh (LOW), no phantom above
+        #expect(e.monoVoiceForTesting.midiNote == 50)
     }
 
     @Test("Sustain holds just one voice; a new physical phrase attacks and resets priority")
