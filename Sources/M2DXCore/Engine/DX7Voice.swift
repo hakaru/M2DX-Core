@@ -203,6 +203,7 @@ package struct DX7Voice {
                     op.baseFrequency = kMIDIFreqLUT[Int(n)]
                     op.detune = dexedDetuneFactor(op.baseFrequency, detuneCents: op.detuneCents)
                 }
+                op.preserveHeldKeyboardLevel()
                 op.klsOffset = scaleKeyboardLevel(n, breakPoint: snapshot.klsBreakPoint,
                     leftDepth: snapshot.klsLeftDepth, rightDepth: snapshot.klsRightDepth,
                     leftCurve: snapshot.klsLeftCurve, rightCurve: snapshot.klsRightCurve)
@@ -759,7 +760,7 @@ package struct DX7Voice {
             op.detune = op.isFixedFreq ? params.detune
                 : dexedDetuneFactor(op.baseFrequency, detuneCents: params.detuneCents)
             op.env.setRates(params.dx7EgR0, params.dx7EgR1, params.dx7EgR2, params.dx7EgR3)
-            op.env.setLevels(params.dx7EgL0, params.dx7EgL1, params.dx7EgL2, params.dx7EgL3)
+            op.setEnvelopeLevels(params.dx7EgL0, params.dx7EgL1, params.dx7EgL2, params.dx7EgL3)
             // Recompute frequency from the new ratio/detune so live edits affect a
             // held note (ratio/detune alone don't refresh `freq`; only note-on and
             // applyPitchBend do). Skip fixed-frequency operators.
