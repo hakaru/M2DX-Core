@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.22.0] - 2026-09-15
+
 ### Added
 - **Mono performance mode (M2DX #115).** `setMonoPerformance(enabled:portamentoMode:glissando:)`
   publishes through the parameter snapshot (no extra MIDI producer), and a mode-generation counter
