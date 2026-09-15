@@ -19,6 +19,9 @@ package struct DX7Envelope {
     var rates: (Int, Int, Int, Int) = (99, 75, 50, 50)
     var levels: (Int, Int, Int, Int) = (99, 80, 70, 0)
     var outlevel: Int = 4064  // microsteps: scaleOutputLevel(OL) << 5
+    // Keep attenuation separate from the running EG so crossing the silence floor
+    // cannot finish an attack/decay/release early. Always <= 0; louder edits rebase.
+    private var liveOutputOffset: Int = 0
     var rateScaling: Int = 0
 
     var srMultiplier: Int64 = 1 << 24  // Q24: (44100/sampleRate) × (1<<24)
@@ -37,15 +40,66 @@ package struct DX7Envelope {
     }
 
     mutating func setLevels(_ a: Int, _ b: Int, _ c: Int, _ d: Int) {
-        levels = (min(99, max(0, a)), min(99, max(0, b)),
-                  min(99, max(0, c)), min(99, max(0, d)))
+        let next = (min(99, max(0, a)), min(99, max(0, b)),
+                    min(99, max(0, c)), min(99, max(0, d)))
+        guard levels != next else { return }
+        if ix == 3 && down {
+            // Sustain holds L3. Move the held level by the L3 change only: a legato retarget
+            // keeps the level of the previous key's KLS (DX7Voice.legatoTo), and that deviation
+            // from the trajectory's L3 must survive an EG edit. L4-only edits leave it alone.
+            let l3Delta = levelFor(next.2, output: referenceOutput)
+                &- levelFor(levels.2, output: referenceOutput)
+            level = max(16 << 16, level &+ l3Delta)
+        }
+        levels = next
+        recalcTargetLevel()
     }
 
+    /// Output the running trajectory was computed against; `liveOutputOffset` is applied on top.
+    private var referenceOutput: Int { outlevel - liveOutputOffset }
+
+    /// Configure the base level; sounding-operator edits use updateOutputLevel.
     mutating func setOutputLevel(_ ol: Int) {
         outlevel = scaleOutputLevel(ol) << 5
+        liveOutputOffset = 0
+    }
+
+    /// Change the output offset of a running envelope without restarting its stage.
+    /// The FM kernels ramp the resulting gain/attenuation over the next block.
+    mutating func updateOutputLevel(_ microsteps: Int) {
+        let delta = microsteps - outlevel
+        guard delta != 0 else { return }
+        outlevel = microsteps
+        guard ix >= 0, ix < 4 else { liveOutputOffset = 0; return }
+
+        liveOutputOffset += delta
+        if liveOutputOffset > 0 {
+            // A positive offset at the end of release would lift its silence floor.
+            // Rebase upward instead, keeping the current stage and natural tail.
+            // Sustain rises by its L3 difference (a floor-clamped L3 carries no offset), other
+            // stages by the offset; either way the held level's deviation from the trajectory
+            // (a legato retarget) is kept, so one OL step moves the output by one step.
+            let rise = ix == 3 && down
+                ? levelFor(levels.2, output: outlevel) &- levelFor(levels.2, output: referenceOutput)
+                : Int32(liveOutputOffset << 16)
+            // A legato note may retain a level from stronger KLS; do not add the boost on top
+            // of it beyond the current note's full-scale EG level, and never lower it here.
+            level = min(level &+ rise, max(level, levelFor(99, output: outlevel)))
+            liveOutputOffset = 0
+            recalcTargetLevel()
+        }
+    }
+
+    /// KLS changes affect both the edited OL and the reference OL. Recompute their
+    /// difference instead of carrying an offset through the keyboard's OL ceiling.
+    mutating func updateKeyboardOutputLevel(_ microsteps: Int, reference: Int) {
+        outlevel = microsteps
+        liveOutputOffset = microsteps - reference
+        recalcTargetLevel()
     }
 
     mutating func noteOn() {
+        liveOutputOffset = 0
         level = 0
         down = true
         advance(0)
@@ -54,6 +108,8 @@ package struct DX7Envelope {
     mutating func noteOff(held: Bool = false) {
         if held { return }
         if ix >= 0 {
+            // The offset stays in force through the release: the trajectory keeps its full
+            // length, so a muted note that is restored mid-release still has its tail.
             down = false
             advance(3)
         }
@@ -96,7 +152,20 @@ package struct DX7Envelope {
         // natural completion (advance(4) → ix = -1 at the L4 floor), bit-exactly matching the
         // DEXED reference EG trace. Voice slots for long releases are reclaimed by voice
         // stealing, not a wall-clock guillotine. (#92)
-        return level
+        return outputSample()
+    }
+
+    @inline(__always)
+    private func levelFor(_ egLevel: Int, output: Int) -> Int32 {
+        Int32(max(16, ((scaleOutputLevel(egLevel) >> 1) << 6) + output - 4256) << 16)
+    }
+
+    @inline(__always)
+    private func outputSample() -> Int32 {
+        guard liveOutputOffset != 0 else { return level }
+        // The offset is only ever <= 0 here (louder edits rebase `level`), so this also
+        // covers a sustain whose held level came from another key's KLS.
+        return max(16 << 16, level &+ Int32(liveOutputOffset << 16))
     }
 
     private mutating func advance(_ newIx: Int) {
@@ -112,9 +181,7 @@ package struct DX7Envelope {
         default: newLevel = 0
         }
 
-        var actualLevel = ((scaleOutputLevel(newLevel) >> 1) << 6) + outlevel - 4256
-        actualLevel = max(16, actualLevel)
-        targetLevel = Int32(actualLevel << 16)
+        targetLevel = levelFor(newLevel, output: outlevel - liveOutputOffset)
         rising = targetLevel > level
 
         if targetLevel == level {
@@ -167,9 +234,7 @@ package struct DX7Envelope {
         case 3: newLevel = levels.3
         default: newLevel = 0
         }
-        var actualLevel = ((scaleOutputLevel(newLevel) >> 1) << 6) + outlevel - 4256
-        actualLevel = max(16, actualLevel)
-        targetLevel = Int32(actualLevel << 16)
+        targetLevel = levelFor(newLevel, output: outlevel - liveOutputOffset)
         rising = targetLevel > level
     }
 }

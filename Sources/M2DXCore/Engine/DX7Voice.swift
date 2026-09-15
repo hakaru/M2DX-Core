@@ -206,8 +206,7 @@ package struct DX7Voice {
                 op.klsOffset = scaleKeyboardLevel(n, breakPoint: snapshot.klsBreakPoint,
                     leftDepth: snapshot.klsLeftDepth, rightDepth: snapshot.klsRightDepth,
                     leftCurve: snapshot.klsLeftCurve, rightCurve: snapshot.klsRightCurve)
-                op.env.outlevel = max(0, (min(127, scaleOutputLevel(op.outputLevel) + op.klsOffset) << 5) + op.velocityOffset)
-                op.env.recalcTargetLevel()
+                op.refreshKeyboardOutputLevel()
                 op.env.rateScaling = keyboardRateScaling(note: n, scaling: snapshot.keyboardRateScaling)
                 op.env.recalcCurrentInc()
             }

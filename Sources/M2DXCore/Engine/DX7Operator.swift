@@ -15,6 +15,9 @@ package struct DX7Operator {
     var detune: Float = 1.0
     var detuneCents: Float = 0   // #96: DX7 detune param − 7 (−7…+7); per-note factor computed at noteOn
     var outputLevel: Int = 99
+    // Highest raw OL used by the current EG trajectory. Keep the raw value so
+    // legato KLS clipping cannot accumulate an unbounded attenuation offset.
+    private var envelopeReferenceOL: Int = 99
     var phase: Int32 = 0          // Q24 phase accumulator
     var freq: Int32 = 0           // Q24 per-sample phase increment
     var gainOut: Int32 = 0        // Previous block's gain (for interpolation)
@@ -48,6 +51,7 @@ package struct DX7Operator {
         detune = dexedDetuneFactor(baseFreq, detuneCents: detuneCents)
         frequency = baseFreq * ratio * detune
         updateFreq()
+        envelopeReferenceOL = outputLevel
         env.noteOn()
         phase = 0; fbBuf = (0, 0); gainOut = 0
     }
@@ -66,8 +70,18 @@ package struct DX7Operator {
 
     mutating func setOutputLevel(_ level: Int) {
         outputLevel = min(99, max(0, level))
-        let scaledOL = scaleOutputLevel(outputLevel)
-        env.outlevel = max(0, (min(127, scaledOL + klsOffset) << 5) + velocityOffset)
+        envelopeReferenceOL = env.isActive ? max(envelopeReferenceOL, outputLevel) : outputLevel
+        env.updateOutputLevel(combinedOutputLevel(outputLevel))
+    }
+
+    /// Follow the legato note's KLS while retaining the running envelope trajectory.
+    mutating func refreshKeyboardOutputLevel() {
+        env.updateKeyboardOutputLevel(combinedOutputLevel(outputLevel),
+                                      reference: combinedOutputLevel(envelopeReferenceOL))
+    }
+
+    private func combinedOutputLevel(_ ol: Int) -> Int {
+        max(0, (min(127, scaleOutputLevel(ol) + klsOffset) << 5) + velocityOffset)
     }
 
     /// Update gain from EG. Called once per block before compute.

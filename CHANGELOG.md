@@ -32,6 +32,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   pressed again. The default (`true`) keeps existing calls unchanged.
 
 ### Fixed
+- **Live operator output levels (M2DX #112).** Changes now reach sounding notes on both
+  FM engines without retriggering the envelope. Muting and restoring a level preserves
+  an in-progress envelope, including a release that began while muted; simultaneous
+  output/EG-level edits use the new sustain level. A Mono legato note keeps the sustain
+  level of the key it started on (as before), and an OL or EG-level edit then moves that
+  held level by the edit alone. Known limit: a note that started at a low OL (below about
+  33 with no scaling) has its attack/decay compressed against the EG floor, so raising OL
+  later jumps near the current stage's peak instead of replaying the remaining attack.
 - **Mono handovers no longer cut the sound for one sample (#116).** A Mono attack over a
   sounding or releasing note (a release tail, a pedal-held note, a note in another part) moves
   that note to a free voice slot and fades it out linearly, while the new note attacks from
