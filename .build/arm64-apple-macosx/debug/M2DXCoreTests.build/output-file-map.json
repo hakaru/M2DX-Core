@@ -1,0 +1,334 @@
+{
+  "": {
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/primary.swiftdeps"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/AlgorithmTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/AlgorithmTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/AlgorithmTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/AlgorithmTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/AlgorithmTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/AlgorithmTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/CodeReviewRegressionTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/CodeReviewRegressionTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/CodeReviewRegressionTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/CodeReviewRegressionTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/CodeReviewRegressionTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/CodeReviewRegressionTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/ConcurrencyTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/ConcurrencyTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/ConcurrencyTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/ConcurrencyTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/ConcurrencyTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/ConcurrencyTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/DX7SysExBankPublicInitTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/DX7SysExBankPublicInitTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/DX7SysExBankPublicInitTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/DX7SysExBankPublicInitTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/DX7SysExBankPublicInitTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/DX7SysExBankPublicInitTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/Dx7refmkiSmokeTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/Dx7refmkiSmokeTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/Dx7refmkiSmokeTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/Dx7refmkiSmokeTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/Dx7refmkiSmokeTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/Dx7refmkiSmokeTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/EGBiasTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/EGBiasTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/EGBiasTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/EGBiasTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/EGBiasTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/EGBiasTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/EnvelopeTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/EnvelopeTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/EnvelopeTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/EnvelopeTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/EnvelopeTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/EnvelopeTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/FMEngineSnapshotTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/FMEngineSnapshotTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/FMEngineSnapshotTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/FMEngineSnapshotTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/FMEngineSnapshotTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/FMEngineSnapshotTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/FMEngineSwitchTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/FMEngineSwitchTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/FMEngineSwitchTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/FMEngineSwitchTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/FMEngineSwitchTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/FMEngineSwitchTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/LFOTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/LFOTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/LFOTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/LFOTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/LFOTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/LFOTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/LayerPanRandomTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/LayerPanRandomTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/LayerPanRandomTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/LayerPanRandomTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/LayerPanRandomTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/LayerPanRandomTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/LayerTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/LayerTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/LayerTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/LayerTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/LayerTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/LayerTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/LiveOutputLevelTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/LiveOutputLevelTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/LiveOutputLevelTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/LiveOutputLevelTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/LiveOutputLevelTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/LiveOutputLevelTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/MarkIAlg6AnchorTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIAlg6AnchorTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIAlg6AnchorTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIAlg6AnchorTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIAlg6AnchorTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIAlg6AnchorTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/MarkICalibrationCharacterizationTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkICalibrationCharacterizationTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkICalibrationCharacterizationTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkICalibrationCharacterizationTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkICalibrationCharacterizationTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkICalibrationCharacterizationTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/MarkICalibrationTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkICalibrationTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkICalibrationTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkICalibrationTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkICalibrationTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkICalibrationTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/MarkIComparisonTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIComparisonTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIComparisonTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIComparisonTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIComparisonTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIComparisonTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/MarkIDACCompandingTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIDACCompandingTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIDACCompandingTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIDACCompandingTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIDACCompandingTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIDACCompandingTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/MarkIDivisorABTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIDivisorABTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIDivisorABTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIDivisorABTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIDivisorABTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIDivisorABTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/MarkIFbChainTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIFbChainTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIFbChainTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIFbChainTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIFbChainTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIFbChainTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/MarkIGainTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIGainTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIGainTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIGainTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIGainTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIGainTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/MarkIKernelTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIKernelTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIKernelTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIKernelTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIKernelTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIKernelTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/MarkITablesTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkITablesTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkITablesTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkITablesTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkITablesTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkITablesTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/MarkIVoiceRenderTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIVoiceRenderTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIVoiceRenderTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIVoiceRenderTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIVoiceRenderTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MarkIVoiceRenderTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/MkiSinTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MkiSinTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MkiSinTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MkiSinTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MkiSinTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MkiSinTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/ModWheelTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/ModWheelTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/ModWheelTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/ModWheelTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/ModWheelTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/ModWheelTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/MonoBoundaryTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MonoBoundaryTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MonoBoundaryTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MonoBoundaryTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MonoBoundaryTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MonoBoundaryTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/MonoPerformanceTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MonoPerformanceTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MonoPerformanceTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MonoPerformanceTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MonoPerformanceTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/MonoPerformanceTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/NRPNAutomationTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/NRPNAutomationTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/NRPNAutomationTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/NRPNAutomationTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/NRPNAutomationTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/NRPNAutomationTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/PerformanceTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/PerformanceTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/PerformanceTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/PerformanceTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/PerformanceTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/PerformanceTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/PitchEGTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/PitchEGTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/PitchEGTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/PitchEGTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/PitchEGTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/PitchEGTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/PolyGoldenTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/PolyGoldenTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/PolyGoldenTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/PolyGoldenTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/PolyGoldenTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/PolyGoldenTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/PolyIsolationTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/PolyIsolationTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/PolyIsolationTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/PolyIsolationTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/PolyIsolationTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/PolyIsolationTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/PortamentoTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/PortamentoTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/PortamentoTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/PortamentoTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/PortamentoTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/PortamentoTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/PresetLoadTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/PresetLoadTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/PresetLoadTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/PresetLoadTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/PresetLoadTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/PresetLoadTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/ROM1AImportComparisonTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/ROM1AImportComparisonTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/ROM1AImportComparisonTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/ROM1AImportComparisonTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/ROM1AImportComparisonTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/ROM1AImportComparisonTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/ReferenceTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/ReferenceTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/ReferenceTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/ReferenceTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/ReferenceTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/ReferenceTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/TableTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/TableTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/TableTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/TableTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/TableTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/TableTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/UnisonDetuneRandomTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/UnisonDetuneRandomTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/UnisonDetuneRandomTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/UnisonDetuneRandomTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/UnisonDetuneRandomTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/UnisonDetuneRandomTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/UnisonTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/UnisonTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/UnisonTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/UnisonTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/UnisonTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/UnisonTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/VintageDACTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/VintageDACTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/VintageDACTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/VintageDACTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/VintageDACTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/VintageDACTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/VoiceAllocatorTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/VoiceAllocatorTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/VoiceAllocatorTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/VoiceAllocatorTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/VoiceAllocatorTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/VoiceAllocatorTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/VoiceComparisonTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/VoiceComparisonTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/VoiceComparisonTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/VoiceComparisonTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/VoiceComparisonTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/VoiceComparisonTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/VoiceStackDetuneTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/VoiceStackDetuneTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/VoiceStackDetuneTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/VoiceStackDetuneTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/VoiceStackDetuneTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/VoiceStackDetuneTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/VoiceStackTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/VoiceStackTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/VoiceStackTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/VoiceStackTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/VoiceStackTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/VoiceStackTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/WaveformTests.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/WaveformTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/WaveformTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/WaveformTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/WaveformTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/WaveformTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/M2DXCoreTests/_RefactorEvalDump.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/_RefactorEvalDump.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/_RefactorEvalDump.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/_RefactorEvalDump~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/_RefactorEvalDump.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCoreTests.build/_RefactorEvalDump.dia"
+  }
+}

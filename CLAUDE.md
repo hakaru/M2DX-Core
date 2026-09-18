@@ -10,7 +10,16 @@ swift test                           # 全 107 テストを実行
 swift test --verbose                 # テスト名を含めて詳細出力
 swift test --filter Table            # 単一スイート（例: TableTests, AlgorithmTests, VoiceComparisonTests）
 swift test --filter VoiceComparison/initVoiceMatchesDEXED   # 単一テスト
+swift test -c release --filter Performance   # 性能の壁時計計測（M2DX_PERF=1 で閾値を有効化）
 ```
+
+一部のテストは環境変数でのみ有効になる（既定ではスキップし、CI では走らない）:
+
+| 変数 | 対象 | 目的 |
+|---|---|---|
+| `M2DX_PERF` | `PerformanceTests` の 16 声レンダ | 壁時計の閾値（50ms）を有効にする。デバッグビルドや共有ランナーでは数値が安定しないため、既定では計測値を print するだけ。レンダ自体と出力の有限性チェックは常に走る |
+| `M2DX_MARKI_CHAR` | Mark I キャリブレーション特性 | 曲線の出力（レポート用） |
+| `M2DX_MARKI_AB` | Mark I 除数の A/B | 比較の出力（レポート用） |
 
 CI (`.github/workflows/ci.yml`) は `macos-15` + Xcode 16 で動作し、加えて `Sources/` 配下に文字列 `msfa` が存在しないかを `grep` で検査する。1 件でもヒットすればビルドは失敗する（後述「クリーンルーム規約」を参照）。要件: Swift 6.0+, macOS 15+ / iOS 18+。
 

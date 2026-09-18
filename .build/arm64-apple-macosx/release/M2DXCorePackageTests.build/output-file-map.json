@@ -1,0 +1,13 @@
+{
+  "": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/release/M2DXCorePackageTests.build/M2DXCorePackageTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/release/M2DXCorePackageTests.build/M2DXCorePackageTests.o",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/release/M2DXCorePackageTests.build/primary.swiftdeps"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/release/M2DXCorePackageTests.derived/runner.swift": {
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/release/M2DXCorePackageTests.build/runner.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/release/M2DXCorePackageTests.build/runner~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/release/M2DXCorePackageTests.build/runner.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/release/M2DXCorePackageTests.build/runner.dia"
+  }
+}

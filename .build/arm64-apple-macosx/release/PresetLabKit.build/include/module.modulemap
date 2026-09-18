@@ -1,0 +1,3 @@
+module PresetLabKit {
+    header "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/release/PresetLabKit.build/include/PresetLabKit-Swift.h"
+}

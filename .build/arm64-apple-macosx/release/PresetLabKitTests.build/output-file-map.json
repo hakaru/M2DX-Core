@@ -1,0 +1,25 @@
+{
+  "": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/release/PresetLabKitTests.build/PresetLabKitTests.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/release/PresetLabKitTests.build/PresetLabKitTests.o",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/release/PresetLabKitTests.build/primary.swiftdeps"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/PresetLabKitTests/ArchetypeTests.swift": {
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/release/PresetLabKitTests.build/ArchetypeTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/release/PresetLabKitTests.build/ArchetypeTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/release/PresetLabKitTests.build/ArchetypeTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/release/PresetLabKitTests.build/ArchetypeTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/PresetLabKitTests/HeadlessRendererTests.swift": {
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/release/PresetLabKitTests.build/HeadlessRendererTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/release/PresetLabKitTests.build/HeadlessRendererTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/release/PresetLabKitTests.build/HeadlessRendererTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/release/PresetLabKitTests.build/HeadlessRendererTests.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Tests/PresetLabKitTests/MetricsTests.swift": {
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/release/PresetLabKitTests.build/MetricsTests.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/release/PresetLabKitTests.build/MetricsTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/release/PresetLabKitTests.build/MetricsTests.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/release/PresetLabKitTests.build/MetricsTests.dia"
+  }
+}

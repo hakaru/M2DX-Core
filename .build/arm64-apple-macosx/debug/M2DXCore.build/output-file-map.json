@@ -1,0 +1,208 @@
+{
+  "": {
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/primary.swiftdeps"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Sources/M2DXCore/DSP/Downsampler.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/Downsampler.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/Downsampler.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/Downsampler~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/Downsampler.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/Downsampler.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Sources/M2DXCore/DSP/VoiceMixer.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/VoiceMixer.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/VoiceMixer.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/VoiceMixer~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/VoiceMixer.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/VoiceMixer.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Sources/M2DXCore/Engine/Algorithm.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/Algorithm.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/Algorithm.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/Algorithm~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/Algorithm.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/Algorithm.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Sources/M2DXCore/Engine/DX7Envelope.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7Envelope.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7Envelope.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7Envelope~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7Envelope.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7Envelope.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Sources/M2DXCore/Engine/DX7MarkI.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7MarkI.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7MarkI.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7MarkI~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7MarkI.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7MarkI.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Sources/M2DXCore/Engine/DX7Operator.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7Operator.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7Operator.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7Operator~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7Operator.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7Operator.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Sources/M2DXCore/Engine/DX7Voice.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7Voice.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7Voice.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7Voice~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7Voice.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7Voice.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Sources/M2DXCore/Engine/MonoNoteTracker.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/MonoNoteTracker.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/MonoNoteTracker.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/MonoNoteTracker~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/MonoNoteTracker.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/MonoNoteTracker.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Sources/M2DXCore/Engine/ParameterSnapshot.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/ParameterSnapshot.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/ParameterSnapshot.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/ParameterSnapshot~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/ParameterSnapshot.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/ParameterSnapshot.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Sources/M2DXCore/Engine/SynthEngine.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/SynthEngine.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/SynthEngine.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/SynthEngine~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/SynthEngine.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/SynthEngine.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Sources/M2DXCore/Infrastructure/SPSCRing.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/SPSCRing.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/SPSCRing.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/SPSCRing~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/SPSCRing.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/SPSCRing.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Sources/M2DXCore/Infrastructure/SnapshotRing.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/SnapshotRing.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/SnapshotRing.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/SnapshotRing~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/SnapshotRing.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/SnapshotRing.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Sources/M2DXCore/Preset/BassPresets.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/BassPresets.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/BassPresets.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/BassPresets~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/BassPresets.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/BassPresets.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Sources/M2DXCore/Preset/BrassPresets.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/BrassPresets.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/BrassPresets.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/BrassPresets~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/BrassPresets.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/BrassPresets.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Sources/M2DXCore/Preset/DX7Algorithms.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7Algorithms.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7Algorithms.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7Algorithms~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7Algorithms.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7Algorithms.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Sources/M2DXCore/Preset/DX7FactoryPresets.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7FactoryPresets.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7FactoryPresets.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7FactoryPresets~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7FactoryPresets.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7FactoryPresets.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Sources/M2DXCore/Preset/DX7Preset.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7Preset.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7Preset.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7Preset~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7Preset.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7Preset.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Sources/M2DXCore/Preset/DX7SysExParser.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7SysExParser.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7SysExParser.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7SysExParser~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7SysExParser.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/DX7SysExParser.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Sources/M2DXCore/Preset/KeysPresets.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/KeysPresets.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/KeysPresets.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/KeysPresets~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/KeysPresets.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/KeysPresets.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Sources/M2DXCore/Preset/OrganPresets.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/OrganPresets.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/OrganPresets.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/OrganPresets~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/OrganPresets.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/OrganPresets.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Sources/M2DXCore/Preset/OtherPresets.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/OtherPresets.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/OtherPresets.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/OtherPresets~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/OtherPresets.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/OtherPresets.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Sources/M2DXCore/Preset/PercussionPresets.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/PercussionPresets.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/PercussionPresets.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/PercussionPresets~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/PercussionPresets.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/PercussionPresets.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Sources/M2DXCore/Preset/StringsPresets.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/StringsPresets.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/StringsPresets.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/StringsPresets~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/StringsPresets.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/StringsPresets.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Sources/M2DXCore/Preset/WoodwindPresets.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/WoodwindPresets.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/WoodwindPresets.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/WoodwindPresets~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/WoodwindPresets.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/WoodwindPresets.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Sources/M2DXCore/Tables/Exp2Table.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/Exp2Table.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/Exp2Table.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/Exp2Table~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/Exp2Table.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/Exp2Table.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Sources/M2DXCore/Tables/FrequencyTable.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/FrequencyTable.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/FrequencyTable.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/FrequencyTable~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/FrequencyTable.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/FrequencyTable.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Sources/M2DXCore/Tables/MarkISinTables.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/MarkISinTables.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/MarkISinTables.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/MarkISinTables~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/MarkISinTables.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/MarkISinTables.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Sources/M2DXCore/Tables/ScalingTable.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/ScalingTable.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/ScalingTable.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/ScalingTable~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/ScalingTable.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/ScalingTable.dia"
+  },
+  "/Users/hakaru/DEVELOP/M2DX-Core/Sources/M2DXCore/Tables/SinTable.swift": {
+    "dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/SinTable.d",
+    "object": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/SinTable.swift.o",
+    "swiftmodule": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/SinTable~partial.swiftmodule",
+    "swift-dependencies": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/SinTable.swiftdeps",
+    "diagnostics": "/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCore.build/SinTable.dia"
+  }
+}

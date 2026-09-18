@@ -1,0 +1,5 @@
+---
+triple:          'arm64-apple-darwin'
+binary-path:     '/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/debug/M2DXCorePackageTests.xctest/Contents/MacOS/M2DXCorePackageTests'
+relocations:     []
+...
