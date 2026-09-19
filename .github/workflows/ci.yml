@@ -19,7 +19,13 @@ jobs:
         run: swift build
 
       - name: Test
-        run: swift test
+        # --no-parallel is a probe, not a decision: since 2026-09-15 this job
+        # has died with SIGBUS (signal 10) part-way through the swift-testing
+        # run — three times, always without a failing test, and never
+        # reproducible locally on Swift 6.3 / macOS 26. If serial execution is
+        # green, the crash is tied to running the suite concurrently on this
+        # runner and the flag can come back out once the cause is fixed.
+        run: swift test --no-parallel
 
       - name: Check no msfa identifiers
         # Case-sensitive: guards against copied MSFA code (lowercase `msfa`
