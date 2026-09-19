@@ -1,4 +1,0 @@
-module DX7Ref {
-    umbrella header "/Users/hakaru/DEVELOP/M2DX-Core/Sources/DX7Ref/include/DX7Ref.h"
-    export *
-}

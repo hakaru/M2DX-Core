@@ -1,5 +1,0 @@
----
-triple:          'arm64-apple-darwin'
-binary-path:     '/Users/hakaru/DEVELOP/M2DX-Core/.build/arm64-apple-macosx/release/preset-lab'
-relocations:     []
-...
