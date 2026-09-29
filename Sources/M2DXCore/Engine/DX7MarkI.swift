@@ -55,7 +55,7 @@ func dac12bitCompand(_ sample: Float) -> Float {
 /// #95: full-scale reference for per-voice DAC companding — per-voice raw OPS samples are
 /// divided by this before `dac12bitCompand` so its (−1,1)-normalized exponent selector
 /// (0.5/0.25/0.125) engages across the real dynamic range, then multiplied back.
-/// Runtime-settable for calibration A/B tests (like `markIModScaleQ12`); shipping default
+/// Runtime-settable for DAC characterization tests; shipping default
 /// chosen by ear-A/B (#95): 2^25. At 2^26 (the OPS single-op theoretical max = `8192 << 13`),
 /// ~80% of samples stayed at exponent 8 (inaudible fine-grid region); 2^25 shifts engagement
 /// into exp 2/4 for an audible-but-not-crushed vintage character.
@@ -70,16 +70,17 @@ let kMarkILevelThresh: UInt16 = UInt16(kMarkIEnvMax - 100)
 /// the modulator output feeds the carrier phase scaled DOWN, which is what gives
 /// the OPS its darker, warmer timbre. Default 512 = ÷8 — the bit-exact-parity
 /// reference (`(v·512)>>12 == v>>3`, the value the dx7refmki C twin uses); the
-/// app overrides it via `SynthEngine.setMarkIModDivisor`, which is calibrated
+/// app overrides it per engine via `SynthEngine.setMarkIModDivisor`, calibrated
 /// against real Dexed Mark I (BASS 1 / alg15, E.PIANO 1 / alg4). Q12 gives
 /// meaningful 0.1-step ÷X resolution across ÷2…÷16. Only the FORWARD modulation
 /// is scaled; the carrier DAC output (`<< 13`) and the feedback path are left
-/// unscaled. Written by an aligned-Int32 store (atomic on arm64).
-nonisolated(unsafe) var markIModScaleQ12: Int32 = 512
+/// unscaled. This constant is the kernel default; SynthEngine passes each voice's
+/// snapshot value explicitly instead of sharing a mutable process-global scale.
+let kMarkIDefaultModScaleQ12: Int32 = 512
 
 @inline(__always)
-private func markIModScale(_ v: Int32) -> Int32 {
-    Int32(truncatingIfNeeded: (Int64(v) &* Int64(markIModScaleQ12)) >> 12)
+private func markIModScale(_ v: Int32, scaleQ12: Int32) -> Int32 {
+    Int32(truncatingIfNeeded: (Int64(v) &* Int64(scaleQ12)) >> 12)
 }
 
 // MARK: - Single-input FM kernels (mod / pure / fb)
@@ -93,11 +94,12 @@ private func attenRamp(_ a1: UInt16, _ a2: UInt16, _ n: Int) -> Int32 {
 
 @inline(__always)
 func computeModMkI(_ output: UnsafeMutablePointer<Int32>, _ input: UnsafePointer<Int32>,
-                   phase0: Int32, freq: Int32, atten1: UInt16, atten2: UInt16, add: Bool, n: Int) {
+                   phase0: Int32, freq: Int32, atten1: UInt16, atten2: UInt16, add: Bool, n: Int,
+                   modScaleQ12: Int32 = kMarkIDefaultModScaleQ12) {
     let dA = attenRamp(atten1, atten2, n); var aAcc = Int32(atten1); var phase = phase0
     for i in 0..<n {
         aAcc &+= dA
-        let y = mkiSin(phase &+ markIModScale(input[i]), UInt16(truncatingIfNeeded: max(0, aAcc)))
+        let y = mkiSin(phase &+ markIModScale(input[i], scaleQ12: modScaleQ12), UInt16(truncatingIfNeeded: max(0, aAcc)))
         output[i] = add ? (output[i] &+ y) : y
         phase &+= freq
     }
@@ -143,7 +145,8 @@ struct MarkIChainParams {
 
 @inline(__always)
 func computeFb2MkI(_ output: UnsafeMutablePointer<Int32>, _ p: inout MarkIChainParams,
-                   atten01: UInt16, atten02: UInt16, fbBuf: inout (Int32, Int32), fbShift: Int) {
+                   atten01: UInt16, atten02: UInt16, fbBuf: inout (Int32, Int32), fbShift: Int,
+                   modScaleQ12: Int32 = kMarkIDefaultModScaleQ12) {
     let dA0 = attenRamp(atten01, atten02, kBlockSize); var a0 = Int32(atten01)
     let a1Target = markIAtten(p.levelIn.1)
     var ph0 = p.phase.0; var ph1 = p.phase.1
@@ -154,7 +157,7 @@ func computeFb2MkI(_ output: UnsafeMutablePointer<Int32>, _ p: inout MarkIChainP
         y0 = y
         y = mkiSin(ph0 &+ scaledFb, UInt16(truncatingIfNeeded: max(0, a0)))
         ph0 &+= p.freq.0
-        y = mkiSin(ph1 &+ markIModScale(y), a1Target)
+        y = mkiSin(ph1 &+ markIModScale(y, scaleQ12: modScaleQ12), a1Target)
         ph1 &+= p.freq.1
         output[i] = y
     }
@@ -164,7 +167,8 @@ func computeFb2MkI(_ output: UnsafeMutablePointer<Int32>, _ p: inout MarkIChainP
 
 @inline(__always)
 func computeFb3MkI(_ output: UnsafeMutablePointer<Int32>, _ p: inout MarkIChainParams,
-                   atten01: UInt16, atten02: UInt16, fbBuf: inout (Int32, Int32), fbShift: Int) {
+                   atten01: UInt16, atten02: UInt16, fbBuf: inout (Int32, Int32), fbShift: Int,
+                   modScaleQ12: Int32 = kMarkIDefaultModScaleQ12) {
     let dA0 = attenRamp(atten01, atten02, kBlockSize); var a0 = Int32(atten01)
     let a1 = markIAtten(p.levelIn.1); let a2 = markIAtten(p.levelIn.2)
     var ph0 = p.phase.0; var ph1 = p.phase.1; var ph2 = p.phase.2
@@ -174,8 +178,8 @@ func computeFb3MkI(_ output: UnsafeMutablePointer<Int32>, _ p: inout MarkIChainP
         a0 &+= dA0
         y0 = y
         y = mkiSin(ph0 &+ scaledFb, UInt16(truncatingIfNeeded: max(0, a0))); ph0 &+= p.freq.0
-        y = mkiSin(ph1 &+ markIModScale(y), a1); ph1 &+= p.freq.1
-        y = mkiSin(ph2 &+ markIModScale(y), a2); ph2 &+= p.freq.2
+        y = mkiSin(ph1 &+ markIModScale(y, scaleQ12: modScaleQ12), a1); ph1 &+= p.freq.1
+        y = mkiSin(ph2 &+ markIModScale(y, scaleQ12: modScaleQ12), a2); ph2 &+= p.freq.2
         output[i] = y
     }
     p.phase.0 = ph0; p.phase.1 = ph1; p.phase.2 = ph2

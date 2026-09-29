@@ -66,6 +66,7 @@ Enqueue a MIDI event from the UI thread. Lock-free, allocation-free.
 |--------|-------|-------------|
 | `setSampleRate(_ sr: Float)` | 8000–192000 | Audio sample rate in Hz; values ≥ 1 are clamped, invalid/non-finite values fall back to 44100. Callable from a host lifecycle thread. |
 | `setMasterVolume(_ vol: Float)` | 0.0–1.0 | Master output volume |
+| `setMarkIModDivisor(_ divisor: Double)` | ≥ 0.5 | Per-engine Mark I depth divisor (default 8); non-finite values use 8. Published with the UI parameter batch. |
 | `setMasterTuning(_ cents: Int16)` | -100–100 | Master fine tuning in cents |
 | `setAlgorithm(_ alg: Int)` | 0–31 | FM algorithm (0-indexed) |
 | `setOversamplingMode(_ mode: OversamplingMode)` | — | Oversampling quality |

@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.22.1] - 2026-09-29
 
 ### Fixed
+- **Independent Mark I depth (M2DX #119).** Each engine now publishes its depth
+  with the other voice parameters. Creating or editing another AU instance cannot
+  alter its sound, and open editor batches no longer leak depth changes to render.
 - **Host sample-rate publication (M2DX #119).** `setSampleRate` uses an independent
   atomic value so host resource allocation can overlap UI parameter edits without
   becoming a second snapshot producer. The next render uses the requested rate,
