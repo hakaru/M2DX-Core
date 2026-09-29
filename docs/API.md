@@ -28,7 +28,7 @@ public final class SynthEngine: @unchecked Sendable
 
 DX7 FM synthesis engine with lock-free UI → audio thread parameter transfer.
 
-**Thread safety:** UI thread writes parameters via setter methods; audio thread reads via `render()`. No locks on the render path — all cross-thread communication uses atomic SPSC ring buffers.
+**Thread safety:** UI thread writes parameters via setter methods; audio thread reads via `render()`. Parameter snapshots use an atomic SPSC ring buffer with a single UI producer. `setSampleRate(_:)` is an exception: it may be called from a host lifecycle thread and publishes an independent atomic value, applied at the next render boundary even while a UI batch is open. It does not flush that batch. The render path takes no locks.
 
 ### Initialization
 
@@ -64,7 +64,7 @@ Enqueue a MIDI event from the UI thread. Lock-free, allocation-free.
 
 | Method | Range | Description |
 |--------|-------|-------------|
-| `setSampleRate(_ sr: Float)` | > 0 | Audio sample rate in Hz |
+| `setSampleRate(_ sr: Float)` | 8000–192000 | Audio sample rate in Hz; values ≥ 1 are clamped, invalid/non-finite values fall back to 44100. Callable from a host lifecycle thread. |
 | `setMasterVolume(_ vol: Float)` | 0.0–1.0 | Master output volume |
 | `setMasterTuning(_ cents: Int16)` | -100–100 | Master fine tuning in cents |
 | `setAlgorithm(_ alg: Int)` | 0–31 | FM algorithm (0-indexed) |

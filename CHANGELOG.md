@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Host sample-rate publication (M2DX #119).** `setSampleRate` uses an independent
+  atomic value so host resource allocation can overlap UI parameter edits without
+  becoming a second snapshot producer. The next render uses the requested rate,
+  including during an open editor batch; later UI snapshots cannot revert it.
 - **Legato level-edit round trips (M2DX #112).** OL and L3 edits now use the keyboard
   scaling that produced the held sustain. Muting works after a legato pitch change,
   and restoring OL or L3 no longer accumulates gain or loses the original level at

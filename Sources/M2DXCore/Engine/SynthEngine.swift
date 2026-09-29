@@ -105,6 +105,9 @@ public final class SynthEngine: @unchecked Sendable {
     private var shadowSnapshot = SynthParamSnapshot()
     private let snapshotRing = SnapshotRing<SynthParamSnapshot>(initial: SynthParamSnapshot())
     private var currentSnapshot = SynthParamSnapshot()
+    // Host resource allocation may overlap an editor batch. Sample rate is an
+    // independent publication, never a second producer of the UI snapshot ring.
+    private let requestedSampleRateBits = Atomic<UInt32>(Float(44100).bitPattern)
     /// #89-detune: advances once per note-on so random voice-stack detune re-rolls
     /// every note. Audio-thread only (mutated solely inside doNoteOn) → no atomics.
     private var voiceStackNoteOnCounter: UInt64 = 0
@@ -361,12 +364,14 @@ public final class SynthEngine: @unchecked Sendable {
         }
     }
 
+    /// May be called from a host lifecycle thread. Takes effect at the next render
+    /// boundary, independently of an open UI parameter batch.
     public func setSampleRate(_ sr: Float) {
         // Validate: a zero / negative / non-finite rate would propagate to the
         // render thread and trap in Int(inc) / Int64(...) conversions. Clamp to a
         // sane audio range, falling back to 44.1 kHz for non-finite input.
-        shadowSnapshot.sampleRate = (sr.isFinite && sr >= 1) ? min(192000, max(8000, sr)) : 44100
-        bumpVersion()
+        let rate: Float = (sr.isFinite && sr >= 1) ? min(192000, max(8000, sr)) : 44100
+        requestedSampleRateBits.store(rate.bitPattern, ordering: .relaxed)
     }
 
     public func setAlgorithm(_ alg: Int) {
@@ -1198,6 +1203,11 @@ public final class SynthEngine: @unchecked Sendable {
         // Pop latest snapshot first so MIDI handlers see current params
         if let newSnapshot = snapshotRing.popLatest() {
             currentSnapshot = newSnapshot
+        }
+        let requestedSampleRate = Float(bitPattern: requestedSampleRateBits.load(ordering: .relaxed))
+        if currentSnapshot.sampleRate != requestedSampleRate {
+            currentSnapshot.sampleRate = requestedSampleRate
+            automationDirty = true
         }
 
         if monoModeGenerationRT != currentSnapshot.monoModeGeneration {
