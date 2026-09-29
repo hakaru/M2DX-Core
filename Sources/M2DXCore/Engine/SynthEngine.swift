@@ -105,6 +105,9 @@ public final class SynthEngine: @unchecked Sendable {
     private var shadowSnapshot = SynthParamSnapshot()
     private let snapshotRing = SnapshotRing<SynthParamSnapshot>(initial: SynthParamSnapshot())
     private var currentSnapshot = SynthParamSnapshot()
+    // Host resource allocation may overlap an editor batch. Sample rate is an
+    // independent publication, never a second producer of the UI snapshot ring.
+    private let requestedSampleRateBits = Atomic<UInt32>(Float(44100).bitPattern)
     /// #89-detune: advances once per note-on so random voice-stack detune re-rolls
     /// every note. Audio-thread only (mutated solely inside doNoteOn) → no atomics.
     private var voiceStackNoteOnCounter: UInt64 = 0
@@ -361,12 +364,14 @@ public final class SynthEngine: @unchecked Sendable {
         }
     }
 
+    /// May be called from a host lifecycle thread. Takes effect at the next render
+    /// boundary, independently of an open UI parameter batch.
     public func setSampleRate(_ sr: Float) {
         // Validate: a zero / negative / non-finite rate would propagate to the
         // render thread and trap in Int(inc) / Int64(...) conversions. Clamp to a
         // sane audio range, falling back to 44.1 kHz for non-finite input.
-        shadowSnapshot.sampleRate = (sr.isFinite && sr >= 1) ? min(192000, max(8000, sr)) : 44100
-        bumpVersion()
+        let rate: Float = (sr.isFinite && sr >= 1) ? min(192000, max(8000, sr)) : 44100
+        requestedSampleRateBits.store(rate.bitPattern, ordering: .relaxed)
     }
 
     public func setAlgorithm(_ alg: Int) {
@@ -660,16 +665,17 @@ public final class SynthEngine: @unchecked Sendable {
 
     /// Mark I forward-modulation depth as a divisor ÷X (larger = darker). The
     /// engine stores it as a Q12 scale (4096/X), so 0.1 steps stay distinct
-    /// across the whole ÷2…÷16 range. Read by the Mark I kernels on the render
-    /// thread; a plain aligned-Int32 write is atomic, and the value only changes
-    /// when the user moves the depth control.
+    /// across the whole ÷2…÷16 range. Like the other UI setters, publication goes
+    /// through this engine's parameter snapshot, including beginBatch/endBatch.
+    /// Instances never share the setting, and render sees a stable per-voice value.
     public func setMarkIModDivisor(_ divisor: Double) {
-        let d = max(0.5, divisor)
-        markIModScaleQ12 = Int32(max(1, min(4096, (4096.0 / d).rounded())))
+        let d = divisor.isFinite ? max(0.5, divisor) : 8
+        shadowSnapshot.markIModScaleQ12 = Int32(max(1, min(4096, (4096.0 / d).rounded())))
+        bumpVersion()
     }
 
-    /// Test-only read of the current Mark I Q12 modulation scale.
-    public var debugMarkIModScaleQ12: Int32 { markIModScaleQ12 }
+    /// Test-only UI-lane read of this engine's requested Mark I Q12 modulation scale.
+    public var debugMarkIModScaleQ12: Int32 { shadowSnapshot.markIModScaleQ12 }
 
     /// Test-only read of the shadow snapshot's engine selection.
     public var debugShadowFMEngine: UInt8 { shadowSnapshot.fmEngine }
@@ -1199,6 +1205,11 @@ public final class SynthEngine: @unchecked Sendable {
         if let newSnapshot = snapshotRing.popLatest() {
             currentSnapshot = newSnapshot
         }
+        let requestedSampleRate = Float(bitPattern: requestedSampleRateBits.load(ordering: .relaxed))
+        if currentSnapshot.sampleRate != requestedSampleRate {
+            currentSnapshot.sampleRate = requestedSampleRate
+            automationDirty = true
+        }
 
         if monoModeGenerationRT != currentSnapshot.monoModeGeneration {
             monoModeGenerationRT = currentSnapshot.monoModeGeneration
@@ -1325,6 +1336,7 @@ public final class SynthEngine: @unchecked Sendable {
                 let slotIdx = voicesDX7[i].slotId
                 let slot = slotIdx < snapshot.activeSlotCount ? snapshot.slot(at: slotIdx) : snapshot.slot(at: 0)
                 voicesDX7[i].algorithm = slot.algorithm
+                voicesDX7[i].markIModScaleQ12 = snapshot.markIModScaleQ12
                 voicesDX7[i].feedbackShiftValue = feedbackShift(Int(slot.ops.0.feedback * 7.0 + 0.5))
                 voicesDX7[i].applyParams(slot.ops.0, opIndex: 0)
                 voicesDX7[i].applyParams(slot.ops.1, opIndex: 1)
@@ -1741,6 +1753,7 @@ public final class SynthEngine: @unchecked Sendable {
 
                 voicesDX7[target].algorithm = slot.algorithm
                 voicesDX7[target].engineMode = currentFMEngine
+                voicesDX7[target].markIModScaleQ12 = snapshot.markIModScaleQ12
                 voicesDX7[target].slotId = slotIdx
                 // #76: capture a deterministic random pan at note-on (random mode).
                 if snapshot.config(at: slotIdx).panRandom {

@@ -112,6 +112,7 @@ package struct DX7Voice {
     var egBiasOL: Int32 = 0   // #97: controller→EG-bias OL boost, set per render block
     var feedbackShiftValue: Int = 16
     var engineMode: FMEngine = .modern
+    var markIModScaleQ12: Int32 = kMarkIDefaultModScaleQ12
 
     // MIDI 2.0 Per-Note state
     var perNotePitchBendFactor: Float = 1.0
@@ -203,6 +204,7 @@ package struct DX7Voice {
                     op.baseFrequency = kMIDIFreqLUT[Int(n)]
                     op.detune = dexedDetuneFactor(op.baseFrequency, detuneCents: op.detuneCents)
                 }
+                op.preserveHeldKeyboardLevel()
                 op.klsOffset = scaleKeyboardLevel(n, breakPoint: snapshot.klsBreakPoint,
                     leftDepth: snapshot.klsLeftDepth, rightDepth: snapshot.klsRightDepth,
                     leftCurve: snapshot.klsLeftCurve, rightCurve: snapshot.klsRightCurve)
@@ -569,7 +571,7 @@ package struct DX7Voice {
                         levelIn: (ops.0.levelIn, ops.1.levelIn, 0)
                     )
                     computeFb2MkI(output, &p, atten01: atten1, atten02: atten2,
-                                  fbBuf: &fbBuf, fbShift: fbShiftMkI)
+                                  fbBuf: &fbBuf, fbShift: fbShiftMkI, modScaleQ12: markIModScaleQ12)
                     ops.0.fbBuf = fbBuf
                     ops.0.phase = p.phase.0
                     ops.1.phase = p.phase.1
@@ -587,7 +589,7 @@ package struct DX7Voice {
                         levelIn: (ops.0.levelIn, ops.1.levelIn, ops.2.levelIn)
                     )
                     computeFb3MkI(output, &p, atten01: atten1, atten02: atten2,
-                                  fbBuf: &fbBuf, fbShift: fbShiftMkI)
+                                  fbBuf: &fbBuf, fbShift: fbShiftMkI, modScaleQ12: markIModScaleQ12)
                     ops.0.fbBuf = fbBuf
                     ops.0.phase = p.phase.0
                     ops.1.phase = p.phase.1
@@ -631,7 +633,8 @@ package struct DX7Voice {
                 if inbus == 1 { inptr = UnsafePointer(bus1) }
                 else { inptr = UnsafePointer(bus2) }
                 computeModMkI(outptr, inptr, phase0: opPhase, freq: opFreq,
-                              atten1: atten1, atten2: atten2, add: shouldAdd, n: blockSize)
+                              atten1: atten1, atten2: atten2, add: shouldAdd, n: blockSize,
+                              modScaleQ12: markIModScaleQ12)
             }
 
             switch outbus {
@@ -759,7 +762,7 @@ package struct DX7Voice {
             op.detune = op.isFixedFreq ? params.detune
                 : dexedDetuneFactor(op.baseFrequency, detuneCents: params.detuneCents)
             op.env.setRates(params.dx7EgR0, params.dx7EgR1, params.dx7EgR2, params.dx7EgR3)
-            op.env.setLevels(params.dx7EgL0, params.dx7EgL1, params.dx7EgL2, params.dx7EgL3)
+            op.setEnvelopeLevels(params.dx7EgL0, params.dx7EgL1, params.dx7EgL2, params.dx7EgL3)
             // Recompute frequency from the new ratio/detune so live edits affect a
             // held note (ratio/detune alone don't refresh `freq`; only note-on and
             // applyPitchBend do). Skip fixed-frequency operators.

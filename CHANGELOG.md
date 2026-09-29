@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.22.1] - 2026-09-29
+
+### Fixed
+- **Independent Mark I depth (M2DX #119).** Each engine now publishes its depth
+  with the other voice parameters. Creating or editing another AU instance cannot
+  alter its sound, and open editor batches no longer leak depth changes to render.
+- **Host sample-rate publication (M2DX #119).** `setSampleRate` uses an independent
+  atomic value so host resource allocation can overlap UI parameter edits without
+  becoming a second snapshot producer. The next render uses the requested rate,
+  including during an open editor batch; later UI snapshots cannot revert it.
+- **Legato level-edit round trips (M2DX #112).** OL and L3 edits now use the keyboard
+  scaling that produced the held sustain. Muting works after a legato pitch change,
+  and restoring OL or L3 no longer accumulates gain or loses the original level at
+  the scaling ceiling. Release retains that start level and targets the current
+  key's L4, including nonzero L4 and mute/restore during the tail. Editing L4 during
+  release continues from the audible level at R4; subsequent OL round trips retain
+  this new trajectory. Unedited legato output remains bit-identical to 1.22.0.
+
 ## [1.22.0] - 2026-09-15
 
 ### Added

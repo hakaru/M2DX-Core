@@ -22,6 +22,9 @@ package struct DX7Envelope {
     // Keep attenuation separate from the running EG so crossing the silence floor
     // cannot finish an attack/decay/release early. Always <= 0; louder edits rebase.
     private var liveOutputOffset: Int = 0
+    // A legato sustain keeps the preceding key's gain, but release still targets
+    // the new key's L4. Do not use that target as the basis of held OL/L3 edits.
+    var releaseReferenceOutput: Int? = nil
     var rateScaling: Int = 0
 
     var srMultiplier: Int64 = 1 << 24  // Q24: (44100/sampleRate) × (1<<24)
@@ -62,6 +65,7 @@ package struct DX7Envelope {
     mutating func setOutputLevel(_ ol: Int) {
         outlevel = scaleOutputLevel(ol) << 5
         liveOutputOffset = 0
+        releaseReferenceOutput = nil
     }
 
     /// Change the output offset of a running envelope without restarting its stage.
@@ -100,9 +104,18 @@ package struct DX7Envelope {
 
     mutating func noteOn() {
         liveOutputOffset = 0
+        releaseReferenceOutput = nil
         level = 0
         down = true
         advance(0)
+    }
+
+    /// Replace the release reference without restarting its stage or rate.
+    mutating func setReleaseReference(level: Int32, output: Int, target: Int) {
+        self.level = level
+        outlevel = output
+        liveOutputOffset = 0
+        releaseReferenceOutput = target
     }
 
     mutating func noteOff(held: Bool = false) {
@@ -156,7 +169,7 @@ package struct DX7Envelope {
     }
 
     @inline(__always)
-    private func levelFor(_ egLevel: Int, output: Int) -> Int32 {
+    func levelFor(_ egLevel: Int, output: Int) -> Int32 {
         Int32(max(16, ((scaleOutputLevel(egLevel) >> 1) << 6) + output - 4256) << 16)
     }
 
@@ -181,7 +194,8 @@ package struct DX7Envelope {
         default: newLevel = 0
         }
 
-        targetLevel = levelFor(newLevel, output: outlevel - liveOutputOffset)
+        targetLevel = levelFor(newLevel, output: ix == 3
+            ? releaseReferenceOutput ?? referenceOutput : referenceOutput)
         rising = targetLevel > level
 
         if targetLevel == level {
@@ -234,7 +248,8 @@ package struct DX7Envelope {
         case 3: newLevel = levels.3
         default: newLevel = 0
         }
-        targetLevel = levelFor(newLevel, output: outlevel - liveOutputOffset)
+        targetLevel = levelFor(newLevel, output: ix == 3
+            ? releaseReferenceOutput ?? referenceOutput : referenceOutput)
         rising = targetLevel > level
     }
 }

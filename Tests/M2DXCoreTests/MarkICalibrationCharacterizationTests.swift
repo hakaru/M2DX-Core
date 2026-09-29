@@ -3,7 +3,7 @@
 // Renders ONE pure carrier (alg 32, op0 only — no modulation) at a sweep of output levels for
 // Modern vs Mark I and prints the raw-peak gain curve + Mark I/Modern ratio. This decides whether
 // finding 1 is a constant 4× offset (constant-shift fixable) or a level-dependent curve divergence.
-// Not a pass/fail behavior test. Env-gated (mutates the process-global markIModScaleQ12).
+// Not a pass/fail behavior test. Env-gated because it renders investigation data.
 // Run: `M2DX_MARKI_CHAR=1 swift test --filter renderCarrierGainCurve`
 
 import Testing
@@ -60,7 +60,6 @@ struct MarkICalibrationCharacterizationTests {
             print("MarkICalibrationCharacterizationTests skipped — set M2DX_MARKI_CHAR=1 to render the curve")
             return
         }
-        defer { SynthEngine().setMarkIModDivisor(8.0) }          // restore process-global default
 
         let levels: [Float] = [0.1, 0.2, 0.35, 0.5, 0.7, 0.85, 1.0]
         print("level, modernPeak, markIDiv5Peak, ratio(markI/modern)")
@@ -350,7 +349,6 @@ struct MarkICalibrationCharacterizationTests {
             print("MarkICalibrationCharacterizationTests skipped — set M2DX_MARKI_CHAR=1 to render the curve")
             return
         }
-        defer { SynthEngine().setMarkIModDivisor(8.0) }          // restore process-global default
 
         // Finding 3 ("Mark I feedback 4× too strong") shows up in BRIGHTNESS more than peak:
         // Mark I re-injects a 4×-larger internal feedback signal → brighter timbre even when

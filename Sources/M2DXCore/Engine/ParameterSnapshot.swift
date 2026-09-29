@@ -146,6 +146,7 @@ public struct SynthParamSnapshot: Sendable {
     /// final mixed output when the Mark I engine is active.
     public var vintageDAC12bit: UInt8 = 0
     public var fmEngine: UInt8 = 0
+    public var markIModScaleQ12: Int32 = 512
     public var masterTuning: Int16 = 0
     public var unisonCount: Int = 1
     public var unisonDetune: Float = 0
