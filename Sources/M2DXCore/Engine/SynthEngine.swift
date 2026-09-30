@@ -307,38 +307,60 @@ public final class SynthEngine: @unchecked Sendable {
 
     private func drainMIDI() {
         while let event = midiRing.pop() {
-            switch event.kind {
-            case .noteOn:
-                let vel16 = UInt16(event.data2 & 0xFFFF)
-                if vel16 == 0 { doNoteOff(event.data1) }
-                else { doNoteOn(event.data1, velocity16: vel16) }
-            case .noteOff:
-                doNoteOff(event.data1)
-            case .controlChange:
-                doControlChange(event.data1, value32: event.data2)
-            case .pitchBend:
-                doPitchBend32(event.data2)
-            case .channelPressure:
-                doChannelPressure(event.data2)
-            case .polyPressure:
-                doPolyPressure(event.data1, value32: event.data2)
-            case .perNotePitchBend:
-                doPerNotePitchBend(event.data1, value32: event.data2)
-            case .perNoteCC:
-                let index = UInt8(event.data2 >> 24)
-                let value = event.data2 & 0x00FFFFFF
-                doPerNoteCC(event.data1, index: index, value: value)
-            case .perNoteManagement:
-                doPerNoteManagement(event.data1, flags: event.data2)
-            case .registeredController:
-                let index = UInt8(event.data2 >> 24)
-                let value = event.data2 & 0x00FFFFFF
-                doRPN(event.data1, index: index, value: value)
-            case .assignableController:
-                let index = UInt8(event.data2 >> 24)
-                let value = event.data2 & 0x00FFFFFF
-                doNRPN(event.data1, index: index, value: value)
-            }
+            processRenderMIDI(event)
+        }
+    }
+
+    /// Process a host MIDI event immediately from the synchronous render-event callback.
+    /// Audio thread only, after this block's control snapshot/reset has been consumed.
+    /// Unlike `sendMIDI`, this never writes the FIFO; keep one ordered host stream here.
+    public func processRenderMIDI(_ event: MIDIEvent) {
+        switch event.kind {
+        case .noteOn:
+            let vel16 = UInt16(event.data2 & 0xFFFF)
+            if vel16 == 0 { doNoteOff(event.data1) }
+            else { doNoteOn(event.data1, velocity16: vel16) }
+        case .noteOff:
+            doNoteOff(event.data1)
+        case .controlChange:
+            doControlChange(event.data1, value32: event.data2)
+        case .pitchBend:
+            doPitchBend32(event.data2)
+        case .channelPressure:
+            doChannelPressure(event.data2)
+        case .polyPressure:
+            doPolyPressure(event.data1, value32: event.data2)
+        case .perNotePitchBend:
+            doPerNotePitchBend(event.data1, value32: event.data2)
+        case .perNoteCC:
+            let index = UInt8(event.data2 >> 24)
+            let value = event.data2 & 0x00FFFFFF
+            doPerNoteCC(event.data1, index: index, value: value)
+        case .perNoteManagement:
+            doPerNoteManagement(event.data1, flags: event.data2)
+        case .registeredController:
+            let index = UInt8(event.data2 >> 24)
+            let value = event.data2 & 0x00FFFFFF
+            doRPN(event.data1, index: index, value: value)
+        case .assignableController:
+            let index = UInt8(event.data2 >> 24)
+            let value = event.data2 & 0x00FFFFFF
+            doNRPN(event.data1, index: index, value: value)
+        }
+    }
+
+    /// Process host *parameter automation* in the render-event callback. NRPNs use the
+    /// existing native parameter transport. Parameter CC7 controls snapshot master volume,
+    /// not the independent channel-volume multiplier used by physical MIDI CC7.
+    /// Other event kinds are ignored: a parameter event cannot allocate or release a note.
+    public func processRenderParameter(_ event: MIDIEvent) {
+        switch event.kind {
+        case .assignableController:
+            doNRPN(event.data1, index: UInt8(event.data2 >> 24), value: event.data2 & 0x00FF_FFFF)
+        case .controlChange where event.data1 == 7:
+            currentSnapshot.masterVolume = Float(Double(event.data2) / Double(UInt32.max))
+            automationDirty = true
+        default: break
         }
     }
 
@@ -1196,14 +1218,101 @@ public final class SynthEngine: @unchecked Sendable {
         _voiceAllocationProbeCount.store(voiceAllocationProbeCountRT, ordering: .relaxed)
     }
 
+    /// Prepare configuration that can retire voices or change note-on allocation before
+    /// host/queued events create voices. Render parameter events cannot change these fields.
+    private func prepareRenderConfiguration(_ snapshot: SynthParamSnapshot) {
+        let newOSMode = OversamplingMode(rawValue: snapshot.oversamplingMode) ?? .off
+        if newOSMode != currentOversamplingMode {
+            currentOversamplingMode = newOSMode
+            doAllNotesOff()
+            let factor: Float = (newOSMode == .off) ? 1.0 : 2.0
+            baseSampleRate = snapshot.sampleRate
+            sampleRate = baseSampleRate * factor
+            for i in 0..<kMaxVoices { voicesDX7[i].setSampleRate(sampleRate) }
+            // Only arm the de-zipper crossfade when entering an oversampled
+            // mode; the .off render path never consumes it, so arming it there
+            // would leave crossfadeRemaining stranded.
+            if newOSMode != .off {
+                downsampler.beginTransition(sampleRate: baseSampleRate)
+            }
+        } else if snapshot.sampleRate != baseSampleRate {
+            baseSampleRate = snapshot.sampleRate
+            let factor: Float = (currentOversamplingMode == .off) ? 1.0 : 2.0
+            sampleRate = baseSampleRate * factor
+            for i in 0..<kMaxVoices { voicesDX7[i].setSampleRate(sampleRate) }
+        }
+
+        let newFMEngine = FMEngine(rawValue: snapshot.fmEngine) ?? .modern
+        if newFMEngine != currentFMEngine {
+            currentFMEngine = newFMEngine
+            // Modern↔MarkI use incompatible gain scales; kill all voices immediately
+            // rather than letting them release through the old engine's path.
+            doAllNotesOff()
+            for i in 0..<kMaxVoices {
+                if voicesDX7[i].fadeSamplesRemaining > 0 { voicesDX7[i].finishFadeOut() }   // #116
+                voicesDX7[i].active = false
+                voicesDX7[i].engineMode = newFMEngine
+            }
+            resetVoiceAllocator()
+        }
+
+        let newTimbreMode = TimbreMode(rawValue: snapshot.timbreMode) ?? .single
+        currentTimbreMode = newTimbreMode
+
+        let voicesForMode: Int
+        switch currentTimbreMode {
+        case .single: voicesForMode = 16
+        case .dual, .split: voicesForMode = 32
+        case .tx816: voicesForMode = 64
+        case .layer: voicesForMode = kLayerBaseVoices   // #89: was kMaxVoices; decoupled so LAYER stays 128 while the buffer grows.
+        }
+        let baseVoices = (currentOversamplingMode == .off) ? voicesForMode : max(8, voicesForMode / 2)
+        // #89: preserve the pre-Voice-Stack budget exactly — min(legacy 128 cap, base×unison) —
+        // so LAYER/dual + unison≥2 at stack=1 stay byte-identical to pre-#89 (spec §2). The
+        // Voice Stack multiplier then scales that up to the kMaxVoices (2048) buffer.
+        let preStackVoices = min(kLayerBaseVoices, baseVoices * max(1, snapshot.unisonCount))
+        effectiveMaxVoices = min(kMaxVoices, preStackVoices * max(1, snapshot.voiceStackMultiplier))
+
+        // Reap voices outside the (possibly shrunken) active range. The render
+        // loop only runs checkActive() within effectiveMaxVoices, so a voice
+        // allocated at a higher index under a larger mode would otherwise keep
+        // its `active` flag set forever (and could resurrect on a later grow).
+        if effectiveMaxVoices < kMaxVoices {
+            for i in effectiveMaxVoices..<kMaxVoices where voicesDX7[i].active {
+                if voicesDX7[i].fadeSamplesRemaining > 0 { voicesDX7[i].finishFadeOut() }   // #116
+                voicesDX7[i].noteOff()
+                voicesDX7[i].active = false
+                voicesDX7[i].sustained = false
+                markVoiceFree(i)
+            }
+        }
+        if nextFreeVoiceSearchIndex >= effectiveMaxVoices {
+            nextFreeVoiceSearchIndex = 0
+        }
+    }
+
     // MARK: - Render (audio thread)
 
     public func render(into bufferL: UnsafeMutablePointer<Float>,
                        bufferR: UnsafeMutablePointer<Float>,
                        frameCount: Int) {
+        render(into: bufferL, bufferR: bufferR, frameCount: frameCount, processEvents: { _ in })
+    }
+
+    /// Render with a synchronous, nonescaping host event phase. The callback runs after the
+    /// new control snapshot, mode changes and controller reset, before queued MIDI and audio.
+    /// Its argument is true only when a control snapshot was consumed. A host can reapply its
+    /// still-active automation then, followed by this block's ordered MIDI/parameter events.
+    /// The callback must obey the render-thread rules: no allocation, locks or control setters.
+    public func render(into bufferL: UnsafeMutablePointer<Float>,
+                       bufferR: UnsafeMutablePointer<Float>,
+                       frameCount: Int,
+                       processEvents: (_ controlSnapshotChanged: Bool) -> Void) {
         // Pop latest snapshot first so MIDI handlers see current params
+        var controlSnapshotChanged = false
         if let newSnapshot = snapshotRing.popLatest() {
             currentSnapshot = newSnapshot
+            controlSnapshotChanged = true
         }
         let requestedSampleRate = Float(bitPattern: requestedSampleRateBits.load(ordering: .relaxed))
         if currentSnapshot.sampleRate != requestedSampleRate {
@@ -1238,9 +1347,17 @@ public final class SynthEngine: @unchecked Sendable {
             performControllerReset()
         }
 
+        if currentSnapshot.version != appliedVersion || automationDirty {
+            prepareRenderConfiguration(currentSnapshot)
+        }
+
         // Reap envelope-complete voices before note-on allocation. This replaces
         // the old per-note linear checkActive scan with one bounded pass per render.
         reapFinishedVoices()
+
+        // The host can restore retained automation only after the snapshot overwrite above,
+        // and deliver current events after pending resets. No extra MIDI FIFO traffic.
+        processEvents(controlSnapshotChanged)
 
         // Drain MIDI before applyParams so allNotesOff is processed
         // before intermediate preset change snapshots corrupt active voices.
@@ -1258,77 +1375,8 @@ public final class SynthEngine: @unchecked Sendable {
             appliedVersion = snapshot.version
             appliedCount &+= 1
 
-            let newOSMode = OversamplingMode(rawValue: snapshot.oversamplingMode) ?? .off
-            if newOSMode != currentOversamplingMode {
-                currentOversamplingMode = newOSMode
-                doAllNotesOff()
-                let factor: Float = (newOSMode == .off) ? 1.0 : 2.0
-                baseSampleRate = snapshot.sampleRate
-                sampleRate = baseSampleRate * factor
-                for i in 0..<kMaxVoices { voicesDX7[i].setSampleRate(sampleRate) }
-                // Only arm the de-zipper crossfade when entering an oversampled
-                // mode; the .off render path never consumes it, so arming it there
-                // would leave crossfadeRemaining stranded.
-                if newOSMode != .off {
-                    downsampler.beginTransition(sampleRate: baseSampleRate)
-                }
-            } else if snapshot.sampleRate != baseSampleRate {
-                baseSampleRate = snapshot.sampleRate
-                let factor: Float = (currentOversamplingMode == .off) ? 1.0 : 2.0
-                sampleRate = baseSampleRate * factor
-                for i in 0..<kMaxVoices { voicesDX7[i].setSampleRate(sampleRate) }
-            }
-
-            let newFMEngine = FMEngine(rawValue: snapshot.fmEngine) ?? .modern
-            if newFMEngine != currentFMEngine {
-                currentFMEngine = newFMEngine
-                // Modern↔MarkI use incompatible gain scales; kill all voices immediately
-                // rather than letting them release through the old engine's path.
-                doAllNotesOff()
-                for i in 0..<kMaxVoices {
-                    if voicesDX7[i].fadeSamplesRemaining > 0 { voicesDX7[i].finishFadeOut() }   // #116
-                    voicesDX7[i].active = false
-                    voicesDX7[i].engineMode = newFMEngine
-                }
-                resetVoiceAllocator()
-            }
-
             algorithm = snapshot.algorithm
             masterVolume = snapshot.masterVolume
-
-            let newTimbreMode = TimbreMode(rawValue: snapshot.timbreMode) ?? .single
-            currentTimbreMode = newTimbreMode
-
-            let voicesForMode: Int
-            switch currentTimbreMode {
-            case .single: voicesForMode = 16
-            case .dual, .split: voicesForMode = 32
-            case .tx816: voicesForMode = 64
-            case .layer: voicesForMode = kLayerBaseVoices   // #89: was kMaxVoices; decoupled so LAYER stays 128 while the buffer grows.
-            }
-            let baseVoices = (currentOversamplingMode == .off) ? voicesForMode : max(8, voicesForMode / 2)
-            // #89: preserve the pre-Voice-Stack budget exactly — min(legacy 128 cap, base×unison) —
-            // so LAYER/dual + unison≥2 at stack=1 stay byte-identical to pre-#89 (spec §2). The
-            // Voice Stack multiplier then scales that up to the kMaxVoices (2048) buffer.
-            let preStackVoices = min(kLayerBaseVoices, baseVoices * max(1, snapshot.unisonCount))
-            effectiveMaxVoices = min(kMaxVoices, preStackVoices * max(1, snapshot.voiceStackMultiplier))
-
-            // Reap voices outside the (possibly shrunken) active range. The render
-            // loop only runs checkActive() within effectiveMaxVoices, so a voice
-            // allocated at a higher index under a larger mode would otherwise keep
-            // its `active` flag set forever (and could resurrect on a later grow).
-            if effectiveMaxVoices < kMaxVoices {
-                for i in effectiveMaxVoices..<kMaxVoices where voicesDX7[i].active {
-                    if voicesDX7[i].fadeSamplesRemaining > 0 { voicesDX7[i].finishFadeOut() }   // #116
-                    voicesDX7[i].noteOff()
-                    voicesDX7[i].active = false
-                    voicesDX7[i].sustained = false
-                    markVoiceFree(i)
-                }
-            }
-            if nextFreeVoiceSearchIndex >= effectiveMaxVoices {
-                nextFreeVoiceSearchIndex = 0
-            }
 
             // Apply per-voice params unconditionally.
             // Preset loads use loadDX7Preset (atomic 1-push), so versionDelta is always 1.
