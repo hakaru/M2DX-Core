@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.23.0] - 2026-09-30
+
+### Added
+- **Synchronous host render events (M2DX #119).** A nonescaping render callback
+  runs after control snapshots and resets, before audio generation. Hosts can
+  retain automation across unrelated control edits and process their ordered
+  MIDI/parameter events directly without consuming MIDI FIFO capacity.
+  Parameter master volume stays separate from physical MIDI CC7 volume.
+
+### Fixed
+- **First note after a render configuration change (M2DX #119).** FM engine,
+  oversampling, sample rate and voice-budget preparation now precede direct and
+  queued note events. The first note after switching modes stays sounding, and
+  expanded LAYER/unison/Voice Stack settings allocate their full voice count.
+
 ## [1.22.1] - 2026-09-29
 
 ### Fixed

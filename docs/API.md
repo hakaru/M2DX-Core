@@ -52,6 +52,25 @@ Render audio frames into stereo buffers. Call from the audio thread only.
 - `frameCount`: Number of frames to render
 - Output is hard-clipped to [-1.0, 1.0]
 
+#### Host render events (1.23.0+)
+
+```swift
+public func render(
+    into bufferL: UnsafeMutablePointer<Float>,
+    bufferR: UnsafeMutablePointer<Float>,
+    frameCount: Int,
+    processEvents: (_ controlSnapshotChanged: Bool) -> Void
+)
+public func processRenderParameter(_ event: MIDIEvent)
+public func processRenderMIDI(_ event: MIDIEvent)
+```
+
+The synchronous, nonescaping callback runs after the new control snapshot, pending mode/controller resets and completed-voice reclamation, before audio generation. `controlSnapshotChanged` is true only when this render consumed a new control snapshot. An AU host can reapply its still-active parameter automation at that point, then deliver its current event list in order. This prevents an unrelated control snapshot from erasing host automation without adding repeated events to the MIDI FIFO.
+
+Call the two `processRender*` methods **only from this callback on the audio thread**. They process events directly, without the MIDI FIFO. Parameter events support the existing assignable-controller/NRPN encoding and CC7; parameter CC7 changes synthesis master volume, while MIDI CC7 changes the independent channel-volume multiplier. Unsupported parameter event kinds are ignored.
+
+The callback must not allocate, block, access UI/main-actor state or call control setters. The engine does not retain it. Existing `sendMIDI` events drain after the callback; use one callback event stream when host MIDI/parameter order matters. The original three-argument `render` method remains available and drains its FIFO after configuration preparation, so the first queued note also uses the new engine and voice budget.
+
 ### MIDI
 
 ```swift
