@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.24.0] - 2026-10-03
+
+### Changed
+- **EG bias follows the DX7 (M2DX #163).** A controller's EG-bias range (wheel, foot,
+  breath, aftertouch) now acts only on operators with AMS, weighted by their AMS, through
+  the same amplitude-modulation path as the LFO. At the controller's minimum those operators
+  are held down by range/99; at its maximum they play at their programmed level. Range 0 is
+  EG bias off. With several EG-bias controllers their shares add, so each one must open. This replaces
+  the #97 behaviour, which raised the output level of all six operators: a fast breath rise
+  brightened the modulators as well and gave wind sounds a sharp attack. Sounds that use EG
+  bias now respond as on the DX7 and can sound different; with every EG-bias range at 0 the
+  output is unchanged.
+
 ## [1.23.0] - 2026-09-30
 
 ### Added
