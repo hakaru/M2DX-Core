@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   breath, aftertouch) now acts only on operators with AMS, weighted by their AMS, through
   the same amplitude-modulation path as the LFO. At the controller's minimum those operators
   are held down by range/99; at its maximum they play at their programmed level. Range 0 is
-  EG bias off. With several EG-bias controllers the most open one applies. This replaces
+  EG bias off. With several EG-bias controllers their shares add, so each one must open. This replaces
   the #97 behaviour, which raised the output level of all six operators: a fast breath rise
   brightened the modulators as well and gave wind sounds a sharp attack. Sounds that use EG
   bias now respond as on the DX7 and can sound different; with every EG-bias range at 0 the

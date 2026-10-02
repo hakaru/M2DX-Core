@@ -105,11 +105,31 @@ struct EGBiasTests {
         #expect(ams1 > ams3, "AMS 1 is held down less than AMS 3")
     }
 
-    @Test("with two EG-bias controllers, the more open one wins", arguments: [FMEngine.modern, .markI])
-    func mostOpenControllerWins(engine: FMEngine) {
-        // Breath fully open, aftertouch at rest with its own EG-bias range: the operator stays open.
-        let both = level(engine: engine, ams: 3, range: 99, breath: 127, aftertouchRange: 99)
-        let breathOnly = level(engine: engine, ams: 3, range: 99, breath: 127)
-        #expect(abs(both - breathOnly) < 0.01)
+    @Test("EG-bias shares from several controllers add", arguments: [FMEngine.modern, .markI])
+    func controllerSharesAdd(engine: FMEngine) {
+        let open = level(engine: engine, ams: 3, range: 0, breath: 0)
+        // Breath fully open, aftertouch at rest with range 13: aftertouch still holds its share down.
+        let breathOpenATRest = level(engine: engine, ams: 3, range: 99, breath: 127, aftertouchRange: 13)
+        let atOnly = level(engine: engine, ams: 3, range: 0, breath: 0, aftertouchRange: 13)
+        #expect(abs(breathOpenATRest - atOnly) < 0.01, "the open breath adds nothing; aftertouch keeps its share")
+        #expect(open - atOnly > 3)
+        // Both at rest: a small aftertouch range cannot open a breath patch (review of M2DX #163).
+        let bothRest = level(engine: engine, ams: 3, range: 99, breath: 0, aftertouchRange: 13)
+        let breathRest = level(engine: engine, ams: 3, range: 99, breath: 0)
+        #expect(bothRest <= breathRest + 0.01, "both at rest stay held down at least as far as breath alone")
+    }
+
+    @Test("EG bias and LFO AMD share the AMS path: the deeper one applies", arguments: [FMEngine.modern, .markI])
+    func combinesWithLFOAmd(engine: FMEngine) {
+        // A held-down operator (breath at rest, range 99) is not opened by an LFO AMD setting.
+        let e = make(engine: engine, ams: 3, range: 99)
+        e.setLFOAMD(50)
+        controller(e, 2, 0)
+        e.sendMIDI(MIDIEvent(kind: .noteOn, data1: 60, data2: UInt32(100) << 9))
+        _ = render(e, blocks: 16)
+        let x = render(e, blocks: 64)
+        let withAMD = 10 * log10(x.reduce(0) { $0 + $1 * $1 } / Float(x.count) + 1e-20)
+        let without = level(engine: engine, ams: 3, range: 99, breath: 0)
+        #expect(withAMD <= without + 0.5, "LFO AMD must not lift an operator that EG bias holds down")
     }
 }

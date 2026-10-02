@@ -1543,16 +1543,18 @@ public final class SynthEngine: @unchecked Sendable {
             let aAmp = Float(slot.aftertouchAmp) / 99.0 * aftertouchDepth
             slotMods[s].controllerAmpMod = 1.0 - (wAmp + fAmp + bAmp + aAmp) * 0.5
             // EG bias (DX7 semantics, M2DX #163): a controller whose EG-bias range is above 0
-            // holds the operators that have AMS down by range/99 at its minimum and releases them
-            // to their programmed level at its maximum. Range 0 means EG bias off. When several
-            // controllers have EG bias, the most open one wins, as in Dexed. The attenuation uses
-            // the LFO amplitude-modulation path, so AMS selects the operators and sets the depth.
-            var egAtten: Float = 1, egBiasOn = false
-            if slot.wheelEGBias > 0 { egBiasOn = true; egAtten = min(egAtten, Float(min(slot.wheelEGBias, 99)) / 99 * (1 - min(1, max(0, modWheelDepth)))) }
-            if slot.footEGBias > 0 { egBiasOn = true; egAtten = min(egAtten, Float(min(slot.footEGBias, 99)) / 99 * (1 - min(1, max(0, footDepth)))) }
-            if slot.breathEGBias > 0 { egBiasOn = true; egAtten = min(egAtten, Float(min(slot.breathEGBias, 99)) / 99 * (1 - min(1, max(0, breathDepth)))) }
-            if slot.aftertouchEGBias > 0 { egBiasOn = true; egAtten = min(egAtten, Float(min(slot.aftertouchEGBias, 99)) / 99 * (1 - min(1, max(0, aftertouchDepth)))) }
-            slotMods[s].egBiasAtten = egBiasOn ? egAtten : 0
+            // holds the operators that have AMS down by range/99 at its minimum and releases its
+            // share as it rises; at its maximum it adds nothing. Range 0 means EG bias off. Shares
+            // from several controllers add (capped at a full hold-down), so every EG-bias
+            // controller must open for the operators to reach their programmed level. The
+            // attenuation joins the LFO amplitude-modulation path, so AMS selects the operators
+            // and weights the depth.
+            var egAtten: Float = 0
+            if slot.wheelEGBias > 0 { egAtten += Float(min(slot.wheelEGBias, 99)) / 99 * (1 - min(1, max(0, modWheelDepth))) }
+            if slot.footEGBias > 0 { egAtten += Float(min(slot.footEGBias, 99)) / 99 * (1 - min(1, max(0, footDepth))) }
+            if slot.breathEGBias > 0 { egAtten += Float(min(slot.breathEGBias, 99)) / 99 * (1 - min(1, max(0, breathDepth))) }
+            if slot.aftertouchEGBias > 0 { egAtten += Float(min(slot.aftertouchEGBias, 99)) / 99 * (1 - min(1, max(0, aftertouchDepth))) }
+            slotMods[s].egBiasAtten = min(1, egAtten)
         }
 
         for i in 0..<maxV {
