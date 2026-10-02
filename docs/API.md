@@ -150,16 +150,16 @@ All operator methods take `opIndex: Int` (0–5, maps to OP6–OP1 in DX7 conven
 |--------|-------|-------------|
 | `setWheelPitch(_ v:)` | 0–99 | Mod wheel → pitch depth |
 | `setWheelAmp(_ v:)` | 0–99 | Mod wheel → amplitude depth |
-| `setWheelEGBias(_ v:)` | 0–99 | Mod wheel → EG bias depth |
+| `setWheelEGBias(_ v:)` | 0–99 | Mod wheel → EG bias range (DX7: holds AMS operators down by range/99 at the controller minimum; 0 = off) |
 | `setFootPitch(_ v:)` | 0–99 | Foot controller → pitch |
 | `setFootAmp(_ v:)` | 0–99 | Foot controller → amplitude |
-| `setFootEGBias(_ v:)` | 0–99 | Foot controller → EG bias |
+| `setFootEGBias(_ v:)` | 0–99 | Foot controller → EG bias range (DX7: holds AMS operators down by range/99 at the controller minimum; 0 = off) |
 | `setBreathPitch(_ v:)` | 0–99 | Breath controller → pitch |
 | `setBreathAmp(_ v:)` | 0–99 | Breath controller → amplitude |
-| `setBreathEGBias(_ v:)` | 0–99 | Breath controller → EG bias |
+| `setBreathEGBias(_ v:)` | 0–99 | Breath controller → EG bias range (DX7: holds AMS operators down by range/99 at the controller minimum; 0 = off) |
 | `setAftertouchPitch(_ v:)` | 0–99 | Aftertouch → pitch |
 | `setAftertouchAmp(_ v:)` | 0–99 | Aftertouch → amplitude |
-| `setAftertouchEGBias(_ v:)` | 0–99 | Aftertouch → EG bias |
+| `setAftertouchEGBias(_ v:)` | 0–99 | Aftertouch → EG bias range (DX7: holds AMS operators down by range/99 at the controller minimum; 0 = off) |
 
 ### Multi-Timbral
 

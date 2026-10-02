@@ -71,7 +71,9 @@ public final class SynthEngine: @unchecked Sendable {
         var atPitchDepth: Float = 0
         var controllerAmpMod: Float = 1.0
         var lfoAMDNorm: Float = 0
-        var egBiasOL: Int32 = 0   // #97: controller→EG-bias output-level boost (0…99 OL points)
+        /// Controller→EG-bias attenuation in LFO-AMD units (0…1), applied only to operators with
+        /// AMS through the amplitude-modulation path (M2DX #163). 0 = no EG bias.
+        var egBiasAtten: Float = 0
     }
 
     /// SplitMix64 — small, fast, deterministic PRNG used for LFO Sample-and-Hold.
@@ -1540,11 +1542,17 @@ public final class SynthEngine: @unchecked Sendable {
             let bAmp = Float(slot.breathAmp) / 99.0 * breathDepth
             let aAmp = Float(slot.aftertouchAmp) / 99.0 * aftertouchDepth
             slotMods[s].controllerAmpMod = 1.0 - (wAmp + fAmp + bAmp + aAmp) * 0.5
-            // #97: EG-bias destination — each controller's EG-bias range (0-99) × its depth
-            // raises the operator output level by that many OL points (summed, capped at 99).
-            let egb = Float(slot.wheelEGBias) * modWheelDepth + Float(slot.footEGBias) * footDepth
-                    + Float(slot.breathEGBias) * breathDepth + Float(slot.aftertouchEGBias) * aftertouchDepth
-            slotMods[s].egBiasOL = Int32(min(99.0, egb))
+            // EG bias (DX7 semantics, M2DX #163): a controller whose EG-bias range is above 0
+            // holds the operators that have AMS down by range/99 at its minimum and releases them
+            // to their programmed level at its maximum. Range 0 means EG bias off. When several
+            // controllers have EG bias, the most open one wins, as in Dexed. The attenuation uses
+            // the LFO amplitude-modulation path, so AMS selects the operators and sets the depth.
+            var egAtten: Float = 1, egBiasOn = false
+            if slot.wheelEGBias > 0 { egBiasOn = true; egAtten = min(egAtten, Float(min(slot.wheelEGBias, 99)) / 99 * (1 - min(1, max(0, modWheelDepth)))) }
+            if slot.footEGBias > 0 { egBiasOn = true; egAtten = min(egAtten, Float(min(slot.footEGBias, 99)) / 99 * (1 - min(1, max(0, footDepth)))) }
+            if slot.breathEGBias > 0 { egBiasOn = true; egAtten = min(egAtten, Float(min(slot.breathEGBias, 99)) / 99 * (1 - min(1, max(0, breathDepth)))) }
+            if slot.aftertouchEGBias > 0 { egBiasOn = true; egAtten = min(egAtten, Float(min(slot.aftertouchEGBias, 99)) / 99 * (1 - min(1, max(0, aftertouchDepth)))) }
+            slotMods[s].egBiasAtten = egBiasOn ? egAtten : 0
         }
 
         for i in 0..<maxV {
@@ -1640,7 +1648,9 @@ public final class SynthEngine: @unchecked Sendable {
                 let lfoAtten = 1.0 - lfoUni
                 let amdDepth = lfoAtten * slotMods[s].lfoAMDNorm
                 let controllerAmd: Float = voicesDX7[i].detached ? 0.0 : (1.0 - slotMods[s].controllerAmpMod)
-                let totalAmd = (amdDepth + controllerAmd) * 12.0
+                // EG bias and LFO AMD share the AMS-weighted path; the deeper of the two applies (#163).
+                let egBiasAtten: Float = voicesDX7[i].detached ? 0.0 : slotMods[s].egBiasAtten
+                let totalAmd = (max(amdDepth, egBiasAtten) + controllerAmd) * 12.0
                 var lfoAmpModVal = Int32(totalAmd * Float(1 << 24))
 
                 // Per-note volume attenuation in log domain
@@ -1651,7 +1661,6 @@ public final class SynthEngine: @unchecked Sendable {
                     lfoAmpModVal = lfoAmpModVal &+ Int32(volAtten)
                 }
                 voicesDX7[i].lfoAmpMod = lfoAmpModVal
-                voicesDX7[i].egBiasOL = voicesDX7[i].detached ? 0 : slotMods[s].egBiasOL   // #97
             }
 
             for i in 0..<maxV {

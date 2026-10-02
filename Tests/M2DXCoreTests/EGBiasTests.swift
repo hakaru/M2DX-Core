@@ -1,63 +1,115 @@
 // EGBiasTests.swift
-// M2DX-Core — controller→EG-bias destination (#97). The fields/setters existed but the
-// value was never read in synthesis, so breath/AT/wheel/foot → EG bias did nothing.
+// M2DX-Core — controller→EG bias with DX7 semantics (M2DX #163, replaces the #97 OL boost).
+//
+// On the DX7, EG bias acts only on operators with AMS (amplitude modulation sensitivity): a
+// controller's EG-bias range holds those operators down by range/99 at the controller's minimum
+// and releases them to their programmed level at its maximum. Range 0 means EG bias off. The
+// #97 implementation raised the output level of all six operators instead, so a fast breath
+// rise brightened modulators too and gave wind sounds a sharp attack (M2DX #163).
 
+import Foundation
 import Testing
 @testable import M2DXCore
 
-@Suite("EG Bias (#97)")
+@Suite("EG Bias follows the DX7 (M2DX #163)", .serialized)
 struct EGBiasTests {
-
-    /// levelIn of an op held at sustain after one updateGain block, for a given EG-bias OL boost.
-    private func sustainLevelIn(egBiasOL: Int32) -> Int32 {
-        var op = DX7Operator()
-        op.env.setRates(99, 99, 99, 99)
-        op.env.setLevels(99, 99, 70, 0)
-        op.setOutputLevel(40)          // base OL 40
-        op.env.noteOn()
-        for _ in 0..<10 { _ = op.env.getsample() }   // settle into the held sustain
-        op.updateGain(lfoAmpMod: 0, egBiasOL: egBiasOL)
-        return op.levelIn
+    /// One sounding carrier (OP1, algorithm 32) with the given AMS. Breath EG bias range `range`.
+    private func make(engine fm: FMEngine, ams: UInt8, range: UInt8, aftertouchRange: UInt8 = 0) -> SynthEngine {
+        let engine = SynthEngine()
+        engine.setFMEngine(fm)
+        engine.setMasterVolume(0.5)
+        engine.setAlgorithm(31)
+        for i in 0..<6 {
+            engine.setOperatorDX7OutputLevel(i, level: i == 0 ? 99 : 0)
+            engine.setOperatorRatio(i, ratio: 1)
+            engine.setOperatorDX7EGRates(i, r1: 99, r2: 99, r3: 99, r4: 99)
+            engine.setOperatorDX7EGLevels(i, l1: 99, l2: 99, l3: 99, l4: 0)
+            engine.setOperatorAmpModSensitivity(i, value: i == 0 ? ams : 0)
+        }
+        engine.setBreathEGBias(range)
+        engine.setAftertouchEGBias(aftertouchRange)
+        _ = render(engine, blocks: 1)
+        return engine
     }
 
-    @Test("EG bias raises the operator level by the exact scaleOutputLevel delta")
-    func egBiasRaisesLevel() {
-        let base = sustainLevelIn(egBiasOL: 0)
-        let biased = sustainLevelIn(egBiasOL: 50)   // +50 OL → base 40 → 90
-        #expect(biased > base, "EG bias must raise the operator level (was inert before #97)")
-        // The boost is exactly the OL-domain difference routed through the real scaleOutputLevel.
-        let expected = Int32((scaleOutputLevel(90) - scaleOutputLevel(40)) << 5) << 16
-        #expect(biased - base == expected,
-                "EG bias +50 OL = scaleOutputLevel(90)−(40) delta: got \(biased - base), expected \(expected)")
+    private func controller(_ engine: SynthEngine, _ cc: UInt8, _ value7: UInt32) {
+        let v = value7 & 0x7F
+        engine.sendMIDI(MIDIEvent(kind: .controlChange, data1: cc, data2: (v << 25) | (v << 18) | (v << 11) | (v << 4) | (v >> 3)))
     }
 
-    /// levelIn of an op whose KLS pushes its output level past the 127 OL ceiling.
-    private func ceilingLevelIn(egBiasOL: Int32) -> Int32 {
-        var op = DX7Operator()
-        op.env.setLevels(99, 99, 70, 0)
-        op.klsOffset = 100             // large positive KLS → scaleOutputLevel(OL)+kls saturates at 127
-        op.setOutputLevel(40)          // 68 + 100 → clamped to 127 (already maxed)
-        op.env.noteOn()
-        for _ in 0..<10 { _ = op.env.getsample() }
-        op.updateGain(lfoAmpMod: 0, egBiasOL: egBiasOL)
-        return op.levelIn
+    private func render(_ engine: SynthEngine, blocks: Int = 64) -> [Float] {
+        var left = [Float](repeating: 0, count: blocks * 64), right = left
+        left.withUnsafeMutableBufferPointer { l in
+            right.withUnsafeMutableBufferPointer { r in
+                engine.render(into: l.baseAddress!, bufferR: r.baseAddress!, frameCount: l.count)
+            }
+        }
+        return left
     }
 
-    @Test("EG bias respects the 127 OL ceiling (klsOffset) — #97")
-    func egBiasRespectsCeiling() {
-        // The op already saturates the 127 ceiling via KLS, so a further EG-bias boost must add
-        // NOTHING — the real env path can't exceed 127 either.
-        #expect(ceilingLevelIn(egBiasOL: 50) == ceilingLevelIn(egBiasOL: 0),
-                "EG bias must not boost an operator already at the 127 OL ceiling")
+    private func held(engine fm: FMEngine, ams: UInt8, range: UInt8, breath: UInt32, aftertouchRange: UInt8 = 0) -> [Float] {
+        let engine = make(engine: fm, ams: ams, range: range, aftertouchRange: aftertouchRange)
+        controller(engine, 2, breath)
+        engine.sendMIDI(MIDIEvent(kind: .noteOn, data1: 60, data2: UInt32(100) << 9))
+        _ = render(engine, blocks: 16)
+        return render(engine, blocks: 64)
     }
 
-    @Test("EG bias of 0 is a no-op")
-    func egBiasZeroNoOp() {
-        var a = DX7Operator(); a.env.setLevels(99, 99, 70, 0); a.setOutputLevel(50); a.env.noteOn()
-        var b = DX7Operator(); b.env.setLevels(99, 99, 70, 0); b.setOutputLevel(50); b.env.noteOn()
-        for _ in 0..<5 { _ = a.env.getsample(); _ = b.env.getsample() }
-        a.updateGain(lfoAmpMod: 0, egBiasOL: 0)
-        b.updateGain(lfoAmpMod: 0)   // default egBiasOL = 0
-        #expect(a.levelIn == b.levelIn, "egBiasOL 0 must be byte-identical to no bias")
+    /// RMS (dB) of the held note after the breath value settles.
+    private func level(engine fm: FMEngine, ams: UInt8, range: UInt8, breath: UInt32, aftertouchRange: UInt8 = 0) -> Float {
+        let x = held(engine: fm, ams: ams, range: range, breath: breath, aftertouchRange: aftertouchRange)
+        let mean = x.reduce(0) { $0 + $1 * $1 } / Float(x.count)
+        return 10 * log10(mean + 1e-20)
+    }
+
+    @Test("range 0 is EG bias off: output is bit-identical at any breath value", arguments: [FMEngine.modern, .markI])
+    func rangeZeroIsOff(engine: FMEngine) {
+        #expect(held(engine: engine, ams: 3, range: 0, breath: 0) == held(engine: engine, ams: 3, range: 0, breath: 127))
+    }
+
+    @Test("operators without AMS are not affected", arguments: [FMEngine.modern, .markI])
+    func amsZeroUnaffected(engine: FMEngine) {
+        #expect(held(engine: engine, ams: 0, range: 99, breath: 0) == held(engine: engine, ams: 0, range: 0, breath: 0))
+    }
+
+    @Test("full breath releases the operator to its programmed level", arguments: [FMEngine.modern, .markI])
+    func fullBreathIsProgrammedLevel(engine: FMEngine) {
+        #expect(held(engine: engine, ams: 3, range: 99, breath: 127) == held(engine: engine, ams: 3, range: 0, breath: 0))
+    }
+
+    @Test("no breath holds an AMS 3 operator down; the range sets how far", arguments: [FMEngine.modern, .markI])
+    func rangeSetsDepth(engine: FMEngine) {
+        let open = level(engine: engine, ams: 3, range: 0, breath: 0)
+        let r13 = level(engine: engine, ams: 3, range: 13, breath: 0)
+        let r50 = level(engine: engine, ams: 3, range: 50, breath: 0)
+        let r99 = level(engine: engine, ams: 3, range: 99, breath: 0)
+        #expect(open - r13 > 3 && open - r13 < 20, "range 13 is a moderate hold-down (got \(open - r13) dB)")
+        #expect(r13 > r50 && r50 > r99, "a larger range holds the operator further down")
+        #expect(open - r99 > 50, "range 99 with AMS 3 nearly silences the operator at rest (got \(open - r99) dB)")
+    }
+
+    @Test("breath opens the operator gradually", arguments: [FMEngine.modern, .markI])
+    func breathIsMonotonic(engine: FMEngine) {
+        let b0 = level(engine: engine, ams: 3, range: 99, breath: 0)
+        let b64 = level(engine: engine, ams: 3, range: 99, breath: 64)
+        let b127 = level(engine: engine, ams: 3, range: 99, breath: 127)
+        #expect(b0 < b64 && b64 < b127)
+    }
+
+    @Test("AMS weights the depth: AMS 1 is held down less than AMS 3", arguments: [FMEngine.modern, .markI])
+    func amsWeighting(engine: FMEngine) {
+        let open = level(engine: engine, ams: 1, range: 0, breath: 0)
+        let ams1 = level(engine: engine, ams: 1, range: 99, breath: 0)
+        let ams3 = level(engine: engine, ams: 3, range: 99, breath: 0)
+        #expect(open - ams1 > 1, "AMS 1 must still respond")
+        #expect(ams1 > ams3, "AMS 1 is held down less than AMS 3")
+    }
+
+    @Test("with two EG-bias controllers, the more open one wins", arguments: [FMEngine.modern, .markI])
+    func mostOpenControllerWins(engine: FMEngine) {
+        // Breath fully open, aftertouch at rest with its own EG-bias range: the operator stays open.
+        let both = level(engine: engine, ams: 3, range: 99, breath: 127, aftertouchRange: 99)
+        let breathOnly = level(engine: engine, ams: 3, range: 99, breath: 127)
+        #expect(abs(both - breathOnly) < 0.01)
     }
 }
