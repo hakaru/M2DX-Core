@@ -14,6 +14,16 @@ public enum OversamplingMode: UInt8, Sendable, CaseIterable {
 
 // MARK: - FM Engine
 
+/// How controller EG-bias ranges act (M2DX #168).
+public enum EGBiasMode: UInt8, Sendable, CaseIterable {
+    /// DX7 (default, M2DX #163): operators with AMS are held down by range/99 at the controller's
+    /// minimum and open to their programmed level as it rises. Range 0 is EG bias off.
+    case dx7 = 0
+    /// M2DX up to Core 1.23.0 (#97): each controller raises the output level of all six operators
+    /// by range × controller OL points (summed, capped at 99), so the modulators brighten too.
+    case boost = 1
+}
+
 public enum FMEngine: UInt8, Sendable, CaseIterable {
     case modern = 0
     case markI  = 1
@@ -74,6 +84,7 @@ public final class SynthEngine: @unchecked Sendable {
         /// Controller→EG-bias attenuation in LFO-AMD units (0…1), applied only to operators with
         /// AMS through the amplitude-modulation path (M2DX #163). 0 = no EG bias.
         var egBiasAtten: Float = 0
+        var egBiasOL: Int32 = 0   // EGBiasMode.boost: OL points added to every operator (#97, #168)
     }
 
     /// SplitMix64 — small, fast, deterministic PRNG used for LFO Sample-and-Hold.
@@ -647,6 +658,7 @@ public final class SynthEngine: @unchecked Sendable {
     public func setAftertouchPitch(_ v: UInt8) { shadowSnapshot.slots.0.aftertouchPitch = min(99, v); bumpVersion() }
     public func setAftertouchAmp(_ v: UInt8) { shadowSnapshot.slots.0.aftertouchAmp = min(99, v); bumpVersion() }
     public func setAftertouchEGBias(_ v: UInt8) { shadowSnapshot.slots.0.aftertouchEGBias = min(99, v); bumpVersion() }
+    public func setEGBiasMode(_ mode: EGBiasMode) { shadowSnapshot.slots.0.egBiasMode = mode.rawValue; bumpVersion() }
 
     // MARK: - Pitch EG Setters
 
@@ -1002,6 +1014,7 @@ public final class SynthEngine: @unchecked Sendable {
         slot.footPitch = 0; slot.footAmp = 0; slot.footEGBias = 0
         slot.breathPitch = 0; slot.breathAmp = 0; slot.breathEGBias = 0
         slot.aftertouchPitch = 0; slot.aftertouchAmp = 0; slot.aftertouchEGBias = 0
+        slot.egBiasMode = EGBiasMode.dx7.rawValue
 
         // Write to shadow snapshot and push atomically
         shadowSnapshot.setSlot(at: slotIdx, slot)
@@ -1542,6 +1555,16 @@ public final class SynthEngine: @unchecked Sendable {
             let bAmp = Float(slot.breathAmp) / 99.0 * breathDepth
             let aAmp = Float(slot.aftertouchAmp) / 99.0 * aftertouchDepth
             slotMods[s].controllerAmpMod = 1.0 - (wAmp + fAmp + bAmp + aAmp) * 0.5
+            if slot.egBiasMode == EGBiasMode.boost.rawValue {
+                // EGBiasMode.boost (#97 behaviour, kept selectable by M2DX #168): each controller's
+                // range × its depth raises every operator's output level by that many OL points.
+                let egb = Float(slot.wheelEGBias) * modWheelDepth + Float(slot.footEGBias) * footDepth
+                        + Float(slot.breathEGBias) * breathDepth + Float(slot.aftertouchEGBias) * aftertouchDepth
+                slotMods[s].egBiasOL = Int32(min(99.0, egb))
+                slotMods[s].egBiasAtten = 0
+                continue
+            }
+            slotMods[s].egBiasOL = 0
             // EG bias (DX7 semantics, M2DX #163): a controller whose EG-bias range is above 0
             // holds the operators that have AMS down by range/99 at its minimum and releases its
             // share as it rises; at its maximum it adds nothing. Range 0 means EG bias off. Shares
@@ -1652,6 +1675,7 @@ public final class SynthEngine: @unchecked Sendable {
                 let controllerAmd: Float = voicesDX7[i].detached ? 0.0 : (1.0 - slotMods[s].controllerAmpMod)
                 // EG bias and LFO AMD share the AMS-weighted path; the deeper of the two applies (#163).
                 let egBiasAtten: Float = voicesDX7[i].detached ? 0.0 : slotMods[s].egBiasAtten
+                voicesDX7[i].egBiasOL = voicesDX7[i].detached ? 0 : slotMods[s].egBiasOL   // boost mode
                 let totalAmd = (max(amdDepth, egBiasAtten) + controllerAmd) * 12.0
                 var lfoAmpModVal = Int32(totalAmd * Float(1 << 24))
 
@@ -2416,7 +2440,8 @@ public final class SynthEngine: @unchecked Sendable {
     }
 
     /// Controller-mapping params (#67, NRPN bank 67; index = AUv3 Controller address − 900:
-    /// wheel 0–2, foot 10–12, breath 20–22, aftertouch 30–32; each pitch/amp/egBias 0–99).
+    /// wheel 0–2, foot 10–12, breath 20–22, aftertouch 30–32; each pitch/amp/egBias 0–99;
+    /// 40 = EG-bias mode, 0 DX7 / 1 boost, M2DX #168).
     private func applyControllerNRPN(index: UInt8, value v: Float) -> Bool {
         let u = nrpnU8(v, 99)
         switch index {
@@ -2432,6 +2457,7 @@ public final class SynthEngine: @unchecked Sendable {
         case 30: currentSnapshot.slots.0.aftertouchPitch = u; return true
         case 31: currentSnapshot.slots.0.aftertouchAmp = u; return true
         case 32: currentSnapshot.slots.0.aftertouchEGBias = u; return true
+        case 40: currentSnapshot.slots.0.egBiasMode = nrpnU8(v, 1); return true
         default: return false
         }
     }

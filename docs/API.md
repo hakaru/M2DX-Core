@@ -160,6 +160,7 @@ All operator methods take `opIndex: Int` (0–5, maps to OP6–OP1 in DX7 conven
 | `setAftertouchPitch(_ v:)` | 0–99 | Aftertouch → pitch |
 | `setAftertouchAmp(_ v:)` | 0–99 | Aftertouch → amplitude |
 | `setAftertouchEGBias(_ v:)` | 0–99 | Aftertouch → EG bias range (DX7: holds AMS operators down by range/99 at the controller minimum; 0 = off) |
+| `setEGBiasMode(_ mode:)` | `EGBiasMode` | `.dx7` (default) as above; `.boost` raises all six operators' output level by range × controller OL points (Core 1.23.0 behaviour, M2DX #168) |
 
 ### Multi-Timbral
 
@@ -259,6 +260,7 @@ Per-slot parameter snapshot containing 6 operators and slot-specific settings.
 | `footPitch/Amp/EGBias` | UInt8 | 0/0/0 | Foot controller mapping |
 | `breathPitch/Amp/EGBias` | UInt8 | 0/0/0 | Breath controller mapping |
 | `aftertouchPitch/Amp/EGBias` | UInt8 | 0/0/0 | Aftertouch mapping |
+| `egBiasMode` | UInt8 | 0 | `EGBiasMode.rawValue`: 0 DX7, 1 boost |
 
 ### SlotConfig
 

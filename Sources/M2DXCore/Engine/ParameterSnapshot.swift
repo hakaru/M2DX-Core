@@ -116,6 +116,8 @@ public struct SlotSnapshot: Sendable {
     public var footPitch: UInt8 = 0, footAmp: UInt8 = 0, footEGBias: UInt8 = 0
     public var breathPitch: UInt8 = 0, breathAmp: UInt8 = 0, breathEGBias: UInt8 = 0
     public var aftertouchPitch: UInt8 = 0, aftertouchAmp: UInt8 = 0, aftertouchEGBias: UInt8 = 0
+    /// How the EG-bias ranges above act (`EGBiasMode.rawValue`): 0 = DX7, 1 = boost (M2DX #168).
+    public var egBiasMode: UInt8 = 0
 
     public init() {
         ops = (OperatorSnapshot(), OperatorSnapshot(), OperatorSnapshot(),
