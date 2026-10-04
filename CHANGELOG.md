@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.25.0] - 2026-10-04
+
+### Added
+- **EG bias mode (M2DX #168).** `EGBiasMode` with `setEGBiasMode(_:)` (slot field
+  `egBiasMode`, controller NRPN index 40). `.dx7` (default) keeps the 1.24.0 behaviour.
+  `.boost` restores the #97 behaviour of Core 1.23.0 and earlier: each controller's EG-bias
+  range × its value raises the output level of all six operators (summed, capped at 99 OL
+  points), so the modulators brighten too. Boost output is bit-identical to Core 1.23.0
+  (Modern and Mark I, ranges 15 and 99, a breath swell). Loading a preset resets the mode to
+  `.dx7` along with the other controller mappings.
+
 ## [1.24.0] - 2026-10-03
 
 ### Changed

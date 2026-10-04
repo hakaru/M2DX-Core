@@ -158,10 +158,20 @@ package struct DX7Operator {
 
     /// Update gain from EG. Called once per block before compute.
     @inline(__always)
-    mutating func updateGain(lfoAmpMod: Int32) {
+    mutating func updateGain(lfoAmpMod: Int32, egBiasOL: Int32 = 0) {
         let wasActive = env.isActive
         let egLevel = env.getsample()
         levelIn = wasActive && releaseReferenceOL != nil ? releaseLevel(egLevel) : egLevel
+
+        // EGBiasMode.boost (#97, kept selectable by M2DX #168): raise the operator level by
+        // egBiasOL OL points through the real scaleOutputLevel curve and the same
+        // `min(127, … + klsOffset)` ceiling `env.outlevel` uses. Zero in DX7 mode.
+        if egBiasOL > 0 {
+            let biasedOL = min(99, outputLevel + Int(egBiasOL))
+            let base = min(127, scaleOutputLevel(outputLevel) + klsOffset)
+            let boosted = min(127, scaleOutputLevel(biasedOL) + klsOffset)
+            levelIn = levelIn &+ (Int32((boosted - base) << 5) << 16)
+        }
 
         // Amplitude modulation (LFO AMD, controller EG bias #163) reaches only operators with AMS.
         if amsDepth > 0 && lfoAmpMod > 0 {
